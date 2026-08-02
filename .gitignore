@@ -1,3 +1,27 @@
 .junie
 .idea
 .vscode
+node
+node_modules
+package-lock.json
+
+# Backend build artifacts and secrets
+backend/auth-service/src/main/resources/keys/*.pem
+backend/**/target/
+backend/**/node_modules/
+backend/**/.env
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+*.iws
+*.iml
+*.ipr
