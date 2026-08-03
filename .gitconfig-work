@@ -1,0 +1,5 @@
+[user]
+    name = sodiq badmus
+    email = sodiq.badmus@proximaforte.com
+[core]
+    sshCommand = "ssh -i ~/.ssh/work"

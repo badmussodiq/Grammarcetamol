@@ -1,0 +1,15 @@
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[includeif "gitdir:C:/Users/Sodiq.Badmus/work/"]
+    path = ./.gitconfig-work
+[includeif "gitdir:C:/Users/Sodiq.Badmus/personal/"]
+    path = ./.gitconfig-personal
+
+[user]
+    name = sodiq badmus
+    email = 
+[core]
+    sshCommand = C:/Windows/System32/OpenSSH/ssh.exe
