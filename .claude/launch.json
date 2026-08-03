@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "student-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/student", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "admin-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/admin", "run", "dev"],
+      "port": 3001
+    }
+  ]
+}
