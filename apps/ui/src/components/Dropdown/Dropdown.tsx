@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
 export interface DropdownItem {
   label: string;
   onClick: () => void;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   disabled?: boolean;
   destructive?: boolean;
 }
 
 export interface DropdownProps {
-  trigger: React.ReactNode;
+  trigger: ReactNode;
   items: DropdownItem[];
   align?: 'left' | 'right';
   className?: string;
@@ -48,7 +49,7 @@ export function Dropdown({ trigger, items, align = 'left', className }: Dropdown
       {open && (
         <div
           className={cn(
-            'absolute top-full mt-1 z-50 bg-white border border-[#E2E8F0] rounded-lg shadow-md min-w-[160px] py-1',
+            'absolute top-full mt-1 z-50 bg-surface border border-border rounded-lg shadow-md min-w-[160px] py-1',
             align === 'right' ? 'right-0' : 'left-0',
           )}
         >
@@ -60,8 +61,8 @@ export function Dropdown({ trigger, items, align = 'left', className }: Dropdown
               onClick={() => { if (!item.disabled) { item.onClick(); setOpen(false); } }}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                item.destructive ? 'text-[#EF4444]' : 'text-[#0F172A]',
-                item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#F8FAFC] cursor-pointer',
+                item.destructive ? 'text-error' : 'text-[#0F172A]',
+                item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-background cursor-pointer',
               )}
             >
               {item.icon && <span className="flex-shrink-0">{item.icon}</span>}

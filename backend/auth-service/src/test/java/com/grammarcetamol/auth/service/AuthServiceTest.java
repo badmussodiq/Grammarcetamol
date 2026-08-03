@@ -2,20 +2,22 @@ package com.grammarcetamol.auth.service;
 
 import com.grammarcetamol.auth.dto.LoginRequest;
 import com.grammarcetamol.auth.dto.RegisterRequest;
+import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
 import com.grammarcetamol.auth.exception.AccountLockedException;
 import com.grammarcetamol.auth.exception.EmailAlreadyExistsException;
+import com.grammarcetamol.auth.exception.InvalidPasswordException;
 import com.grammarcetamol.auth.exception.InvalidTokenException;
 import com.grammarcetamol.auth.messaging.UserEventPublisher;
-import com.grammarcetamol.auth.repository.RefreshTokenRepository;
 import com.grammarcetamol.auth.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,15 +32,21 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthServiceTest {
 
-    @Mock private UserRepository         userRepository;
-    @Mock private RefreshTokenRepository refreshTokenRepository;
-    @Mock private JwtService             jwtService;
-    @Mock private PasswordEncoder        passwordEncoder;
-    @Mock private StringRedisTemplate    redisTemplate;
-    @Mock private ValueOperations<String, String> valueOps;
-    @Mock private UserEventPublisher     eventPublisher;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
+    @Mock
+    private StringRedisTemplate redisTemplate;
+    @Mock
+    private ValueOperations<String, String> valueOps;
+    @Mock
+    private UserEventPublisher eventPublisher;
+    @Mock
+    private UserProfileService userProfileService;
 
     @InjectMocks
     private AuthService authService;
@@ -48,8 +56,12 @@ class AuthServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
     }
 
+    // -----------------------------------------------------------------------
+    // register
+    // -----------------------------------------------------------------------
+
     @Test
-    void register_success() {
+    void register_success_savesUserAndInitialisesProfile() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("test@example.com");
         req.setPassword("password123");
@@ -66,7 +78,10 @@ class AuthServiceTest {
         authService.register(req);
 
         verify(userRepository).save(any(User.class));
-        verify(eventPublisher).publishUserCreated(any(), eq("test@example.com"), eq("Test User"));
+        verify(userProfileService).initProfile(
+                any(UUID.class), eq("Test User"), eq(RoleName.STUDENT.name())
+        );
+        verifyNoMoreInteractions(eventPublisher);
     }
 
     @Test
@@ -79,8 +94,63 @@ class AuthServiceTest {
         when(userRepository.existsByEmail("dup@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(req))
-            .isInstanceOf(EmailAlreadyExistsException.class);
+                .isInstanceOf(EmailAlreadyExistsException.class);
+
+        verifyNoInteractions(userProfileService);
     }
+
+    // -----------------------------------------------------------------------
+    // registerInternal
+    // -----------------------------------------------------------------------
+
+    @Test
+    void registerInternal_newEmail_createsActiveUserAndInitialisesProfile() {
+        when(userRepository.existsByEmail("admin@example.com")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        authService.registerInternal("admin@example.com", "Secret123", "Super Admin",
+                RoleName.SUPER_ADMIN.name());
+
+        verify(userRepository).save(argThat(u ->
+                u.getStatus() == User.Status.ACTIVE && u.isEmailVerified()
+        ));
+        verify(userProfileService).initProfile(
+                any(UUID.class), eq("Super Admin"), eq(RoleName.SUPER_ADMIN.name())
+        );
+    }
+
+    @Test
+    void registerInternal_existingEmail_throwsEmailAlreadyExistsException() {
+        when(userRepository.existsByEmail("admin@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.registerInternal(
+                "admin@example.com", "Secret123", "Super Admin", RoleName.SUPER_ADMIN.name()))
+                .isInstanceOf(EmailAlreadyExistsException.class);
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(userProfileService);
+    }
+
+    @Test
+    void registerInternal_weakPassword_throwsInvalidPasswordException() {
+        when(userRepository.existsByEmail("admin@example.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.registerInternal(
+                "admin@example.com", "weak", "Super Admin", RoleName.SUPER_ADMIN.name()))
+                .isInstanceOf(InvalidPasswordException.class);
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(userProfileService);
+    }
+
+    // -----------------------------------------------------------------------
+    // login
+    // -----------------------------------------------------------------------
 
     @Test
     void login_invalidPassword_incrementsFailedAttempts() {
@@ -95,7 +165,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(req, null))
-            .isInstanceOf(InvalidTokenException.class);
+                .isInstanceOf(InvalidTokenException.class);
 
         assertThat(user.getFailedAttempts()).isEqualTo(4);
         verify(userRepository).save(user);
@@ -114,7 +184,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(req, null))
-            .isInstanceOf(AccountLockedException.class);
+                .isInstanceOf(AccountLockedException.class);
 
         assertThat(user.getLockedUntil()).isNotNull();
         assertThat(user.getLockedUntil()).isAfter(Instant.now());
@@ -133,8 +203,12 @@ class AuthServiceTest {
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.login(req, null))
-            .isInstanceOf(AccountLockedException.class);
+                .isInstanceOf(AccountLockedException.class);
     }
+
+    // -----------------------------------------------------------------------
+    // verifyEmail
+    // -----------------------------------------------------------------------
 
     @Test
     void verifyEmail_validToken_activatesUser() {
@@ -151,7 +225,7 @@ class AuthServiceTest {
 
         assertThat(user.isEmailVerified()).isTrue();
         assertThat(user.getStatus()).isEqualTo(User.Status.ACTIVE);
-        verify(eventPublisher).publishUserVerified(user.getId());
+        verifyNoMoreInteractions(eventPublisher);
     }
 
     @Test
@@ -159,8 +233,12 @@ class AuthServiceTest {
         when(valueOps.get("verify:expired-token")).thenReturn(null);
 
         assertThatThrownBy(() -> authService.verifyEmail("expired-token"))
-            .isInstanceOf(InvalidTokenException.class);
+                .isInstanceOf(InvalidTokenException.class);
     }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
 
     private User createActiveUser() {
         User user = new User();

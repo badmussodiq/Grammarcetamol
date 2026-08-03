@@ -11,7 +11,6 @@ spring:
 
 gateway:
   auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-  user-service-url: ${USER_SERVICE_URL:http://localhost:8082}
   course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 

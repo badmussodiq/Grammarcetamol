@@ -16,32 +16,19 @@ public class RouteConfig {
 
     @Bean
     public RouteLocator routeLocator(RouteLocatorBuilder builder) {
-        String internalToken = appGatewayProperties.getInternalToken();
-
         return builder.routes()
             // Auth service routes with rate limiting on sensitive endpoints
             .route("auth-login", r -> r
-                .path("/api/auth/login")
-                .filters(f -> f.requestRateLimiter(c -> {
-                    c.setRateLimiter(rateLimitConfig.authRateLimiter());
-                    c.setKeyResolver(rateLimitConfig.ipKeyResolver());
-                }))
-                .uri(appGatewayProperties.getAuthServiceUrl()))
-            .route("auth-register", r -> r
-                .path("/api/auth/register")
-                .filters(f -> f.requestRateLimiter(c -> {
-                    c.setRateLimiter(rateLimitConfig.authRateLimiter());
-                    c.setKeyResolver(rateLimitConfig.ipKeyResolver());
-                }))
-                .uri(appGatewayProperties.getAuthServiceUrl()))
-            .route("auth-service", r -> r
                 .path("/api/auth/**")
+                .filters(f -> f.requestRateLimiter(c -> {
+                    c.setRateLimiter(rateLimitConfig.authRateLimiter());
+                    c.setKeyResolver(rateLimitConfig.ipKeyResolver());
+                }))
                 .uri(appGatewayProperties.getAuthServiceUrl()))
-            // User service routes – inject internal token header
-            .route("user-service", r -> r
+            // User profile routes — now served by auth-service (merged)
+            .route("user-profile", r -> r
                 .path("/api/users/**")
-                .filters(f -> f.addRequestHeader("X-Internal-Token", internalToken))
-                .uri(appGatewayProperties.getUserServiceUrl()))
+                .uri(appGatewayProperties.getAuthServiceUrl()))
             // Course service routes
             .route("course-service", r -> r
                 .path("/api/courses/**")

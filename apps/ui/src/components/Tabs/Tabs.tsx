@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef } from 'react';
+import { useRef } from 'react';
+import type { KeyboardEvent } from 'react';
 import { cn } from '../../utils/cn';
 
 export interface TabItem {
@@ -18,7 +19,7 @@ export interface TabsProps {
 export function Tabs({ tabs, activeTab, onChange, className }: TabsProps) {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (e.key === 'ArrowRight') {
       const next = (index + 1) % tabs.length;
       tabRefs.current[next]?.focus();
@@ -32,7 +33,7 @@ export function Tabs({ tabs, activeTab, onChange, className }: TabsProps) {
   };
 
   return (
-    <div role="tablist" className={cn('flex border-b border-[#E2E8F0]', className)}>
+    <div role="tablist" className={cn('flex border-b border-border', className)}>
       {tabs.map((tab, i) => {
         const isActive = tab.value === activeTab;
         return (
@@ -45,9 +46,9 @@ export function Tabs({ tabs, activeTab, onChange, className }: TabsProps) {
             onClick={() => onChange(tab.value)}
             onKeyDown={(e) => handleKeyDown(e, i)}
             className={cn(
-              'px-4 py-2 text-sm transition-colors duration-150 ease-out border-b-2 -mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A5F]',
+              'px-4 py-2 text-sm transition-colors duration-150 ease-out border-b-2 -mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
               isActive
-                ? 'border-[#1E3A5F] text-[#1E3A5F] font-semibold'
+                ? 'border-primary text-primary font-semibold'
                 : 'border-transparent text-[#64748B] hover:text-[#0F172A]',
             )}
           >

@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import { forwardRef, useState } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   helperText?: string;
   error?: string;
-  prefixIcon?: React.ReactNode;
-  suffixIcon?: React.ReactNode;
+  prefixIcon?: ReactNode;
+  suffixIcon?: ReactNode;
 }
 
 const EyeIcon = ({ open }: { open: boolean }) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {open ? (
       <>
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -28,7 +30,7 @@ const EyeIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, helperText, error, prefixIcon, suffixIcon, type, className, id, ...rest }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === 'password';
@@ -36,8 +38,6 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     const hasSuffix = suffixIcon || isPassword;
-    const paddingLeft = prefixIcon ? 36 : undefined;
-    const paddingRight = hasSuffix ? 36 : undefined;
 
     return (
       <div className={cn('flex flex-col gap-1', className)}>
@@ -56,23 +56,21 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             type={resolvedType}
-            style={{ paddingLeft, paddingRight }}
             className={cn(
               'w-full rounded-md border px-3 py-2 text-sm text-[#0F172A] bg-white outline-none transition-all',
               'placeholder:text-[#94A3B8]',
+              !!prefixIcon && 'pl-9',
+              !!hasSuffix  && 'pr-9',
               error
-                ? 'border-[#EF4444] ring-2 ring-[#EF4444]'
-                : 'border-[#E2E8F0] focus:ring-2 focus:ring-[#1E3A5F]',
+                ? 'border-error ring-2 ring-error ring-opacity-40'
+                : 'border-border focus:ring-2 focus:ring-primary focus:ring-opacity-40 focus:border-primary',
             )}
             {...rest}
           />
           {isPassword && (
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
+            <button type="button" onClick={() => setShowPassword((v) => !v)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#0F172A]"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-            >
+              aria-label={showPassword ? 'Hide password' : 'Show password'}>
               <EyeIcon open={showPassword} />
             </button>
           )}
@@ -83,7 +81,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error ? (
-          <p className="text-sm text-[#EF4444]">{error}</p>
+          <p className="text-sm text-error">{error}</p>
         ) : helperText ? (
           <p className="text-sm text-[#64748B]">{helperText}</p>
         ) : null}

@@ -1,4 +1,4 @@
-import React from 'react';
+import type { CSSProperties } from 'react';
 
 export interface SkeletonProps {
   width?: string | number;
@@ -8,7 +8,7 @@ export interface SkeletonProps {
 }
 
 export function Skeleton({ width, height, variant = 'rect', className }: SkeletonProps) {
-  const baseStyle: React.CSSProperties = {
+  const baseStyle: CSSProperties = {
     background: 'linear-gradient(90deg, #E2E8F0 25%, #F8FAFC 50%, #E2E8F0 75%)',
     backgroundSize: '400px 100%',
     animation: 'shimmer 1.5s infinite',

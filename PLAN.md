@@ -151,8 +151,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
       return builder.routes()
           .route("auth-service", r -> r.path("/api/auth/**")
               .uri(props.getAuthServiceUrl()))
-          .route("user-service", r -> r.path("/api/users/**")
-              .uri(props.getUserServiceUrl()))
+          .route("user-profile", r -> r.path("/api/users/**")
+              .uri(props.getAuthServiceUrl()))
           // ... all other services
           .build();
   }
@@ -161,7 +161,6 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
   ```yaml
   gateway:
     auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-    user-service-url: ${USER_SERVICE_URL:http://localhost:8082}
     course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
     # ... all services
   ```
@@ -194,7 +193,7 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
   ```
   migrations/postgres/
   ├── auth_db/V1__auth_initial_schema.sql
-  ├── user_db/V1__user_initial_schema.sql
+  ├── auth_db/V3__add_profile_columns.sql
   ├── course_db/V1__course_initial_schema.sql
   ├── upload_db/V1__upload_initial_schema.sql
   ├── enrollment_db/V1__enrollment_initial_schema.sql
@@ -216,7 +215,7 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
   ```bash
   #!/bin/bash
   # Creates databases if not exist, then runs migrations in dependency order
-  for db in auth_db user_db course_db upload_db enrollment_db payment_db review_db notification_db admin_db; do
+  for db in auth_db course_db upload_db enrollment_db payment_db review_db notification_db admin_db; do
     psql -U $PGUSER -h $PGHOST -c "CREATE DATABASE $db;" 2>/dev/null || true
     psql -U $PGUSER -h $PGHOST -d $db -f migrations/postgres/${db}/V1__*
   done
@@ -297,35 +296,36 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 ---
 
-**Task 7: User Service (NestJS) — Profile Auto-Creation & Management**
+**Task 7: Auth Service — User Profile Management**
 
-**Objective:** Build the User Service that auto-creates profiles from RabbitMQ events and exposes profile CRUD, role management, and moderator creation APIs.
+**Objective:** Implement profile initialisation and management directly inside auth-service. There is no separate user-service microservice — all profile data lives in the `users` table in `auth_db`.
+
+**Context:** The `users` table has all profile columns added by V3 migration (`role`, `full_name`, `phone`, `avatar_url`, `country`, `timezone`, `bio`, `learning_goals`, `date_of_birth`, `preferences`). The `RoleName` Java enum (`SUPER_ADMIN`, `STUDENT`, `MODERATOR`, `CUSTOMER_SUPPORT`) is stored as `@Enumerated(EnumType.STRING)` on the `User` entity.
 
 **Implementation guidance:**
-- Initialize NestJS project in `backend/user-service/` with: `@nestjs/typeorm`, `pg`, `@nestjs/microservices` (RabbitMQ transport), `@grpc/grpc-js`, `@nestjs/config`
-- Connect to `user_db`
-- Implement TypeORM entities: `Role`, `UserProfile`, `UserRole`, `Permission`, `RolePermission`, `UserAddress`
-- Seed default roles on startup (`super_admin`, `moderator`, `student`, `instructor`) using `ON CONFLICT DO NOTHING`
-- **RabbitMQ consumer** — listen to `user.exchange`:
-  - `user.created` → create `UserProfile` row with defaults, assign `student` role
-  - `user.verified` → no-op (profile already exists; status tracked in `auth_db`)
-- **gRPC client** — connect to Auth Service `GetUserById` for enriching responses when needed
-- Implement REST endpoints (all require `X-User-Id` header from gateway):
-  - `GET /api/users/me` — return own profile (join with roles/permissions)
-  - `PATCH /api/users/me` — update allowed fields: name, phone, country, timezone, bio, learning goals, preferences
-  - `POST /api/users/me/avatar` — accept multipart image, store locally or to configured storage path, update `avatar_url`
-  - `GET /api/users` — admin only (check `X-User-Role`), paginated list with filters (name, email, status, country)
-  - `GET /api/users/:id` — admin/moderator only
-  - `POST /api/users/moderators` — super admin only; create user via Auth Service gRPC `CreateUser` (or direct DB via shared event); assign `moderator` role; store permission matrix in `role_permissions`
-  - `PATCH /api/users/:id/status` — admin only; suspend/activate; publish `user.suspended` event
-- Publish events: `profile.updated`, `role.assigned`, `user.suspended`
+- `UserProfileService` in `backend/auth-service/` operates directly on `UserRepository`:
+  - `initProfile(userId, fullName, roleName)` — called by `AuthService` synchronously after saving the user; sets `fullName` and `role` on the existing user record; no message queue or separate table
+  - `getMyProfile(userId)` — fetch `User` by id
+  - `updateMyProfile(userId, dto)` — patch allowed fields: `fullName`, `phone`, `country`, `timezone`, `bio`, `learningGoals`
+  - `getAllUsers(query, page, limit)` — paginated search by name or email
+  - `getUserById(id)` — admin lookup by profile UUID (same as auth user id)
+  - `updateUserStatus(userId, status)` — admin status change, validates against `User.Status` enum
+- `UserProfileController` in `backend/auth-service/` exposes:
+  - `GET /api/users/me` — any authenticated user; reads `sub` claim from JWT via `@AuthenticationPrincipal Jwt`
+  - `PATCH /api/users/me` — any authenticated user
+  - `GET /api/users` — `SUPER_ADMIN` or `MODERATOR` only (`@PreAuthorize`)
+  - `GET /api/users/:id` — `SUPER_ADMIN` or `MODERATOR` only
+  - `PATCH /api/users/:id/status` — `SUPER_ADMIN` only
+- All endpoints use Spring Security JWT resource server — no `X-Internal-Token` header, no separate auth check needed
+- `SuperAdminSeeder` runs on `ApplicationReadyEvent`, calls `authService.registerInternal(email, password, "Super Admin", "SUPER_ADMIN")` which saves the user and calls `userProfileService.initProfile(...)` in one transaction
+- Gateway routes `/api/users/**` → auth-service (same host:port as `/api/auth/**`); remove `user-service-url` from gateway config
 
 **Tests:**
-- Unit: Role guard logic, permission matrix validation, profile field update whitelist
-- Integration: Publish `user.created` to RabbitMQ → user service consumes → `UserProfile` row appears in `user_db`
-- E2E: Register in auth service → wait 500ms → `GET /api/users/me` via gateway returns auto-created profile with `student` role
+- Unit: `UserProfileService` — `initProfile` with unknown role defaults to STUDENT; `updateMyProfile` only patches supplied fields; `updateUserStatus` rejects invalid status values
+- Unit: `AuthService` — `register` calls `initProfile` with STUDENT role; `registerInternal` calls `initProfile` with provided role; duplicate email is no-op
+- Integration: `POST /api/auth/register` → `GET /api/users/me` via gateway returns profile with `role: STUDENT` and `fullName` set
 
-**Demo:** Register a new user. Within 1 second, `GET http://localhost:8080/api/users/me` returns a full profile including role. Admin can `POST /api/users/moderators` and confirm the moderator cannot access financial endpoints (gateway returns 403).
+**Demo:** `POST /api/auth/register` → `GET /api/users/me` returns user row with `role: STUDENT`. Login as super admin → role in JWT is `SUPER_ADMIN`. Admin `PATCH /api/users/:id/status` body `{"status":"SUSPENDED"}` suspends the account.
 
 ---
 

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import ReactDOM from 'react-dom';
 import { cn } from '../../utils/cn';
 
@@ -9,7 +10,7 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   size?: 'sm' | 'md' | 'lg' | 'fullscreen';
-  children?: React.ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 

@@ -1,15 +1,15 @@
-import React from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
 export interface BadgeProps {
   variant?: 'success' | 'warning' | 'error' | 'info' | 'neutral';
   size?: 'sm' | 'md' | 'lg';
   dot?: boolean;
-  children?: React.ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 
-const variantStyles: Record<NonNullable<BadgeProps['variant']>, React.CSSProperties> = {
+const variantStyles: Record<NonNullable<BadgeProps['variant']>, CSSProperties> = {
   success: { backgroundColor: '#D1FAE5', color: '#065F46' },
   warning: { backgroundColor: '#FEF3C7', color: '#92400E' },
   error:   { backgroundColor: '#FEE2E2', color: '#991B1B' },

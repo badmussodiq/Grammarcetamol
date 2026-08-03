@@ -3,9 +3,12 @@ package com.grammarcetamol.auth.service;
 import com.grammarcetamol.auth.dto.LoginRequest;
 import com.grammarcetamol.auth.dto.RegisterRequest;
 import com.grammarcetamol.auth.entity.RefreshToken;
+import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
+import com.grammarcetamol.auth.dto.PasswordPolicy;
 import com.grammarcetamol.auth.exception.AccountLockedException;
 import com.grammarcetamol.auth.exception.EmailAlreadyExistsException;
+import com.grammarcetamol.auth.exception.InvalidPasswordException;
 import com.grammarcetamol.auth.exception.InvalidTokenException;
 import com.grammarcetamol.auth.messaging.UserEventPublisher;
 import com.grammarcetamol.auth.repository.RefreshTokenRepository;
@@ -24,9 +27,11 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -39,9 +44,10 @@ public class AuthService {
     private final PasswordEncoder         passwordEncoder;
     private final StringRedisTemplate     redisTemplate;
     private final UserEventPublisher      eventPublisher;
+    private final UserProfileService      userProfileService;
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final int LOCK_DURATION_HOURS  = 1;
+    private static final int MAX_FAILED_ATTEMPTS    = 5;
+    private static final int LOCK_DURATION_MINUTES  = 15;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -52,7 +58,7 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setStatus(User.Status.PENDING_VERIFICATION);
-        userRepository.save(user);
+        user = userRepository.save(user);
 
         String verifyToken = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set(
@@ -61,7 +67,8 @@ public class AuthService {
             Duration.ofHours(24)
         );
 
-        eventPublisher.publishUserCreated(user.getId(), user.getEmail(), request.getFullName());
+        // Set profile fields on the same user record — no separate table
+        userProfileService.initProfile(user.getId(), request.getFullName(), RoleName.STUDENT.name());
         log.info("Registered user {}", user.getEmail());
     }
 
@@ -77,7 +84,8 @@ public class AuthService {
         user.setStatus(User.Status.ACTIVE);
         userRepository.save(user);
         redisTemplate.delete("verify:" + token);
-        eventPublisher.publishUserVerified(user.getId());
+        // Profile already exists — no additional action needed on verification
+        log.info("Email verified for userId={}", user.getId());
     }
 
     @Transactional
@@ -95,7 +103,7 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             user.setFailedAttempts(user.getFailedAttempts() + 1);
             if (user.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
-                user.setLockedUntil(Instant.now().plus(Duration.ofHours(LOCK_DURATION_HOURS)));
+                user.setLockedUntil(Instant.now().plus(Duration.ofMinutes(LOCK_DURATION_MINUTES)));
                 userRepository.save(user);
                 eventPublisher.publishUserLocked(user.getId());
                 throw new AccountLockedException(user.getLockedUntil());
@@ -115,10 +123,11 @@ public class AuthService {
         setTokenCookies(response, accessToken, refreshToken);
 
         eventPublisher.publishUserLogin(user.getId());
+        List<String> roles = jwtService.getRolesFromToken(accessToken);
         return Map.of(
             "userId", user.getId().toString(),
             "email",  user.getEmail(),
-            "roles",  "STUDENT"
+            "roles",  String.join(",", roles)
         );
     }
 
@@ -177,6 +186,7 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
+        validatePasswordPolicy(newPassword);
         String userId = redisTemplate.opsForValue().get("fp:" + token);
         if (userId == null) {
             throw new InvalidTokenException("Reset token is invalid or expired");
@@ -187,6 +197,33 @@ public class AuthService {
         userRepository.save(user);
         refreshTokenRepository.deleteAllByUserId(user.getId());
         redisTemplate.delete("fp:" + token);
+    }
+
+    /**
+     * Internal registration path used by seeders and admin tooling.
+     * Skips the email-verification flow and marks the account ACTIVE immediately.
+     * The caller supplies the role that will be broadcast on the user.created event.
+     * Throws {@link EmailAlreadyExistsException} if the email is already taken —
+     * callers that want idempotent "seed once" behaviour (e.g. {@code SuperAdminSeeder})
+     * should catch that specifically.
+     */
+    @Transactional
+    public User registerInternal(String email, String password, String fullName, String role) {
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException(email);
+        }
+        validatePasswordPolicy(password);
+        User user = new User();
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setStatus(User.Status.ACTIVE);
+        user.setEmailVerified(true);
+        user = userRepository.save(user);
+
+        // Set profile fields on the same user record — no separate table
+        userProfileService.initProfile(user.getId(), fullName, role);
+        log.info("Internal registration complete for {} with role={}", email, role);
+        return userRepository.findById(user.getId()).orElse(user);
     }
 
     @Transactional
@@ -209,6 +246,14 @@ public class AuthService {
     }
 
     // --- Helpers ---
+
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile(PasswordPolicy.REGEX);
+
+    private void validatePasswordPolicy(String password) {
+        if (password == null || password.length() < 8 || !PASSWORD_PATTERN.matcher(password).matches()) {
+            throw new InvalidPasswordException(PasswordPolicy.MESSAGE);
+        }
+    }
 
     private void storeRefreshToken(User user, String rawToken, String deviceInfo, String ipAddress) {
         RefreshToken rt = new RefreshToken();

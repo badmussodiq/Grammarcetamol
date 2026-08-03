@@ -1,9 +1,10 @@
 # Grammarcetamol — Database Schema & Migration Scripts
 
-> **Document Version:** 1.0  
-> **Last Updated:** 2026-08-01  
+> **Document Version:** 1.1  
+> **Last Updated:** 2026-08-02  
 > **Relational DB:** PostgreSQL 15+ (per-service)  
 > **Document DB:** MongoDB 6+ (Media, Analytics, Live Class, Service Request)  
+> **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
 
 ---
 
@@ -24,8 +25,7 @@
 
 | Microservice | Database | Engine | Justification |
 |:---|:---|:---|:---|
-| Auth Service | `auth_db` | PostgreSQL | ACID transactions, strict consistency for credentials |
-| User Service | `user_db` | PostgreSQL | Relational user/profile/role data |
+| Auth Service | `auth_db` | PostgreSQL | ACID transactions for credentials, profile data, and role assignment (user-service merged in) |
 | Course Service | `course_db` | PostgreSQL | Structured content with heavy referential integrity |
 | Enrollment Service | `enrollment_db` | PostgreSQL | Transactional enrollments & progress tracking |
 | Payment Service | `payment_db` | PostgreSQL | Financial records require ACID compliance |
@@ -115,107 +115,47 @@ BEGIN
 END $$;
 ```
 
----
 
-### 3.2 User Service — `user_db`
+#### V3 — Profile & Role Columns (`V3__add_profile_columns.sql`)
 
 ```sql
 -- ============================================================
--- Migration: V1__user_initial_schema.sql
--- Service: User Service
+-- Migration: V3__add_profile_columns.sql
+-- Service: Auth Service
+-- Merges user profile data into the users table.
+-- Role is stored as a VARCHAR enum value — no separate roles table.
 -- ============================================================
 
--- Roles (RBAC)
-CREATE TABLE IF NOT EXISTS roles (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name            VARCHAR(50) NOT NULL UNIQUE,
-    description     TEXT,
-    is_system       BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS role            VARCHAR(64)  NOT NULL DEFAULT 'STUDENT',
+    ADD COLUMN IF NOT EXISTS full_name       VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS phone           VARCHAR(30),
+    ADD COLUMN IF NOT EXISTS avatar_url      VARCHAR(512),
+    ADD COLUMN IF NOT EXISTS country         VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS timezone        VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS bio             TEXT,
+    ADD COLUMN IF NOT EXISTS learning_goals  TEXT[],
+    ADD COLUMN IF NOT EXISTS date_of_birth   DATE,
+    ADD COLUMN IF NOT EXISTS preferences     JSONB;
 
--- Insert default roles idempotently
-INSERT INTO roles (id, name, description, is_system)
-VALUES 
-    ('11111111-1111-1111-1111-111111111111', 'super_admin', 'Full platform access', TRUE),
-    ('22222222-2222-2222-2222-222222222222', 'moderator', 'Configurable operational access', TRUE),
-    ('33333333-3333-3333-3333-333333333333', 'student', 'Learner account', TRUE),
-    ('44444444-4444-4444-4444-444444444444', 'instructor', 'Content creator', TRUE)
-ON CONFLICT (name) DO NOTHING;
-
--- User profiles (extends auth identity)
-CREATE TABLE IF NOT EXISTS user_profiles (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    auth_user_id    UUID NOT NULL UNIQUE,  -- mirrors auth service user id
-    full_name       VARCHAR(255) NOT NULL,
-    phone           VARCHAR(30),
-    avatar_url      VARCHAR(500),
-    country         VARCHAR(2),  -- ISO-3166
-    timezone        VARCHAR(50) NOT NULL DEFAULT 'UTC',
-    bio             TEXT,
-    learning_goals  TEXT[],
-    date_of_birth   DATE,
-    preferences     JSONB NOT NULL DEFAULT '{}',
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_profiles_auth_user_id ON user_profiles(auth_user_id);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_country ON user_profiles(country);
-
--- User-Role mapping (many-to-many)
-CREATE TABLE IF NOT EXISTS user_roles (
-    user_id         UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-    role_id         UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    assigned_by     UUID,
-    assigned_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_id, role_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id);
-
--- Permissions matrix (granular for moderators)
-CREATE TABLE IF NOT EXISTS permissions (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    resource        VARCHAR(50) NOT NULL,  -- e.g., 'courses', 'students'
-    action          VARCHAR(50) NOT NULL,  -- e.g., 'create', 'edit', 'delete'
-    UNIQUE (resource, action)
-);
-
-CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id         UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id   UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    PRIMARY KEY (role_id, permission_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id);
-
--- Addresses (for billing / invoicing)
-CREATE TABLE IF NOT EXISTS user_addresses (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-    type            VARCHAR(20) NOT NULL DEFAULT 'billing' CHECK (type IN ('billing', 'shipping')),
-    street          VARCHAR(255) NOT NULL,
-    city            VARCHAR(100) NOT NULL,
-    state           VARCHAR(100),
-    postal_code     VARCHAR(20),
-    country         VARCHAR(2) NOT NULL,
-    is_default      BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);
-
--- Triggers
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_profiles_updated_at') THEN
-        CREATE TRIGGER trg_user_profiles_updated_at
-        BEFORE UPDATE ON user_profiles
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_users_role      ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_full_name ON users (full_name);
 ```
+
+---
+
+### 3.2 ~~User Service~~ — Merged into Auth Service
+
+The User Service and its `user_db` database have been merged into the Auth Service.
+
+All user profile fields (`full_name`, `phone`, `avatar_url`, `country`, `timezone`, `bio`,
+`learning_goals`, `date_of_birth`, `preferences`) are now columns on the `users` table in `auth_db`.
+
+Role assignment uses a `role VARCHAR(64)` column on `users`. Valid values match the `RoleName` enum:
+`SUPER_ADMIN`, `STUDENT`, `MODERATOR`, `CUSTOMER_SUPPORT`. There is no `roles` table, no `user_roles`
+join table, and no `user_db` database.
+
+**See V3 migration in Section 3.1 above.**
 
 ---
 
@@ -1235,8 +1175,8 @@ Since each service owns its database, **no direct foreign keys exist across serv
 
 ```
 01_auth_db/V1__auth_initial_schema.sql
-02_user_db/V1__user_initial_schema.sql       -- depends on auth concepts
-03_course_db/V1__course_initial_schema.sql   -- depends on users (instructors)
+01_auth_db/V3__add_profile_columns.sql       -- adds profile fields and role column to users table
+02_course_db/V1__course_initial_schema.sql   -- depends on users (instructors)
 04_upload_db/V1__upload_initial_schema.sql   -- depends on courses
 05_enrollment_db/V1__enrollment_initial_schema.sql  -- depends on courses + users
 06_payment_db/V1__payment_initial_schema.sql        -- depends on users + courses
