@@ -1,5 +1,0 @@
-[user]
-    name = sodiq badmus
-    email = badmussodiq0106@gmail.com
-[core]
-    sshCommand = "ssh -i ~/.ssh/personal"
