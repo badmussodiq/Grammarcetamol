@@ -8,7 +8,7 @@ import { OverviewTab } from './OverviewTab';
 import { EditTab } from './EditTab';
 import { ContentTab } from './ContentTab';
 import { VersionsTab } from './VersionsTab';
-import type { CourseDetailResponse } from '../../../../lib/courses.api';
+import type { CourseDetailResponse } from '@/lib/courses.api';
 
 const TABS = [
   { label: 'Overview', value: 'overview' },

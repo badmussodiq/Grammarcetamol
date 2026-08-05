@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { ApiError } from '@grammarcetamol/utilities';
-import { authApi, AuthUser } from '../lib/auth.api';
+import { authApi, AuthUser } from '@/lib/auth.api';
 
 interface AuthState {
   user: AuthUser | null;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFetch, Button, Skeleton, useToast, ApiError } from '@grammarcetamol/utilities';
-import { coursesApi, type CourseVersion } from '../../../../lib/courses.api';
+import { coursesApi, type CourseVersion } from '@/lib/courses.api';
 
 export function VersionsTab({ courseId, onRestored }: { courseId: string; onRestored: () => void }) {
   const { data: versions, loading, error, refetch } = useFetch<CourseVersion[]>(`/api/courses/${courseId}/versions`);

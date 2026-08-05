@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, useToast, ApiError } from '@grammarcetamol/utilities';
-import { coursesApi, PublishValidationError, type Course, type ModuleResponse } from '../../../../lib/courses.api';
+import { coursesApi, PublishValidationError, type Course, type ModuleResponse } from '@/lib/courses.api';
 
 const statusVariant: Record<Course['status'], 'success' | 'warning' | 'neutral' | 'info'> = {
   published: 'success',

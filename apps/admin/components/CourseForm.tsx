@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Input, Button, Mapping, useFetch, useGenericState } from '@grammarcetamol/utilities';
-import { validateCourseForm, type Category, type CourseFormValues } from '../lib/courses.api';
+import { validateCourseForm, type Category, type CourseFormValues } from '@/lib/courses.api';
 
 const selectClass =
   'rounded-md border border-border px-3 py-2 text-sm text-[#0F172A] bg-white outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-40 focus:border-primary';

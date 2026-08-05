@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useFetch, Skeleton, Button, Badge, cn } from '@grammarcetamol/utilities';
-import { useAuth } from '../../../contexts/AuthContext';
-import type { CourseDetailResponse, LessonResponse } from '../../../lib/course.api';
+import { useAuth } from '@/contexts/AuthContext';
+import type { CourseDetailResponse, LessonResponse } from '@/lib/course.api';
 
 function formatPrice(price: number, currency: string): string {
   if (price === 0) return 'Free';

@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useFetch, Skeleton } from '@grammarcetamol/utilities';
-import { CourseCard } from '../components/CourseCard';
-import type { Course } from '../lib/course.api';
+import { CourseCard } from '@/components/CourseCard';
+import type { Course } from '@/lib/course.api';
 
 export default function Home() {
   const { data: featured, loading } = useFetch<Course[]>('/api/courses/featured?limit=6');

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { ApiError } from '@grammarcetamol/utilities';
-import { authApi, AdminUser } from '../lib/auth.api';
+import { authApi, AdminUser } from '@/lib/auth.api';
 
 const STAFF_ROLES = ['SUPER_ADMIN', 'MODERATOR', 'CUSTOMER_SUPPORT'];
 

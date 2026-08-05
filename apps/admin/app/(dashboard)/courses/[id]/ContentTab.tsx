@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Input, Badge, useToast, ApiError } from '@grammarcetamol/utilities';
-import { coursesApi, type ModuleResponse, type LessonResponse } from '../../../../lib/courses.api';
+import { coursesApi, type ModuleResponse, type LessonResponse } from '@/lib/courses.api';
 
 function swap<T>(items: T[], i: number, j: number): T[] {
   const next = [...items];

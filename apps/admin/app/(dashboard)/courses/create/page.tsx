@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast, ApiError } from '@grammarcetamol/utilities';
-import { CourseForm } from '../../../../components/CourseForm';
-import { coursesApi, EMPTY_COURSE_FORM, type CourseFormValues } from '../../../../lib/courses.api';
+import { CourseForm } from '@/components/CourseForm';
+import { coursesApi, EMPTY_COURSE_FORM, type CourseFormValues } from '@/lib/courses.api';
 
 export default function CreateCoursePage() {
   const router = useRouter();

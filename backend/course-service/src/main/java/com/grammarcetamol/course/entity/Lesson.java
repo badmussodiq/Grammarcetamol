@@ -28,7 +28,7 @@ public class Lesson {
     @Column(name = "module_id", nullable = false)
     private UUID moduleId;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String title;
 
     @Column(columnDefinition = "TEXT")

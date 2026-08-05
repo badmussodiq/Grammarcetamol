@@ -22,7 +22,7 @@ public class CourseModule {
     @Column(name = "course_id", nullable = false)
     private UUID courseId;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String title;
 
     @Column(columnDefinition = "TEXT")

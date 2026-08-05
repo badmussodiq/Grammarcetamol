@@ -31,7 +31,7 @@ public class Course {
     @Column(name = "instructor_id", nullable = false)
     private UUID instructorId;
 
-    @Column(name = "instructor_name", nullable = false, length = 255)
+    @Column(name = "instructor_name", nullable = false)
     private String instructorName;
 
     @Column(name = "instructor_bio", columnDefinition = "TEXT")
@@ -40,7 +40,7 @@ public class Course {
     @Column(name = "instructor_avatar_url", length = 500)
     private String instructorAvatarUrl;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String title;
 
     @Column(length = 500)

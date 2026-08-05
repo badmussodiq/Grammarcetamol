@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFetch, Skeleton, Input, Button, cn } from '@grammarcetamol/utilities';
-import { CourseCard } from '../../components/CourseCard';
+import { CourseCard } from '@/components/CourseCard';
 import {
   buildCourseQuery,
   filtersFromSearchParams,
@@ -12,7 +12,7 @@ import {
   type CourseFilters,
   type Paged,
   type SortOption,
-} from '../../lib/course.api';
+} from '@/lib/course.api';
 
 const PAGE_SIZE = 12;
 
