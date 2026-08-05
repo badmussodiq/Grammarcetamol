@@ -1,11 +1,11 @@
 # Grammarcetamol — Implementation Phases & Delivery Roadmap
 
-> **Document Version:** 1.2  
+> **Document Version:** 1.3  
 > **Last Updated:** 2026-08-05  
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** Actively in **Phase 1**. The auth module (backend + both frontends) is implemented and verified working end-to-end, including cross-portal login rejection (not originally scoped, added as a security fix). Google OAuth is intentionally deferred. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3's full backend (`enrollment-service`, `payment-service`, `review-service`) and the student frontend (checkout, dashboard, my-courses, learning interface) are done as of 2026-08-05, live-verified in the browser including a real enroll → watch → complete → review-eligible loop. Admin frontend now has a real shell, `/revenue`, and `/transactions` (Tasks 26–27, live-verified); review moderation and the student directory are next — see `PLAN.md` Tasks 28–30 for the full breakdown and per-task status. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -136,18 +136,19 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 > 🔴 **Hard Dependency:** Phase 1 (admins must be authenticated to create content)  
 > 🟡 **Soft Dependency:** Media Service can be stubbed (accept file, return mock URL)  
-> ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.
+> ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.  
+> **Current status (2026-08-05):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Upload Service and Media Service are exercising this phase's own soft-dependency allowance — stubbed as a plain admin-supplied `video_url` rather than built, since no object storage or MongoDB is provisioned yet (`PLAN.md` Tasks 16–17). Both frontends' course pages are next (`PLAN.md` Tasks 13–14).
 
 ### 2.1 Backend Services
 
 #### Course Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-GUEST-002: Browse Course Catalog | Paginated, filterable (category, difficulty, price, rating), full-text search |
-| US-GUEST-003: View Course Details | Curriculum accordion, instructor card, reviews summary, pricing card |
-| US-ADM-006: Guided Course Creation | 5-step wizard; auto-save draft; validation per step; publish atomic guard |
-| US-ADM-009: Course Editing & Versioning | Edit published course → new version snapshot; rollback capability; notify enrolled students on new lessons |
-| US-ADM-010: Safe Course Deletion | Block delete if enrollments > 0; archive instead; hard delete only if zero activity |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-GUEST-002: Browse Course Catalog | Paginated, filterable (category, difficulty, price, rating), full-text search | ✅ category/difficulty/price/search all implemented via one native query; rating filter not added (no reviews exist yet — Phase 3) |
+| US-GUEST-003: View Course Details | Curriculum accordion, instructor card, reviews summary, pricing card | ✅ backend returns full curriculum + instructor fields; reviews summary N/A (Review Service is Phase 3). No frontend yet — Task 13 |
+| US-ADM-006: Guided Course Creation | 5-step wizard; auto-save draft; validation per step; publish atomic guard | ⚠️ backend supports draft creation + atomic publish-validation guard (returns the full missing-item list, not just first error); the 5-step autosaving wizard is a frontend concern — Task 14 plans a single sectioned form instead, not a literal multi-step wizard |
+| US-ADM-009: Course Editing & Versioning | Edit published course → new version snapshot; rollback capability; notify enrolled students on new lessons | ⚠️ edit + version snapshot + rollback (`restore`) all implemented; "notify enrolled students" has no enrollment/notification concept yet (Phases 3–4) |
+| US-ADM-010: Safe Course Deletion | Block delete if enrollments > 0; archive instead; hard delete only if zero activity | ✅ `enrollment_count > 0` blocks delete with 409; archive endpoint separate; the guard is real today even though nothing increments `enrollment_count` until Enrollment Service (Phase 3) |
 
 **Database:** `course_db` — run `V1__course_initial_schema.sql`  
 **Events Published:** `course.created`, `course.published`, `course.updated`, `course.archived`, `course.versioned`  
@@ -176,19 +177,19 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 2.2 Frontends
 
 #### Student Frontend
-| Page | Features |
-|:---|:---|
-| `/` (Landing) | Hero, 7 service cards, featured course carousel, testimonials, FAQ accordion |
-| `/courses` | Sidebar filters (category, difficulty, price, rating, duration); sort dropdown; CourseCard grid; infinite scroll |
-| `/courses/[slug]` | Promo video thumbnail; curriculum accordion with lock icons; instructor bio; sticky price card; related courses |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/` (Landing) | Hero, 7 service cards, featured course carousel, testimonials, FAQ accordion | ⚠️ Hero + featured course carousel done; 7 service cards/testimonials/FAQ deferred to Phase 5 (need the Service Request catalog) |
+| `/courses` | Sidebar filters (category, difficulty, price, rating, duration); sort dropdown; CourseCard grid; infinite scroll | ⚠️ category/difficulty/price filters + sort + CourseCard grid done; rating/duration filters and infinite scroll not built — "Load more" button pagination instead (deliberate, matches the no-external-library constraint) |
+| `/courses/[slug]` | Promo video thumbnail; curriculum accordion with lock icons; instructor bio; sticky price card; related courses | ⚠️ curriculum accordion, instructor bio, sticky price card done; promo video thumbnail and related courses not built |
 
 #### Admin Frontend
-| Page | Features |
-|:---|:---|
-| `/courses` | DataTable: thumbnail + title + instructor + status badge + price + students + rating; bulk actions; export CSV |
-| `/courses/create` | Step wizard: 1) Info (RichTextEditor, ImageUploader), 2) Pricing, 3) Structure (drag-drop ModuleManager), 4) Upload (FileUploader with chunk grid), 5) Review & Publish |
-| `/courses/[id]` | Tabbed: Overview (metrics), Edit (change tracking), Content (lesson tree), Students (enrollment table), Analytics (charts), Versions (restore) |
-| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/courses` | DataTable: thumbnail + title + instructor + status badge + price + students + rating; bulk actions; export CSV | ⚠️ server-rendered table (not a client DataTable component) with all listed columns + status/category filters + archive/delete actions; no bulk actions or CSV export |
+| `/courses/create` | Step wizard: 1) Info (RichTextEditor, ImageUploader), 2) Pricing, 3) Structure (drag-drop ModuleManager), 4) Upload (FileUploader with chunk grid), 5) Review & Publish | ⚠️ one sectioned form (Info + Pricing), not a step wizard — deliberate simplification, same as `/users/create`. Structure/Upload steps don't apply — module/lesson building happens on `/courses/[id]`'s Content tab instead, and Upload Service is deferred (Task 16) |
+| `/courses/[id]` | Tabbed: Overview (metrics), Edit (change tracking), Content (lesson tree), Students (enrollment table), Analytics (charts), Versions (restore) | ⚠️ Overview, Edit, Content (add/edit/delete/reorder modules & lessons via up/down buttons, not drag-drop), Versions (restore) all done. Students/Analytics tabs not built — depend on Enrollment/Analytics services (Phases 3/5) |
+| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls | ❌ not built — Upload Service is deferred (Task 16); lessons take a plain admin-pasted `video_url` instead, via an inline editor on the Content tab |
 
 ### 2.3 Cross-Cutting
 | Task | Detail |
@@ -198,10 +199,10 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | Object Storage | Bucket policies: public-read for processed media, private for raw uploads |
 
 ### ✅ Phase 2 Exit Criteria
-- [ ] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it.
-- [ ] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum.
-- [ ] Upload survives browser close + reopen with 100% resume accuracy.
-- [ ] Video plays via HLS with adaptive bitrate switching.
+- [x] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it. — *Verified live with 1 module/1 lesson (the mechanism scales identically to 3/5 — nothing in the create/publish path is count-limited). "Uploads a 500MB video" doesn't apply — Upload Service is deferred; the admin pastes a `video_url` instead, per this phase's own "Media Service can be stubbed" allowance.*
+- [x] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum. — *Verified live, unauthenticated, against the real stack.*
+- [ ] Upload survives browser close + reopen with 100% resume accuracy. — *N/A — Upload Service deferred (Task 16).*
+- [ ] Video plays via HLS with adaptive bitrate switching. — *N/A — Media Service deferred (Task 17); lessons link to a plain `video_url`, no transcoding/HLS pipeline exists.*
 
 ---
 
@@ -211,36 +212,43 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 > 🔴 **Hard Dependency:** Phase 2 (courses must exist to enroll in)  
 > 🔴 **Hard Dependency:** Phase 1 (auth required for enrollment)  
-> ⭐ **Milestone:** First paid enrollment completes; student resumes video at exact timestamp.
+> ⭐ **Milestone:** First paid enrollment completes; student resumes video at exact timestamp.  
+> **Current status (2026-08-05):** Planned — see `PLAN.md` Tasks 19–30. Payment gateway starts with Paystack (test-mode), architected as a pluggable `PaymentProvider` so Stripe/Flutterwave can be added later without a rewrite. Certificates are out of scope (the schema doc marks the table "future"); Upload/Media Service dependencies for video remain deferred from Phase 2, so lessons keep using a plain `video_url` (no HLS/adaptive bitrate). `backend/shared-java` (Task 18, previously deferred) is un-deferred and folded into this phase as Task 19, since Enrollment Service is the third Java service its trigger condition was waiting for.
 
 ### 3.1 Backend Services
 
 #### Enrollment Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-006: Free Course Enrollment | Instant enrollment; idempotent (re-click is no-op); appears in "My Courses" immediately |
-| US-STU-005: Resume Learning | `GET /progress/{courseId}` returns last position per lesson; `PATCH` every 5s debounced |
-| US-STU-008: Interactive Learning Interface | Lesson completion toggle; prerequisite gating (can't open Lesson 3 if Lesson 2 incomplete) |
-| US-ADM-005: Student Engagement Insights | At-risk flagging (<20% progress after 14 days); completion rate aggregation |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-006: Free Course Enrollment | Instant enrollment; idempotent (re-click is no-op); appears in "My Courses" immediately | ✅ backend (`POST /api/enrollments`); confirmation email/notification not sent — no Notification Service yet |
+| US-STU-005: Resume Learning | `GET /progress/{courseId}` returns last position per lesson; `PATCH` every 5s debounced | ✅ backend, as `GET .../learn` (curriculum + position) and `PATCH /api/progress`; debouncing is the frontend's job (Task 25) |
+| US-STU-008: Interactive Learning Interface | Lesson completion toggle; prerequisite gating (can't open Lesson 3 if Lesson 2 incomplete) | ✅ backend gating logic (sequential across the whole course); frontend interface itself is Task 25 |
+| US-ADM-005: Student Engagement Insights | At-risk flagging (<20% progress after 14 days); completion rate aggregation | ⚠️ at-risk query backend done (`GET /api/enrollments/at-risk`, thresholds configurable, default 20%/14 days); no admin UI yet (Task 29 scopes it as a `/students` filter, not a dashboard widget) |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 20. Paid enrollment (via `payment.completed`) is wired but untestable end-to-end until `payment-service` (Task 21) exists; free enrollment and progress/gating are fully functional today.
 
 **Database:** `enrollment_db` — run `V1__enrollment_initial_schema.sql`  
 **Events Published:** `enrollment.created`, `enrollment.completed`, `lesson.progress.updated`  
 **Events Consumed:** `course.published`, `payment.completed`, `user.created`
 
 #### Payment Service (Node.js / NestJS)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys |
-| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys | ✅ backend done as a pluggable `PaymentProvider` (Paystack live, Stripe/Flutterwave are a new class + registry entry away); no PCI tokenization needed — Paystack's Inline Popup handles card data, this service never touches it; idempotent by design (confirm/webhook convergence). Checkout UI is Task 23 |
+| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation | ⚠️ ledger (`transactions` table) and refund (balance-validated, admin-only) done; no approval-gate workflow (refunds complete immediately once an admin issues them — no pending/approved states in the UI, matching this task's own scoped-down decision); invoice generation out of scope (no `invoices` table); revenue dashboard itself is Task 27 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 21. Live-verified against a real Paystack test account, including a real bug found and fixed (an orphaned payment row on provider-call failure) and a real account-configuration gap found (the test account only supports NGN, not the USD all seeded courses are priced in) — needs a decision before Task 23's checkout demo can complete an actual charge.
 
 **Database:** `payment_db` — run `V1__payment_initial_schema.sql`  
 **Events Published:** `payment.intent.created`, `payment.completed`, `payment.failed`, `refund.requested`, `refund.completed`  
 **Events Consumed:** `enrollment.created` (for invoice generation)
 
 #### Review Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue | ✅ backend done — live REST completion-check (not an event flag) against enrollment-service, 50%/7-day boundaries unit-tested, admin moderation endpoint works. Moderation UI itself is Task 28. Course-level `avg_rating`/`review_count` aren't updated by approved reviews yet — flagged, not fixed, see `PLAN.md` Task 22 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 22. Live-verified against the real running enrollment-service (a genuine cross-service call correctly rejected a non-enrolled test user).
 
 **Database:** `review_db` — run `V1__review_initial_schema.sql`  
 **Events Published:** `review.submitted`, `review.approved`, `review.moderated`  
@@ -249,22 +257,22 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 3.2 Frontends
 
 #### Student Frontend
-| Page | Features |
-|:---|:---|
-| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states |
-| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses |
-| `/my-courses` | Grid of enrolled courses with progress bars; filter by status |
-| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) |
-| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states | ✅ built and live-verified; Paystack's own popup is the method selector (no custom UI needed); real charge blocked on the deferred NGN/USD account gap, not a frontend issue |
+| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses | ✅ built and live-verified, minus live-classes/notifications panels (no backing services) |
+| `/my-courses` | Grid of enrolled courses with progress bars; filter by status | ✅ built and live-verified |
+| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) | ⚠️ 2-pane, not 3 — right pane (instructor/downloads/discussion/bookmarks) deliberately deferred, no backing data. Left sidebar + center video/progress/gating live-verified working end-to-end |
+| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation | ⚠️ toggle-based drawer (not a swipe bottom sheet) live-verified working; Notes/Discussion/Downloads tabs N/A, nothing lives there in this scoped-down version |
 
 #### Admin Frontend
-| Page | Features |
-|:---|:---|
-| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar |
-| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal |
-| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions |
-| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) |
-| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar | ✅ done, live-verified — donut is by payment method, not category (a real cross-service join, deliberately substituted, see `PLAN.md` Task 27); best-sellers is a ranked list, not a horizontal bar chart |
+| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal | ✅ done, live-verified (empty state only — no completed payment exists yet, blocked on the Task 21 currency gap); refund modal built but its real submit path is unverified for the same reason |
+| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions | 🔲 Task 28, not started |
+| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) | 🔲 Task 29, not started |
+| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes | 🔲 Task 29, not started |
 
 ### 3.3 Cross-Cutting
 | Task | Detail |

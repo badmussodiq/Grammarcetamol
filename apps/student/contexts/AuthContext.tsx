@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { ApiError } from '@grammarcetamol/utilities';
-import { authApi, AuthUser } from '../lib/auth.api';
+import { authApi, AuthUser } from '@/lib/auth.api';
 
 interface AuthState {
   user: AuthUser | null;
@@ -49,8 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { credentials: 'include' }
       );
       if (res.ok) {
-        const data = await res.json();
-        dispatch({ type: 'SET_USER', payload: data.data });
+        const { data } = await res.json();
+        // /api/users/me returns the raw profile shape ({id, role, ...}), not the
+        // {userId, roles} shape the login response uses — map it so downstream code
+        // (e.g. reading user.roles) works consistently regardless of which path set it.
+        dispatch({ type: 'SET_USER', payload: { userId: data.id, email: data.email, roles: data.role, fullName: data.fullName } });
       } else {
         dispatch({ type: 'CLEAR_USER' });
       }
@@ -73,7 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new ApiError(403, 'This portal is for students only. Please use the admin site to sign in.');
     }
     dispatch({ type: 'SET_USER', payload: res.data });
-  }, []);
+    // The login response only carries {userId, email, roles} — refresh once more to pick up the
+    // rest of the profile (fullName, etc.) without waiting for the next full page load.
+    await refreshUser();
+  }, [refreshUser]);
 
   const logout = useCallback(async () => {
     try { await authApi.logout(); } catch {}

@@ -1,7 +1,8 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  /** The parsed error response body, when the server returned one (e.g. { data: [...] } for structured validation errors). */
+  constructor(public status: number, message: string, public body?: unknown) {
     super(message);
   }
 }
@@ -36,12 +37,14 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     let message = 'An error occurred';
+    let body: unknown;
     try {
-      const body = await res.json();
-      message = body?.error ?? body?.message ?? message;
+      body = await res.json();
+      message = (body as any)?.error ?? (body as any)?.message ?? message;
     } catch {}
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, body);
   }
 
+  if (res.status === 204) return undefined as T;
   return res.json();
 }

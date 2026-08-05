@@ -167,6 +167,95 @@ class JwtAuthFilterTest {
     }
 
     @Test
+    void optionallyAuthenticatedRouteWithNoTokenPassesThroughAnonymously() {
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/courses/some-course-slug")
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        verify(authServiceStub, never()).validateToken(any());
+        verify(chain, times(1)).filter(any());
+        assertThat(exchange.getRequest().getHeaders().getFirst("X-User-Id")).isNull();
+    }
+
+    @Test
+    void optionallyAuthenticatedRouteWithValidTokenInjectsIdentity() {
+        AuthProto.ValidateTokenResponse grpcResponse = AuthProto.ValidateTokenResponse.newBuilder()
+            .setValid(true)
+            .setUserId("owner-123")
+            .addRoles("MODERATOR")
+            .build();
+        when(authServiceStub.validateToken(any())).thenReturn(grpcResponse);
+
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/courses/draft-course-id")
+            .cookie(new HttpCookie("access_token", "valid.jwt.token"))
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        verify(chain, times(1)).filter(argThat(ex ->
+            "owner-123".equals(ex.getRequest().getHeaders().getFirst("X-User-Id"))));
+    }
+
+    @Test
+    void optionallyAuthenticatedRouteWithInvalidTokenStillPassesThroughAnonymously() {
+        AuthProto.ValidateTokenResponse grpcResponse = AuthProto.ValidateTokenResponse.newBuilder()
+            .setValid(false)
+            .build();
+        when(authServiceStub.validateToken(any())).thenReturn(grpcResponse);
+
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/courses/some-course-slug")
+            .cookie(new HttpCookie("access_token", "expired.jwt.token"))
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        // Not a 401 — an expired token on a public catalog route just means "browse as a guest".
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+        verify(chain, times(1)).filter(any());
+    }
+
+    @Test
+    void optionallyAuthenticatedRouteFailsOpenWhenAuthServiceUnavailable() {
+        when(authServiceStub.validateToken(any())).thenThrow(new io.grpc.StatusRuntimeException(io.grpc.Status.UNAVAILABLE));
+
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/categories")
+            .cookie(new HttpCookie("access_token", "some.jwt.token"))
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+        verify(chain, times(1)).filter(any());
+    }
+
+    @Test
+    void nonGetOnCoursesStillRequiresAuth() {
+        MockServerHttpRequest request = MockServerHttpRequest
+            .post("/api/courses")
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
     void resendVerificationAndJwksAreAlsoPublicRoutes() {
         MockServerHttpRequest resendRequest = MockServerHttpRequest
             .post("/api/auth/resend-verification")
