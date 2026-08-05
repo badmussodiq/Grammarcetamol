@@ -30,6 +30,7 @@ spring:
 gateway:
   auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
   course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
+  enrollment-service-url: ${ENROLLMENT_SERVICE_URL:http://localhost:8084}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 
 grpc:

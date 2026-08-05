@@ -33,6 +33,16 @@ public class RouteConfig {
             .route("course-service", r -> r
                 .path("/api/courses/**")
                 .uri(appGatewayProperties.getCourseServiceUrl()))
+            .route("categories-service", r -> r
+                .path("/api/categories/**")
+                .uri(appGatewayProperties.getCourseServiceUrl()))
+            // Enrollment service routes
+            .route("enrollment-service", r -> r
+                .path("/api/enrollments/**")
+                .uri(appGatewayProperties.getEnrollmentServiceUrl()))
+            .route("progress-service", r -> r
+                .path("/api/progress")
+                .uri(appGatewayProperties.getEnrollmentServiceUrl()))
             .build();
     }
 }
