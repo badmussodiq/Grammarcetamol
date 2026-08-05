@@ -4,6 +4,7 @@
 > **Status:** Draft  
 > **Last Updated:** 2026-07-31  
 > **Product:** Grammarcetamol Digital Learning Ecosystem  
+> **Implementation status:** This is the full backlog — most stories here aren't built yet. As of 2026-08-05, only the Phase 1 auth/identity stories are implemented and verified: US-GUEST-006, US-STU-001 through 003, US-STU-013 (backend only, no `/profile` UI), and US-ADM-012/013. See `PLAN.md` and `implementation-phases.md` for per-story implementation status and known divergences from these acceptance criteria (e.g. Google OAuth deferred, no granular permission system backing role management).
 
 ---
 

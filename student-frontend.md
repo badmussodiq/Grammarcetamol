@@ -2,9 +2,10 @@
 
 > **Document Version:** 1.0  
 > **Application:** Grammarcetamol-Student-Interface  
-> **Stack:** Next.js (App Router), TypeScript, Tailwind CSS, React Query, Zustand  
+> **Stack:** Next.js (App Router), TypeScript, Tailwind CSS, ~~React Query, Zustand~~  
 > **Status:** Draft  
 > **Last Updated:** 2026-07-31  
+> **Implementation status (2026-08-05):** This is the full target design — most of it isn't built yet. Only §13's `(auth)` route group is implemented: `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`. The landing page (§5.1) is still a placeholder. No course catalog, dashboard, learning interface, checkout, or any `(student)` protected route beyond the auth guard itself. **The state-management stack actually used differs from §6 above**: no React Query, no Zustand — per `PLAN.md`'s constraints, it's `useContext`/`useReducer` (`AuthContext`, shared `ToastContext`) plus native `fetch` via `apiFetch` (single-retry-on-401, not the interceptor pattern in §7.1) and a generic `useGenericState` hook, all from `apps/utilities`. See `apps/student/README.md` and `apps/utilities/README.md` for what's real.
 
 ---
 

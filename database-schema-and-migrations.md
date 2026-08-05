@@ -1,10 +1,11 @@
 # Grammarcetamol — Database Schema & Migration Scripts
 
-> **Document Version:** 1.1  
-> **Last Updated:** 2026-08-02  
+> **Document Version:** 1.2  
+> **Last Updated:** 2026-08-05  
 > **Relational DB:** PostgreSQL 15+ (per-service)  
 > **Document DB:** MongoDB 6+ (Media, Analytics, Live Class, Service Request)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
+> **Implementation status:** Only `auth_db` exists — every other database below is still spec-only (no other service has been built). `auth_db`'s real schema **diverges from §3.1 below** in one important way: `users.status` is a native Postgres `ENUM` type (`CREATE TYPE user_status AS ENUM (...)`, uppercase values `PENDING_VERIFICATION`/`ACTIVE`/`SUSPENDED`/`DELETED`), not the `VARCHAR(20) CHECK (...)` with lowercase values shown here. That distinction is load-bearing for anyone writing JPA/Hibernate mappings against it — see `backend/auth-service/README.md`'s "Schema notes" section. The actual migration files under `backend/auth-service/src/main/resources/db/migration/` are the source of truth, not this document, for anything already built.
 
 ---
 
@@ -43,6 +44,8 @@
 ## 3. PostgreSQL Migrations (Idempotent)
 
 ### 3.1 Auth Service — `auth_db`
+
+> ⚠️ **This section is the original spec, not the implemented schema.** The real `V1__auth_initial_schema.sql` uses `CREATE TYPE user_status AS ENUM (...)` with uppercase values instead of the `VARCHAR(20) CHECK` shown below. See the implementation-status note at the top of this document.
 
 ```sql
 -- ============================================================

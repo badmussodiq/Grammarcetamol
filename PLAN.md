@@ -13,6 +13,8 @@ Let me now complete the full plan with these corrections applied throughout.
 
 # Implementation Plan — Grammarcetamol Digital Learning Ecosystem
 
+> **Status as of 2026-08-05:** Tasks 1–10 below (Phase 0 + Phase 1) are implemented, with real divergences from this original plan noted inline per task — most notably: no root npm workspace (the repo root is a plain container folder, not a project; `apps/utilities` — renamed from `packages/ui` — is a sibling each app reaches via a `tsconfig.json` path + `turbopack.root`, not an npm dependency), Google OAuth deferred, and gateway CORS handled via Spring Cloud Gateway's native `globalcors` config instead of a hand-rolled `CorsWebFilter` bean (the two conflicted and produced duplicate CORS headers that browsers reject). See `implementation-phases.md` for the phase-level exit-criteria view of the same status.
+
 ## Problem Statement
 Build a full-stack digital learning platform from scratch. Two Next.js frontends (student + admin), 13 backend microservices (Java/Spring Boot + Node.js/NestJS), Spring Cloud Gateway as the single entry point, and a shared UI library. PostgreSQL, MongoDB, Redis, and RabbitMQ are already running. No Kubernetes/infrastructure work. No service registry — routing is programmatic via config.
 
@@ -57,6 +59,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 1: Monorepo Scaffold**
+
+> **Status: ⚠️ Diverged.** No root `package.json`/npm workspaces — the repo root is intentionally a plain container folder, not a project (an earlier attempt to add one for a shared-package TypeScript resolution issue was explicitly rejected). Folder skeleton exists but as `apps/utilities` rather than `packages/ui`, no `.editorconfig`, and `migrations/` doesn't exist as a top-level folder (auth-service's migrations live inside the service itself, at `backend/auth-service/src/main/resources/db/migration/`). A root `README.md` does exist now.
 
 **Objective:** Create the root project structure so every developer can clone, orient, and run everything from a single root.
 
@@ -109,6 +113,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 2: Shared UI Library (`packages/ui`)**
 
+> **Status: ✅ Done, as `apps/utilities` (`@grammarcetamol/utilities`).** No `tsup` build step — consumed as raw TypeScript source via a `tsconfig.json` path mapping, since there's no npm workspace to publish/link it through (see Task 1). Has its own `node_modules` purely for standalone typechecking (a file outside `apps/admin`/`apps/student` can't resolve into either app's `node_modules`); this doesn't cause a duplicate-React-at-runtime issue since actual bundling still happens inside each consuming app. Component set has grown beyond the original list (added `Mapping`, `useGenericState`) but doesn't have a `tokens-preview.tsx` demo page, and not every component has a dedicated test — only the ones with real logic (`useFetch`, `useGenericState`, `Mapping`) do. See `apps/utilities/README.md`.
+
 **Objective:** Create the shared design system package that both frontends import, covering design tokens and all primitive components.
 
 **Implementation guidance:**
@@ -139,6 +145,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 3: API Gateway (`backend/gateway-service`)**
+
+> **Status: ✅ Done**, with one deliberate deviation: CORS is handled via Spring Cloud Gateway's native `globalcors` YAML config, not a custom `CorsWebFilter` bean as originally planned. The two together produced duplicate `Access-Control-Allow-Origin`/`Access-Control-Allow-Credentials` response headers, which browsers reject outright even when both copies are identical — the request succeeded end-to-end on the backend (and in curl/Postman), only real browser `fetch()` calls failed. See `backend/gateway-service/README.md`.
 
 **Objective:** Stand up Spring Cloud Gateway with programmatic route configuration (no Eureka), JWT validation via gRPC, CORS, and rate limiting. All API traffic must flow through port 8080 from this point forward.
 
@@ -185,6 +193,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 4: Database Migrations — All Services**
+
+> **Status: ⚠️ Partial — only `auth_db` exists**, since no other service has been built yet. Migrations live inside `backend/auth-service/src/main/resources/db/migration/` (Flyway, auto-run on startup) rather than a top-level `migrations/` folder, so there's no `run-postgres.sh`/`run-mongo.sh`. No MongoDB databases exist yet either (nothing needs one until Phase 2+). `users.status` is a native Postgres `ENUM`, not the `VARCHAR + CHECK` this plan describes — see `database-schema-and-migrations.md`'s status note and `backend/auth-service/README.md`'s schema-notes section for why that distinction matters (JDBC can't implicitly cast a string bind parameter into a custom enum column on insert).
 
 **Objective:** Create and run all database schemas so every service has its tables and indexes ready before service code touches the database.
 
@@ -235,6 +245,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 5: Auth Service — Registration, Email Verification & Login**
 
+> **Status: ✅ Done.** All listed endpoints implemented and verified working (register, verify-email, resend-verification, login, logout, refresh, forgot/reset-password).
+
 **Objective:** Build the Auth Service with secure registration, email verification, and JWT login so users can create and access accounts.
 
 **Implementation guidance:**
@@ -263,6 +275,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 6: Auth Service — Google OAuth & gRPC Token Validation Endpoint**
+
+> **Status: ⚠️ Half done.** gRPC (`ValidateToken`, `GetUserById` on `:9091`) and the JWKS endpoint are implemented and working — the gateway's `JwtAuthFilter` calls this in production use. **Google OAuth is not implemented and is intentionally deferred** — the user hasn't set up a Google Cloud OAuth client yet. Don't treat its absence as a gap; revisit once provider credentials exist.
 
 **Objective:** Add Google OAuth2 login and expose a gRPC server so the gateway (and future services) can synchronously validate tokens without HTTP round-trips.
 
@@ -298,6 +312,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 7: Auth Service — User Profile Management**
 
+> **Status: ✅ Done.** `UserProfileService`/`UserProfileController` implemented as specified, all endpoints working, `SuperAdminSeeder` runs on `ApplicationReadyEvent` as designed.
+
 **Objective:** Implement profile initialisation and management directly inside auth-service. There is no separate user-service microservice — all profile data lives in the `users` table in `auth_db`.
 
 **Context:** The `users` table has all profile columns added by V3 migration (`role`, `full_name`, `phone`, `avatar_url`, `country`, `timezone`, `bio`, `learning_goals`, `date_of_birth`, `preferences`). The `RoleName` Java enum (`SUPER_ADMIN`, `STUDENT`, `MODERATOR`, `CUSTOMER_SUPPORT`) is stored as `@Enumerated(EnumType.STRING)` on the `User` entity.
@@ -330,6 +346,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 8: Student Frontend — Auth Context & Auth Pages**
+
+> **Status: ✅ Mostly done.** All five auth pages built (login, register, forgot-password, reset-password, verify-email), `AuthContext` + `useFormState` + `apiFetch`-with-refresh-retry implemented per the no-external-state-library constraint. Additionally now rejects login if the account isn't a `STUDENT` role (cross-portal guard, not in the original scope). Not built: the `Navbar` component (transparent-on-scroll, guest-vs-authenticated) — the landing page is still a placeholder — and `/profile`. `middleware.ts` is now `proxy.ts` (Next.js 16 renamed the convention).
 
 **Objective:** Build the student Next.js app with an `AuthContext`, custom data-fetching hooks, and all auth pages (register, login, verify email, forgot password) wired through the gateway.
 
@@ -383,6 +401,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 9: Admin Frontend — Auth Context, Shell Layout & Auth Pages**
 
+> **Status: ⚠️ Partial.** Auth pages (login, forgot-password, reset-password — no register, by design) and `AuthContext` (with `hasPermission`) are built and working, plus the same cross-portal login rejection as the student app. The dashboard shell is minimal — a bare wrapper `div` and a dashboard page with stat-card placeholders, **not** the specified `Sidebar`/`TopHeader`/`Breadcrumb` components or a dedicated `UIContext` for sidebar/toast state (toasts use the shared `ToastContext` from `apps/utilities` instead). **Known bug, not yet fixed:** `hasPermission` checks `roles === 'super_admin'` (lowercase) but the backend returns roles uppercase (`SUPER_ADMIN`), so the blanket super-admin permission grant never actually triggers. `middleware.ts` is now `proxy.ts` (Next.js 16 renamed the convention), and additionally checks role from the JWT payload, not just cookie presence.
+
 **Objective:** Build the admin Next.js app with an `AuthContext`, the persistent shell layout (sidebar + header), and auth pages — using the same patterns as the student frontend.
 
 **Implementation guidance:**
@@ -422,6 +442,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 10: End-to-End Auth Integration**
+
+> **Status: ✅ Done**, verified live (not via an automated E2E suite): gateway → auth-service gRPC header injection confirmed, `returnUrl` redirect on the student route guard implemented, `fetchWithRefresh`-equivalent (401-triggered single retry) implemented in `apiFetch`. Beyond the original scope: cross-portal login rejection was added this phase after being flagged as a gap — a student's valid credentials no longer grant access to the admin portal (and vice versa), enforced both at login time (`AuthContext`) and via the route guard reading role from the JWT (defense-in-depth, not cryptographically verified — the real enforcement remains the backend's `@PreAuthorize` checks).
 
 **Objective:** Validate the complete auth path across gateway → auth service → user service → both frontends, including edge cases and the `returnUrl` redirect flow.
 
