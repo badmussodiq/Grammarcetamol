@@ -5,6 +5,8 @@ export interface AdminUser {
   email: string;
   roles: string;
   permissions?: string[];
+  /** Only populated once refreshUser() has run — the login response itself doesn't include it. */
+  fullName?: string;
 }
 
 export interface ApiResponse<T> {
@@ -12,6 +14,17 @@ export interface ApiResponse<T> {
   data: T;
   error: string | null;
   timestamp: string;
+}
+
+/** Pure — extracted from AuthContext for testability. Regression coverage for the bug where this
+ * used to compare the whole roles string against the lowercase literal 'super_admin' (always
+ * false, since the backend returns roles uppercase and possibly comma-separated). */
+export function computeHasPermission(user: AdminUser | null, resource: string, action: string): boolean {
+  if (!user) return false;
+  const roles = user.roles.split(',').map((r) => r.trim());
+  if (roles.includes('SUPER_ADMIN')) return true;
+  const perms = user.permissions ?? [];
+  return perms.includes(`${resource}:${action}`) || perms.includes(`${resource}:*`);
 }
 
 export const authApi = {

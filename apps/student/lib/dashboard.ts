@@ -1,0 +1,6 @@
+/** Pure — local time-of-day greeting, independently testable without mocking a clock library. */
+export function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}

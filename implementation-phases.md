@@ -5,7 +5,7 @@
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3 (Enrollment/Payment/Review Services + checkout/dashboard/learning-interface/revenue/moderation/student-directory pages) is planned as of 2026-08-05 — see `PLAN.md` Tasks 19–30 for the full breakdown and per-task status as it lands. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3's full backend (`enrollment-service`, `payment-service`, `review-service`) and the student frontend (checkout, dashboard, my-courses, learning interface) are done as of 2026-08-05, live-verified in the browser including a real enroll → watch → complete → review-eligible loop. Admin frontend now has a real shell, `/revenue`, and `/transactions` (Tasks 26–27, live-verified); review moderation and the student directory are next — see `PLAN.md` Tasks 28–30 for the full breakdown and per-task status. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -232,19 +232,23 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 **Events Consumed:** `course.published`, `payment.completed`, `user.created`
 
 #### Payment Service (Node.js / NestJS)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys |
-| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys | ✅ backend done as a pluggable `PaymentProvider` (Paystack live, Stripe/Flutterwave are a new class + registry entry away); no PCI tokenization needed — Paystack's Inline Popup handles card data, this service never touches it; idempotent by design (confirm/webhook convergence). Checkout UI is Task 23 |
+| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation | ⚠️ ledger (`transactions` table) and refund (balance-validated, admin-only) done; no approval-gate workflow (refunds complete immediately once an admin issues them — no pending/approved states in the UI, matching this task's own scoped-down decision); invoice generation out of scope (no `invoices` table); revenue dashboard itself is Task 27 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 21. Live-verified against a real Paystack test account, including a real bug found and fixed (an orphaned payment row on provider-call failure) and a real account-configuration gap found (the test account only supports NGN, not the USD all seeded courses are priced in) — needs a decision before Task 23's checkout demo can complete an actual charge.
 
 **Database:** `payment_db` — run `V1__payment_initial_schema.sql`  
 **Events Published:** `payment.intent.created`, `payment.completed`, `payment.failed`, `refund.requested`, `refund.completed`  
 **Events Consumed:** `enrollment.created` (for invoice generation)
 
 #### Review Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue | ✅ backend done — live REST completion-check (not an event flag) against enrollment-service, 50%/7-day boundaries unit-tested, admin moderation endpoint works. Moderation UI itself is Task 28. Course-level `avg_rating`/`review_count` aren't updated by approved reviews yet — flagged, not fixed, see `PLAN.md` Task 22 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 22. Live-verified against the real running enrollment-service (a genuine cross-service call correctly rejected a non-enrolled test user).
 
 **Database:** `review_db` — run `V1__review_initial_schema.sql`  
 **Events Published:** `review.submitted`, `review.approved`, `review.moderated`  
@@ -253,22 +257,22 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 3.2 Frontends
 
 #### Student Frontend
-| Page | Features |
-|:---|:---|
-| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states |
-| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses |
-| `/my-courses` | Grid of enrolled courses with progress bars; filter by status |
-| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) |
-| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states | ✅ built and live-verified; Paystack's own popup is the method selector (no custom UI needed); real charge blocked on the deferred NGN/USD account gap, not a frontend issue |
+| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses | ✅ built and live-verified, minus live-classes/notifications panels (no backing services) |
+| `/my-courses` | Grid of enrolled courses with progress bars; filter by status | ✅ built and live-verified |
+| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) | ⚠️ 2-pane, not 3 — right pane (instructor/downloads/discussion/bookmarks) deliberately deferred, no backing data. Left sidebar + center video/progress/gating live-verified working end-to-end |
+| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation | ⚠️ toggle-based drawer (not a swipe bottom sheet) live-verified working; Notes/Discussion/Downloads tabs N/A, nothing lives there in this scoped-down version |
 
 #### Admin Frontend
-| Page | Features |
-|:---|:---|
-| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar |
-| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal |
-| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions |
-| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) |
-| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar | ✅ done, live-verified — donut is by payment method, not category (a real cross-service join, deliberately substituted, see `PLAN.md` Task 27); best-sellers is a ranked list, not a horizontal bar chart |
+| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal | ✅ done, live-verified (empty state only — no completed payment exists yet, blocked on the Task 21 currency gap); refund modal built but its real submit path is unverified for the same reason |
+| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions | 🔲 Task 28, not started |
+| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) | 🔲 Task 29, not started |
+| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes | 🔲 Task 29, not started |
 
 ### 3.3 Cross-Cutting
 | Task | Detail |
