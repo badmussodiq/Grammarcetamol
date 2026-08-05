@@ -5,7 +5,7 @@
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3's full backend (`enrollment-service`, `payment-service`, `review-service`) and the student frontend (checkout, dashboard, my-courses, learning interface) are done as of 2026-08-05, live-verified in the browser including a real enroll → watch → complete → review-eligible loop. Admin frontend (revenue/transactions/reviews/students) is next — see `PLAN.md` Tasks 26–30 for the full breakdown and per-task status. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3's full backend (`enrollment-service`, `payment-service`, `review-service`) and the student frontend (checkout, dashboard, my-courses, learning interface) are done as of 2026-08-05, live-verified in the browser including a real enroll → watch → complete → review-eligible loop. Admin frontend now has a real shell, `/revenue`, and `/transactions` (Tasks 26–27, live-verified); review moderation and the student directory are next — see `PLAN.md` Tasks 28–30 for the full breakdown and per-task status. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -266,13 +266,13 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation | ⚠️ toggle-based drawer (not a swipe bottom sheet) live-verified working; Notes/Discussion/Downloads tabs N/A, nothing lives there in this scoped-down version |
 
 #### Admin Frontend
-| Page | Features |
-|:---|:---|
-| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar |
-| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal |
-| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions |
-| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) |
-| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar | ✅ done, live-verified — donut is by payment method, not category (a real cross-service join, deliberately substituted, see `PLAN.md` Task 27); best-sellers is a ranked list, not a horizontal bar chart |
+| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal | ✅ done, live-verified (empty state only — no completed payment exists yet, blocked on the Task 21 currency gap); refund modal built but its real submit path is unverified for the same reason |
+| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions | 🔲 Task 28, not started |
+| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) | 🔲 Task 29, not started |
+| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes | 🔲 Task 29, not started |
 
 ### 3.3 Cross-Cutting
 | Task | Detail |

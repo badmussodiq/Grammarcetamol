@@ -229,6 +229,52 @@ export class PaymentsService {
     return updated;
   }
 
+  /** Admin listing for the /transactions page. Every filter is optional. */
+  async list(filters: {
+    status?: string;
+    method?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page: number;
+    limit: number;
+  }): Promise<{ items: Payment[]; total: number }> {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (filters.status) {
+      params.push(filters.status);
+      conditions.push(`status = $${params.length}`);
+    }
+    if (filters.method) {
+      params.push(filters.method);
+      conditions.push(`payment_method = $${params.length}`);
+    }
+    if (filters.dateFrom) {
+      params.push(filters.dateFrom);
+      conditions.push(`created_at >= $${params.length}`);
+    }
+    if (filters.dateTo) {
+      params.push(filters.dateTo);
+      conditions.push(`created_at <= $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const offset = (filters.page - 1) * filters.limit;
+
+    const [itemsResult, countResult] = await Promise.all([
+      this.pool.query(
+        `SELECT * FROM payments ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, filters.limit, offset],
+      ),
+      this.pool.query(`SELECT COUNT(*) AS total FROM payments ${whereClause}`, params),
+    ]);
+
+    return {
+      items: itemsResult.rows.map(mapPaymentRow),
+      total: Number(countResult.rows[0].total),
+    };
+  }
+
   private async findByReference(reference: string): Promise<Payment> {
     const result = await this.pool.query(`SELECT * FROM payments WHERE gateway_ref = $1`, [reference]);
     if (result.rowCount === 0) {

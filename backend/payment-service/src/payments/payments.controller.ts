@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Headers, Param, Post, RawBodyRequest, Req } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Headers, Param, Post, Query, RawBodyRequest, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { ApiResponse } from '../common/api-response';
 import { CurrentUser, CurrentUserPayload, requireAuthenticated } from '../common/current-user.decorator';
@@ -33,6 +33,37 @@ export class PaymentsController {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
     await this.paymentsService.handleWebhook(rawBody, signature);
     return { status: 'ok' };
+  }
+
+  @Get()
+  async list(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('status') status?: string,
+    @Query('method') method?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    requireAuthenticated(user);
+    if (!user.isAdminOrModerator()) {
+      throw new ForbiddenException('Only super admins or moderators can view transactions');
+    }
+    const result = await this.paymentsService.list({
+      status,
+      method,
+      dateFrom,
+      dateTo,
+      page: Math.max(Number(page) || 1, 1),
+      limit: Math.min(Math.max(Number(limit) || 20, 1), 100),
+    });
+    return ApiResponse.success({
+      items: result.items,
+      page: Math.max(Number(page) || 1, 1),
+      limit: Math.min(Math.max(Number(limit) || 20, 1), 100),
+      total: result.total,
+      totalPages: Math.ceil(result.total / Math.min(Math.max(Number(limit) || 20, 1), 100)),
+    });
   }
 
   @Post(':id/refund')
