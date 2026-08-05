@@ -202,13 +202,13 @@ public class EnrollmentService {
     public CompletionResponse getCompletion(UUID userId, UUID courseId) {
         Optional<Enrollment> enrollmentOpt = enrollmentRepository.findByUserIdAndCourseId(userId, courseId);
         if (enrollmentOpt.isEmpty()) {
-            return new CompletionResponse(false, 0);
+            return new CompletionResponse(false, 0, null);
         }
         Enrollment enrollment = enrollmentOpt.get();
         int totalLessons = totalLessonCount(courseServiceClient.getCourse(courseId));
         long completedLessons = lessonProgressRepository.countByEnrollmentIdAndStatus(enrollment.getId(), LessonProgress.STATUS_COMPLETED);
         int pct = totalLessons == 0 ? 0 : (int) ((completedLessons * 100) / totalLessons);
-        return new CompletionResponse(true, pct);
+        return new CompletionResponse(true, pct, enrollment.getId());
     }
 
     /**

@@ -11,10 +11,12 @@ Grammarcetamol/
 │   ├── admin/          Next.js 16 — internal admin/staff frontend
 │   └── utilities/      Shared React component/hook library (@grammarcetamol/utilities)
 ├── backend/
-│   ├── shared-java/      Not a service — shared library (ApiResponse, header-trust CurrentUser) for header-trust services, `mvn install`ed locally
+│   ├── shared-java/        Not a service — shared library (ApiResponse, header-trust CurrentUser) for header-trust services, `mvn install`ed locally
 │   ├── auth-service/       Spring Boot — auth, profiles, RBAC (Java 21)
 │   ├── course-service/     Spring Boot — categories, courses, modules, lessons, catalog (Java 21)
 │   ├── enrollment-service/ Spring Boot — free/paid enrollment, lesson progress, prerequisite gating (Java 21)
+│   ├── payment-service/    NestJS — checkout, pluggable payment provider (Paystack), refunds (Node 20+)
+│   ├── review-service/     Spring Boot — course reviews, 50%-completion gate, moderation (Java 21)
 │   └── gateway-service/    Spring Cloud Gateway — single entry point, JWT validation (Java 21)
 ├── docker/
 │   └── docker-compose.dev.yml   Local Postgres, Redis, RabbitMQ
@@ -35,9 +37,9 @@ Grammarcetamol/
 
 **Phase 2 — Course Content & Discovery** is implemented and verified end-to-end, live: `course-service` (categories, courses with draft/review/published/archived lifecycle + versioning, modules, lessons, public catalog with search/filter/sort), the student catalog/detail pages + landing hero, and the admin course-management pages (list, create, per-course Overview/Edit/Content/Versions tabs). Upload Service and Media Service are **intentionally deferred** — no object storage or MongoDB is provisioned yet; lessons take a plain admin-pasted `video_url` in the meantime, per the phase's own "Media Service can be stubbed" allowance.
 
-**Phase 3 — Enrollment, Payments & Learning Loop** is in progress: `enrollment-service` (free/paid enrollment, per-lesson progress, prerequisite gating, at-risk query) is implemented — see `PLAN.md` Task 20. Payment Service (Paystack, pluggable for Stripe/Flutterwave later) and Review Service, plus both frontends' checkout/dashboard/learning-interface/revenue/moderation/student-directory pages, are next (`PLAN.md` Tasks 21–30).
+**Phase 3 — Enrollment, Payments & Learning Loop** backend is done: `enrollment-service` (free/paid enrollment, per-lesson progress, prerequisite gating, at-risk query — `PLAN.md` Task 20), `payment-service` (checkout, pluggable `PaymentProvider` with Paystack live, refunds — `PLAN.md` Task 21, the repo's first NestJS service), and `review-service` (50%-completion-gated reviews, moderation — `PLAN.md` Task 22) are all implemented and live-verified. Two known gaps, deliberately not fixed yet: the Paystack test account only supports NGN, not the USD all seeded courses are priced in (the user's actual plan is geo/currency-based pricing, explicitly deferred); and `course-service`'s denormalized `enrollment_count`/`avg_rating`/`review_count` columns aren't incremented by the new services yet. Both frontends' checkout/dashboard/learning-interface/revenue/moderation/student-directory pages are next (`PLAN.md` Tasks 23–30).
 
-**Not yet built**: payments, reviews, live classes, and everything else past what's listed above (`implementation-phases.md`).
+**Not yet built**: live classes, and everything else past what's listed above (`implementation-phases.md`).
 
 See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date status of every task and phase.
 
@@ -62,8 +64,11 @@ cd backend/shared-java && mvn install
 cd backend/auth-service && mvn spring-boot:run
 cd backend/course-service && mvn spring-boot:run
 cd backend/enrollment-service && mvn spring-boot:run
+cd backend/review-service && mvn spring-boot:run
 cd backend/gateway-service && mvn spring-boot:run
 ```
+
+`payment-service` is Node/NestJS, not Maven — see `backend/payment-service/README.md` for its `.env` setup (needs real Paystack test-mode keys) before `npm install && npm run start:dev`.
 
 Auth service seeds a super admin on first boot — check `SuperAdminSeeder.java` / the `app.super-admin-email` and `app.super-admin-password` properties for the default credentials (change them for anything beyond local dev).
 
@@ -83,8 +88,7 @@ npm --prefix apps/utilities install
 ## Known environment gotchas (Windows)
 
 - **`Selector.open()` / "Unable to establish loopback connection"** when starting any Spring Boot service (or, as seen in `enrollment-service`, any code path that opens an NIO `Selector` — including the JDK's `java.net.http.HttpClient`, not just Tomcat's connector): a JDK-level Windows NIO issue, most often caused by security/endpoint-protection software (Acronis Active Protection and Windows Defender's Network Inspection Service have both been observed causing this) intercepting the loopback socket. Add a process exclusion for `java.exe` if you hit this. It appears more reliable from an IDE launch than from an automated/scripted `mvn spring-boot:run`.
-- All backend services need Java 21 and Maven on `PATH`.
-- Node 20+ is required for both frontends (Next.js 16's minimum).
+- Java backend services need Java 21 and Maven on `PATH`. `payment-service` needs Node 20+ instead (same requirement as both frontends, Next.js 16's minimum) — it wasn't affected by the loopback-socket issue above in this environment.
 
 ## Documentation map
 
@@ -95,4 +99,4 @@ npm --prefix apps/utilities install
 | `admin-frontend.md` / `student-frontend.md` | Full target UI/UX design spec per portal — describes where the product is headed, not just what's built today |
 | `database-schema-and-migrations.md` | Target schema for every planned service — see the note at the top for where it currently diverges from the real, implemented `auth_db`/`course_db` schemas |
 | `user-stories.md` | Full product backlog |
-| `backend/auth-service/README.md`, `backend/course-service/README.md`, `backend/enrollment-service/README.md`, `backend/gateway-service/README.md`, `backend/shared-java/README.md`, `apps/*/README.md` | Per-project setup and reference docs |
+| `backend/auth-service/README.md`, `backend/course-service/README.md`, `backend/enrollment-service/README.md`, `backend/payment-service/README.md`, `backend/review-service/README.md`, `backend/gateway-service/README.md`, `backend/shared-java/README.md`, `apps/*/README.md` | Per-project setup and reference docs |

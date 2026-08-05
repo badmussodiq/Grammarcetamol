@@ -9,6 +9,7 @@ package-lock.json
 backend/auth-service/src/main/resources/keys/*.pem
 backend/**/target/
 backend/**/node_modules/
+backend/**/dist/
 backend/**/.env
 
 ### NetBeans ###

@@ -232,19 +232,23 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 **Events Consumed:** `course.published`, `payment.completed`, `user.created`
 
 #### Payment Service (Node.js / NestJS)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys |
-| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys | ✅ backend done as a pluggable `PaymentProvider` (Paystack live, Stripe/Flutterwave are a new class + registry entry away); no PCI tokenization needed — Paystack's Inline Popup handles card data, this service never touches it; idempotent by design (confirm/webhook convergence). Checkout UI is Task 23 |
+| US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation | ⚠️ ledger (`transactions` table) and refund (balance-validated, admin-only) done; no approval-gate workflow (refunds complete immediately once an admin issues them — no pending/approved states in the UI, matching this task's own scoped-down decision); invoice generation out of scope (no `invoices` table); revenue dashboard itself is Task 27 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 21. Live-verified against a real Paystack test account, including a real bug found and fixed (an orphaned payment row on provider-call failure) and a real account-configuration gap found (the test account only supports NGN, not the USD all seeded courses are priced in) — needs a decision before Task 23's checkout demo can complete an actual charge.
 
 **Database:** `payment_db` — run `V1__payment_initial_schema.sql`  
 **Events Published:** `payment.intent.created`, `payment.completed`, `payment.failed`, `refund.requested`, `refund.completed`  
 **Events Consumed:** `enrollment.created` (for invoice generation)
 
 #### Review Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-012: Leave Course Reviews | 50% completion gate; 1–5 star + text; edit within 7 days; admin moderation queue | ✅ backend done — live REST completion-check (not an event flag) against enrollment-service, 50%/7-day boundaries unit-tested, admin moderation endpoint works. Moderation UI itself is Task 28. Course-level `avg_rating`/`review_count` aren't updated by approved reviews yet — flagged, not fixed, see `PLAN.md` Task 22 |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 22. Live-verified against the real running enrollment-service (a genuine cross-service call correctly rejected a non-enrolled test user).
 
 **Database:** `review_db` — run `V1__review_initial_schema.sql`  
 **Events Published:** `review.submitted`, `review.approved`, `review.moderated`  

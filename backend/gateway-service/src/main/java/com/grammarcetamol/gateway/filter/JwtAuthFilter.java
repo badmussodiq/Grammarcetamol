@@ -39,7 +39,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         new String[]{"POST", "/api/auth/resend-verification"},
         new String[]{"GET",  "/api/auth/verify-email"},
         new String[]{"GET",  "/api/auth/.well-known/jwks.json"},
-        new String[]{"*",    "/api/auth/oauth2/**"}
+        new String[]{"*",    "/api/auth/oauth2/**"},
+        // Paystack calls this server-to-server — no user session, no JWT. It authenticates
+        // itself via the x-paystack-signature HMAC header instead, verified inside
+        // payment-service. Safe the same way login/register are public-but-self-validating.
+        new String[]{"POST", "/api/payments/webhook"}
     );
 
     /**
