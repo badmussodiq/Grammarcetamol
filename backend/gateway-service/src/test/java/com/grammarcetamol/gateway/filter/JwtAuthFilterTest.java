@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -35,7 +36,9 @@ class JwtAuthFilterTest {
 
     @BeforeEach
     void setUp() {
-        when(chain.filter(any())).thenReturn(Mono.empty());
+        // lenient: invalidTokenReturns401 and missingTokenReturns401 never reach chain.filter(),
+        // since the request is rejected before the chain runs.
+        lenient().when(chain.filter(any())).thenReturn(Mono.empty());
     }
 
     @Test
@@ -112,5 +115,72 @@ class JwtAuthFilterTest {
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         verify(authServiceStub, never()).validateToken(any());
+    }
+
+    @Test
+    void validTokenInCookiePassesThrough() {
+        AuthProto.ValidateTokenResponse grpcResponse = AuthProto.ValidateTokenResponse.newBuilder()
+            .setValid(true)
+            .setUserId("user-456")
+            .setEmail("cookie-user@example.com")
+            .addRoles("STUDENT")
+            .build();
+
+        when(authServiceStub.validateToken(any())).thenReturn(grpcResponse);
+
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/users/me")
+            .cookie(new HttpCookie("access_token", "cookie.jwt.token"))
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        verify(chain, times(1)).filter(argThat(ex -> {
+            String userId = ex.getRequest().getHeaders().getFirst("X-User-Id");
+            return "user-456".equals(userId);
+        }));
+    }
+
+    @Test
+    void headerTakesPrecedenceOverCookie() {
+        AuthProto.ValidateTokenResponse grpcResponse = AuthProto.ValidateTokenResponse.newBuilder()
+            .setValid(true)
+            .setUserId("header-user")
+            .build();
+
+        when(authServiceStub.validateToken(argThat(req -> "header.jwt.token".equals(req.getToken()))))
+            .thenReturn(grpcResponse);
+
+        MockServerHttpRequest request = MockServerHttpRequest
+            .get("/api/users/me")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer header.jwt.token")
+            .cookie(new HttpCookie("access_token", "cookie.jwt.token"))
+            .build();
+        ServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(jwtAuthFilter.filter(exchange, chain))
+            .verifyComplete();
+
+        verify(authServiceStub).validateToken(argThat(req -> "header.jwt.token".equals(req.getToken())));
+    }
+
+    @Test
+    void resendVerificationAndJwksAreAlsoPublicRoutes() {
+        MockServerHttpRequest resendRequest = MockServerHttpRequest
+            .post("/api/auth/resend-verification")
+            .build();
+        StepVerifier.create(jwtAuthFilter.filter(MockServerWebExchange.from(resendRequest), chain))
+            .verifyComplete();
+
+        MockServerHttpRequest jwksRequest = MockServerHttpRequest
+            .get("/api/auth/.well-known/jwks.json")
+            .build();
+        StepVerifier.create(jwtAuthFilter.filter(MockServerWebExchange.from(jwksRequest), chain))
+            .verifyComplete();
+
+        verify(authServiceStub, never()).validateToken(any());
+        verify(chain, times(2)).filter(any());
     }
 }

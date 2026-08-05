@@ -8,6 +8,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -35,10 +36,14 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         new String[]{"POST", "/api/auth/register"},
         new String[]{"POST", "/api/auth/forgot-password"},
         new String[]{"POST", "/api/auth/reset-password"},
+        new String[]{"POST", "/api/auth/resend-verification"},
         new String[]{"GET",  "/api/auth/verify-email"},
+        new String[]{"GET",  "/api/auth/.well-known/jwks.json"},
         new String[]{"*",    "/api/auth/oauth2/**"},
         new String[]{"GET",  "/api/courses/**"}
     );
+
+    private static final String ACCESS_TOKEN_COOKIE = "access_token";
 
     @Override
     public int getOrder() {
@@ -55,12 +60,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return unauthorizedResponse(exchange, "Missing or invalid Authorization header");
+        String token = extractToken(request);
+        if (token == null) {
+            return unauthorizedResponse(exchange, "Missing or invalid access token");
         }
-
-        String token = authHeader.substring(7);
 
         try {
             AuthProto.ValidateTokenResponse response = authServiceStub.validateToken(
@@ -86,6 +89,21 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         } catch (StatusRuntimeException e) {
             return serviceUnavailableResponse(exchange, "Auth service unavailable");
         }
+    }
+
+    /**
+     * The frontend never has JS access to the JWT — it's an httpOnly cookie set by
+     * auth-service. So a request is authenticated either via a genuine Authorization
+     * header (service-to-service, tests, tools) or via the access_token cookie the
+     * browser sends automatically. Header wins if somehow both are present.
+     */
+    private String extractToken(ServerHttpRequest request) {
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        HttpCookie cookie = request.getCookies().getFirst(ACCESS_TOKEN_COOKIE);
+        return cookie != null ? cookie.getValue() : null;
     }
 
     private boolean isPublicRoute(String method, String path) {

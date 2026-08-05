@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 public class AppGatewayProperties {
 
     private String authServiceUrl;
-    private String userServiceUrl;
     private String courseServiceUrl;
     private String internalToken;
 }

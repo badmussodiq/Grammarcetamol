@@ -1,5 +1,6 @@
 package com.grammarcetamol.auth.service;
 
+import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -49,13 +50,14 @@ public class JwtService {
     }
 
     public String generateAccessToken(User user) {
+        String role = user.getRole() != null ? user.getRole().name() : RoleName.STUDENT.name();
         Instant now    = Instant.now();
         Instant expiry = now.plusSeconds(accessTokenExpirySeconds);
         return Jwts.builder()
             .subject(user.getId().toString())
             .claim("userId", user.getId().toString())
             .claim("email",  user.getEmail())
-            .claim("roles",  List.of("STUDENT"))
+            .claim("roles",  List.of(role))
             .claim("jti",    UUID.randomUUID().toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiry))

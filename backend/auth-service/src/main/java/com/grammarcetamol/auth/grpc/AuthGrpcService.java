@@ -15,9 +15,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 
-    private final JwtService         jwtService;
+    private final JwtService jwtService;
     private final StringRedisTemplate redisTemplate;
-    private final UserRepository     userRepository;
+    private final UserRepository userRepository;
 
     @Override
     public void validateToken(AuthProto.ValidateTokenRequest request,
@@ -29,22 +29,22 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
             if (jti != null && Boolean.TRUE.equals(
                     redisTemplate.hasKey("blacklist:" + jti))) {
                 responseObserver.onNext(AuthProto.ValidateTokenResponse.newBuilder()
-                    .setValid(false)
-                    .setErrorMessage("Token has been revoked")
-                    .build());
+                        .setValid(false)
+                        .setErrorMessage("Token has been revoked")
+                        .build());
                 responseObserver.onCompleted();
                 return;
             }
 
             String userId = claims.getSubject();
-            String email  = (String) claims.get("email");
+            String email = (String) claims.get("email");
             @SuppressWarnings("unchecked")
             var roles = (java.util.List<String>) claims.get("roles");
 
             var builder = AuthProto.ValidateTokenResponse.newBuilder()
-                .setValid(true)
-                .setUserId(userId != null ? userId : "")
-                .setEmail(email != null ? email : "");
+                    .setValid(true)
+                    .setUserId(userId != null ? userId : "")
+                    .setEmail(email != null ? email : "");
 
             if (roles != null) {
                 roles.forEach(builder::addRoles);
@@ -54,9 +54,9 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         } catch (Exception e) {
             log.debug("Token validation failed: {}", e.getMessage());
             responseObserver.onNext(AuthProto.ValidateTokenResponse.newBuilder()
-                .setValid(false)
-                .setErrorMessage(e.getMessage())
-                .build());
+                    .setValid(false)
+                    .setErrorMessage(e.getMessage())
+                    .build());
         }
         responseObserver.onCompleted();
     }
@@ -67,25 +67,25 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         try {
             UUID userId = UUID.fromString(request.getUserId());
             userRepository.findById(userId).ifPresentOrElse(
-                user -> {
-                    responseObserver.onNext(AuthProto.UserResponse.newBuilder()
-                        .setId(user.getId().toString())
-                        .setEmail(user.getEmail())
-                        .setStatus(user.getStatus().name())
-                        .setEmailVerified(user.isEmailVerified())
-                        .build());
-                    responseObserver.onCompleted();
-                },
-                () -> {
-                    responseObserver.onError(
-                        io.grpc.Status.NOT_FOUND.withDescription("User not found")
-                            .asRuntimeException()
-                    );
-                }
+                    user -> {
+                        responseObserver.onNext(AuthProto.UserResponse.newBuilder()
+                                .setId(user.getId().toString())
+                                .setEmail(user.getEmail())
+                                .setStatus(user.getStatus().name())
+                                .setEmailVerified(user.isEmailVerified())
+                                .build());
+                        responseObserver.onCompleted();
+                    },
+                    () -> {
+                        responseObserver.onError(
+                                io.grpc.Status.NOT_FOUND.withDescription("User not found")
+                                        .asRuntimeException()
+                        );
+                    }
             );
         } catch (Exception e) {
             responseObserver.onError(
-                io.grpc.Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException()
+                    io.grpc.Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException()
             );
         }
     }

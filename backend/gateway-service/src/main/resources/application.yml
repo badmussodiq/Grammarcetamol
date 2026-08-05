@@ -8,10 +8,27 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6380}
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:3001"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
 
 gateway:
   auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-  user-service-url: ${USER_SERVICE_URL:http://localhost:8082}
   course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 

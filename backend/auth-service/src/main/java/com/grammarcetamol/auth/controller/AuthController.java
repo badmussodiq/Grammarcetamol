@@ -3,12 +3,14 @@ package com.grammarcetamol.auth.controller;
 import com.grammarcetamol.auth.dto.ApiResponse;
 import com.grammarcetamol.auth.dto.LoginRequest;
 import com.grammarcetamol.auth.dto.RegisterRequest;
+import com.grammarcetamol.auth.dto.ResetPasswordRequest;
 import com.grammarcetamol.auth.service.AuthService;
 import com.grammarcetamol.auth.service.JwtService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +28,13 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService  jwtService;
 
+    public record ResentVerificationRequestBody(@NotNull String email){};
+
+    @GetMapping("/hello")
+    public ResponseEntity<ApiResponse<String>> hello(){
+        return ResponseEntity.ok(ApiResponse.success("Hello"));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
@@ -39,8 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<ApiResponse<String>> resendVerification(@RequestBody Map<String, String> body) {
-        authService.resendVerification(body.get("email"));
+    public ResponseEntity<ApiResponse<String>> resendVerification(@RequestBody @Valid ResentVerificationRequestBody body) {
+        authService.resendVerification(body.email);
         return ResponseEntity.ok(ApiResponse.success("Verification email sent if account exists"));
     }
 
@@ -86,8 +95,8 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody Map<String, String> body) {
-        authService.resetPassword(body.get("token"), body.get("newPassword"));
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully"));
     }
 

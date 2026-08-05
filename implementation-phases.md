@@ -1,9 +1,10 @@
 # Grammarcetamol — Implementation Phases & Delivery Roadmap
 
-> **Document Version:** 1.0  
-> **Last Updated:** 2026-08-01  
+> **Document Version:** 1.1  
+> **Last Updated:** 2026-08-02  
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
+> **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
 
 ---
 
@@ -72,19 +73,25 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | US-STU-003: Secure Login | JWT access (15 min) + refresh (7 days); 5-attempt lockout; silent refresh flow |
 | US-GUEST-006: Seamless Auth Redirect | `returnUrl` persisted through OAuth and email-verification flows |
 
-**Database:** `auth_db` — run `V1__auth_initial_schema.sql`  
-**Events Published:** `user.created`, `user.verified`, `user.login`, `user.logout`, `user.locked`
+**Database:** `auth_db` — run `V1__auth_initial_schema.sql`, `V3__add_profile_columns.sql`  
+**Responsibilities:** Authentication (register, login, logout, refresh, verify email) + User profile management (profile fields, role assignment) — no separate user-service  
+**Events Published:** `user.login`, `user.logout`, `user.locked` (profile creation is synchronous/in-process — no event needed)
 
-#### User Service (Node.js / NestJS)
+#### ~~User Service~~ — Merged into Auth Service
+
+> **This service no longer exists.** Profile and role management is part of Auth Service.
+
+- User profiles are stored directly on the `users` table in `auth_db` (see V3 migration)
+- Role is a `VARCHAR(64)` enum column: `SUPER_ADMIN`, `STUDENT`, `MODERATOR`, `CUSTOMER_SUPPORT`
+- `UserProfileService` and `UserProfileController` live inside `backend/auth-service`
+- `SuperAdminSeeder` seeds the super admin on startup via `AuthService.registerInternal()`
+- `/api/users/**` routes through the gateway to auth-service
+
 | User Story | Acceptance Criteria |
 |:---|:---|
-| US-STU-013: Profile Management | CRUD profile; avatar upload (signed URL to S3); timezone auto-detect |
-| US-ADM-012: Moderator Management | Super Admin creates Moderator; granular permission matrix stored |
-| US-ADM-013: Student Management | Admin directory; suspend/activate with reason; view enrollment + transaction history |
-
-**Database:** `user_db` — run `V1__user_initial_schema.sql`  
-**Events Published:** `profile.updated`, `role.assigned`, `user.suspended`  
-**Events Consumed:** `user.created` (to auto-create profile), `user.verified`
+| US-STU-013: Profile Management | CRUD own profile (fullName, phone, country, timezone, bio, learningGoals); all stored on `users` table |
+| US-ADM-012: Moderator Management | Super Admin creates accounts via `registerInternal()` with `MODERATOR` role |
+| US-ADM-013: Student Management | Admin directory via `GET /api/users`; suspend/activate via `PATCH /api/users/:id/status` |
 
 ### 1.2 Frontends
 
@@ -111,7 +118,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 |:---|:---|
 | RabbitMQ exchanges | `user.exchange` created; bindings for `user.*` routing keys |
 | Redis | Session store TTL 30m; JWT blacklist TTL 1d |
-| API Gateway | Route config: `/api/auth/**` → Auth Service; `/api/users/**` → User Service; AuthFilter active |
+| API Gateway | Route config: `/api/auth/**` → Auth Service; `/api/users/**` → Auth Service (merged, no internal token header); AuthFilter active |
 | Middleware | `middleware.ts` route guards on both frontends |
 
 ### ✅ Phase 1 Exit Criteria
@@ -495,7 +502,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | US-STU-010 | 7 | Coaching (future) |
 | US-STU-011 | 5 | Service Request Service |
 | US-STU-012 | 3 | Review Service |
-| US-STU-013 | 1 | User Service |
+| US-STU-013 | 1 | Auth Service |
 | US-STU-014 | 4 | Notification Service |
 | US-STU-015 | 3 | Course Service + Student Frontend |
 | US-ADM-001 | 5 | Admin Service + Admin Frontend |
@@ -509,8 +516,8 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | US-ADM-009 | 2 | Course Service |
 | US-ADM-010 | 2 | Course Service |
 | US-ADM-011 | 4 | Live Class Service + Admin Frontend |
-| US-ADM-012 | 1 | User Service + Admin Frontend |
-| US-ADM-013 | 1 + 5 | User Service + Admin Frontend |
+| US-ADM-012 | 1 | Auth Service + Admin Frontend |
+| US-ADM-013 | 1 + 5 | Auth Service + Admin Frontend |
 | US-ADM-014 | 5 | Service Request Service + Admin Frontend |
 | US-ADM-015 | 5 | Admin Service + Admin Frontend |
 | US-NOTIF-001 | 4 | Notification Service + Admin Frontend |
