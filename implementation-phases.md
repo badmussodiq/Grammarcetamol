@@ -1,10 +1,11 @@
 # Grammarcetamol — Implementation Phases & Delivery Roadmap
 
-> **Document Version:** 1.1  
-> **Last Updated:** 2026-08-02  
+> **Document Version:** 1.2  
+> **Last Updated:** 2026-08-05  
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
+> **Current status:** Actively in **Phase 1**. The auth module (backend + both frontends) is implemented and verified working end-to-end, including cross-portal login rejection (not originally scoped, added as a security fix). Google OAuth is intentionally deferred. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -49,10 +50,10 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | MongoDB cluster init + replica set config | `migrations/mongo/001_baseline.js` |
 
 ### ✅ Phase 0 Exit Criteria
-- [ ] `docker-compose up` brings up 100% of local stack in <3 min.
-- [ ] Any service push to `main` triggers build, test, and deploy to dev EKS.
-- [ ] Grafana shows green health for all services.
-- [ ] Developer onboarding doc is written.
+- [ ] `docker-compose up` brings up 100% of local stack in <3 min. — *`docker/docker-compose.dev.yml` exists and brings up Postgres/Redis/RabbitMQ, but the application services (gateway, auth-service) aren't containerized — they run via `mvn spring-boot:run`. Not the full stack.*
+- [ ] Any service push to `main` triggers build, test, and deploy to dev EKS. — *No CI/CD pipeline exists.*
+- [ ] Grafana shows green health for all services. — *No observability stack exists.*
+- [x] Developer onboarding doc is written. — *Root `README.md` plus a README per app/service.*
 
 ---
 
@@ -66,12 +67,12 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 1.1 Backend Services
 
 #### Auth Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-001: Account Registration | Email/password + Google OAuth; bcrypt hashing (cost ≥12); welcome email queued |
-| US-STU-002: Email Verification | 24h token expiry; resend capability; status transitions to `active` |
-| US-STU-003: Secure Login | JWT access (15 min) + refresh (7 days); 5-attempt lockout; silent refresh flow |
-| US-GUEST-006: Seamless Auth Redirect | `returnUrl` persisted through OAuth and email-verification flows |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-001: Account Registration | Email/password + ~~Google OAuth~~; bcrypt hashing (cost ≥12); welcome email queued | ✅ email/password. Google OAuth intentionally deferred (no provider console set up yet) |
+| US-STU-002: Email Verification | 24h token expiry; resend capability; status transitions to `active` | ✅ |
+| US-STU-003: Secure Login | JWT access (15 min) + refresh (7 days); 5-attempt lockout; silent refresh flow | ✅ (silent refresh: single 401-triggered retry in `apiFetch`, not a background timer) |
+| US-GUEST-006: Seamless Auth Redirect | `returnUrl` persisted through OAuth and email-verification flows | ⚠️ Student's route guard sets `returnUrl` on redirect-to-login; not exercised for OAuth (deferred) |
 
 **Database:** `auth_db` — run `V1__auth_initial_schema.sql`, `V3__add_profile_columns.sql`  
 **Responsibilities:** Authentication (register, login, logout, refresh, verify email) + User profile management (profile fields, role assignment) — no separate user-service  
@@ -87,45 +88,45 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 - `SuperAdminSeeder` seeds the super admin on startup via `AuthService.registerInternal()`
 - `/api/users/**` routes through the gateway to auth-service
 
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-013: Profile Management | CRUD own profile (fullName, phone, country, timezone, bio, learningGoals); all stored on `users` table |
-| US-ADM-012: Moderator Management | Super Admin creates accounts via `registerInternal()` with `MODERATOR` role |
-| US-ADM-013: Student Management | Admin directory via `GET /api/users`; suspend/activate via `PATCH /api/users/:id/status` |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-013: Profile Management | CRUD own profile (fullName, phone, country, timezone, bio, learningGoals); all stored on `users` table | ✅ backend (`GET`/`PATCH /api/users/me`). No frontend `/profile` page yet on either portal |
+| US-ADM-012: Moderator Management | Super Admin creates accounts via `registerInternal()` with `MODERATOR` role | ✅ backend + admin `/users/create` UI, verified end-to-end |
+| US-ADM-013: Student Management | Admin directory via `GET /api/users`; suspend/activate via `PATCH /api/users/:id/status` | ✅ backend + admin `/users` UI (list + suspend/activate), verified end-to-end |
 
 ### 1.2 Frontends
 
 #### Student Frontend (Next.js)
-| Page | Features |
-|:---|:---|
-| `/login` | Email + password form; Google OAuth button; "Forgot Password" link |
-| `/register` | Validation (8 chars, mixed case, number); confirm password; T&Cs checkbox |
-| `/forgot-password` | Email input; success state; rate-limited (1 req / 60s) |
-| `/verify-email` | Token validation; redirect to dashboard on success |
-| `/profile` | Tabs: Profile, Account, Notifications, Privacy; avatar cropper |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/login` | Email + password form; ~~Google OAuth button~~; "Forgot Password" link | ✅ (OAuth button omitted — deferred) |
+| `/register` | Validation (8 chars, mixed case, number); confirm password; T&Cs checkbox | ✅ plus a live password-strength indicator |
+| `/forgot-password` | Email input; success state; rate-limited (1 req / 60s) | ✅ |
+| `/verify-email` | Token validation; redirect to dashboard on success | ✅ (redirects to `/login`, not a dashboard — no student dashboard exists yet) |
+| `/profile` | Tabs: Profile, Account, Notifications, Privacy; avatar cropper | ❌ not built |
 
 #### Admin Frontend (Next.js)
-| Page | Features |
-|:---|:---|
-| `/login` | Admin-only login; 2FA prompt if enforced |
-| `/users` | DataTable of all users; filter by role/status; bulk actions |
-| `/users/create` | Create Moderator wizard; permission matrix checkbox grid |
-| `/users/[id]` | Profile read-only + activity log + permission editor |
-| `/roles` | View role definitions; edit Moderator permissions |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/login` | Admin-only login; ~~2FA prompt if enforced~~ | ✅ (no 2FA — not scoped for Phase 1) |
+| `/users` | DataTable of all users; filter by role/status; bulk actions | ⚠️ list + search + suspend/activate built (server-rendered, not a client DataTable component); no role/status filter dropdowns or bulk actions |
+| `/users/create` | Create Moderator wizard; permission matrix checkbox grid | ⚠️ single-step form (role: Moderator or Customer Support), not a wizard. No permission matrix — the backend has no granular permission system, only the four fixed roles |
+| `/users/[id]` | Profile read-only + activity log + permission editor | ❌ not built |
+| `/roles` | View role definitions; edit Moderator permissions | ❌ not built — no backend permission model to back it |
 
 ### 1.3 Cross-Cutting
-| Task | Detail |
-|:---|:---|
-| RabbitMQ exchanges | `user.exchange` created; bindings for `user.*` routing keys |
-| Redis | Session store TTL 30m; JWT blacklist TTL 1d |
-| API Gateway | Route config: `/api/auth/**` → Auth Service; `/api/users/**` → Auth Service (merged, no internal token header); AuthFilter active |
-| Middleware | `middleware.ts` route guards on both frontends |
+| Task | Detail | Status |
+|:---|:---|:---|
+| RabbitMQ exchanges | `user.exchange` created; bindings for `user.*` routing keys | ✅ |
+| Redis | Session store TTL 30m; JWT blacklist TTL 1d | ✅ |
+| API Gateway | Route config: `/api/auth/**` → Auth Service; `/api/users/**` → Auth Service (merged, no internal token header); AuthFilter active | ✅ |
+| Route guards | `middleware.ts` on both frontends | ✅ — renamed `proxy.ts` (Next.js 16 renamed the convention). Admin's checks role from the JWT payload, not just cookie presence; also rejects cross-portal sessions (student cookie on admin site, and vice versa) as defense-in-depth alongside the login-time role check in `AuthContext` |
 
 ### ✅ Phase 1 Exit Criteria
-- [ ] End-to-end test: Guest → Register → Verify Email → Login → View Profile → Logout.
-- [ ] Security audit: Password hashing, JWT expiry, refresh rotation, rate limiting.
-- [ ] Admin can create a Moderator and assign `course:edit` but not `financial:view`.
-- [ ] Load test: `/api/auth/login` handles 500 req/s with p95 < 200ms.
+- [ ] End-to-end test: Guest → Register → Verify Email → Login → View Profile → Logout. — *Register → Login → Logout manually verified working this phase. No automated E2E suite. No `/profile` page to view yet, and email verification wasn't exercised with a real inbox (no SMTP configured locally).*
+- [ ] Security audit: Password hashing, JWT expiry, refresh rotation, rate limiting. — *All four exist (bcrypt cost 12, 15 min access / 7 day refresh with rotation, gateway rate limiting) but no formal audit was performed.*
+- [ ] Admin can create a Moderator and assign `course:edit` but not `financial:view`. — *Admin can create a Moderator (verified). Fine-grained permission assignment doesn't exist — see `/users/create` and `/roles` status above.*
+- [ ] Load test: `/api/auth/login` handles 500 req/s with p95 < 200ms. — *Not performed.*
 
 ---
 

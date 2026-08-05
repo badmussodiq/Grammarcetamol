@@ -2,9 +2,10 @@
 
 > **Document Version:** 1.0  
 > **Application:** Grammarcetamol-Admin-Interface  
-> **Stack:** Next.js (App Router), TypeScript, Tailwind CSS, React Query, Zustand, Recharts  
+> **Stack:** Next.js (App Router), TypeScript, Tailwind CSS, ~~React Query, Zustand, Recharts~~  
 > **Status:** Draft  
 > **Last Updated:** 2026-07-31  
+> **Implementation status (2026-08-05):** This is the full target design — most of it isn't built yet. Implemented: `/login`, `/forgot-password`, `/reset-password` (§ Authentication — no `/register`, by design), a minimal `/` dashboard shell (stat-card placeholders only, not the full §6.1 layout), and `/users` + `/users/create` (§6.12, simplified — a server-rendered list with search/suspend/activate instead of a full `DataTable` component, and a single-step create form instead of a wizard with a permission matrix, since the backend has no granular permission system — only four fixed roles). No `Sidebar`/`TopHeader`/`Breadcrumb` shell (§4), no `/roles`, `/users/[id]`, or any module past user management. **The state-management stack actually used differs from §7 above**: no React Query, no Zustand, no Recharts — per `PLAN.md`'s constraints, it's `useContext`/`useReducer` (`AuthContext` with `hasPermission` — currently has a known role-casing bug, see `PLAN.md` Task 9 — plus shared `ToastContext`) and native `fetch` via `apiFetch`, from `apps/utilities`. See `apps/admin/README.md` and `apps/utilities/README.md` for what's real.
 
 ---
 
