@@ -710,6 +710,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 23: Student Frontend — Checkout Flow**
 
+> **Status: ✅ Done (2026-08-05), verified live end-to-end in the browser.** `lib/enrollment.api.ts` and `lib/checkout.api.ts` built as planned; `/checkout/[courseId]` uses Paystack's classic `.setup({ref, amount, email, key})` popup API (not `resumeTransaction`/access-code resume) — simpler and reuses the backend-generated `reference` directly. Free-course "Enroll for Free" wired into the course detail page's existing `EnrollButton`, paid courses route to `/checkout/[slug]`. Live-verified via the browser preview: registered a real test student (`e2etest@example.com` — activated directly via SQL to skip email verification, no local SMTP; password `TestPass123`, left in place as a reusable test account like Task 15's `teststudent@example.com`), enrolled for free in "Everyday Conversation Skills", confirmed it appeared correctly. Checkout page for the paid course renders correctly (order summary, pre-filled email, correct total) and — as already flagged in Task 21 — fails gracefully with "Payment provider initialization failed" when actually paying, due to the known Paystack NGN/USD account gap; the failure UI (inline error, form stays editable, button resets) works as designed. A real Paystack test-card charge therefore isn't demoed yet — blocked on the same deferred currency decision, not a frontend bug. Small upstream fix made during this task: `AuthContext.login()` now calls `refreshUser()` immediately after login so `fullName` (needed for the dashboard greeting, Task 24) is available without waiting for a full page reload — previously only `{userId, email, roles}` populated until next mount. 6 new logic tests pass (`hasEnrollmentFor`, `toPaystackSubunit`).
+
 **Objective:** Let a logged-in student buy a paid course through a page-hosted Paystack popup, and enroll in a free course with one click — no external state library, following the established `useGenericState`/`apiFetch` conventions.
 
 **Implementation guidance:**
@@ -726,6 +728,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 24: Student Frontend — Dashboard & My Courses**
 
+> **Status: ✅ Done (2026-08-05), verified live in the browser.** `hooks/useMyCourses.ts` combines `GET /api/enrollments/mine` with a per-enrollment course-detail + learn-state fetch (no single pre-joined endpoint exists) — real N+1-shaped fan-out, deliberately not optimized ahead of it being a real problem at this scale. `/dashboard` and `/my-courses` built as planned; live-verified: dashboard's greeting, empty states, and Recommended Courses (correctly excluding nothing since no enrollments existed yet) all rendered correctly on first load, then correctly updated to show the newly-created enrollment after Task 23's live free-enroll test. `/my-courses` correctly showed the course as "Completed" at 100% after Task 25's live completion test. `lib/dashboard.ts`'s `greetingForHour` has 6 boundary tests (11→morning, 12→afternoon, 17→afternoon, 18→evening).
+
 **Objective:** Give a logged-in student a home base and an enrolled-courses list — both pages designed fresh since neither has a detailed spec in `student-frontend.md` beyond a one-line route mention (`/my-courses`) or a partial section (`/dashboard` §5.4, live-classes panel excluded — no Live Class Service exists).
 
 **Implementation guidance:**
@@ -740,6 +744,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 25: Student Frontend — Learning Interface**
+
+> **Status: ✅ Done (2026-08-05), verified live in the browser — the strongest end-to-end proof of Phase 3's backend work so far.** `/my-courses/[courseId]` built exactly as scoped down in the Phase 3 planning notes. Live-verified the full loop in one pass: enrolled for free in a real course from the course detail page → landed on the learning interface → mobile sidebar (browser viewport was narrower than the `md` breakpoint, so the mobile drawer path got exercised for free) correctly showed the module/lesson tree with a play icon → clicked "Mark Complete" → lesson flipped to a green checkmark, the button became disabled "Completed ✓", the course's `completionPct` crossed 50% and the "Leave a Review" link appeared **exactly as designed**, live, computed from real backend data, not a mock. `/my-courses` then correctly reflected the enrollment as "Completed" at 100%. This is a real, unscripted confirmation that Task 20's gating/completion logic, Task 25's UI, and the review-eligibility threshold all compose correctly end-to-end. Progress-sync debouncing, prerequisite lock/unlock on a multi-lesson course, and the "Leave a Review" link's actual destination (still just routes to `/courses` — no review-submission UI exists until Task 28/a student-side review form, which isn't in this task's scope) remain unverified beyond the single-lesson course tested.
 
 **Objective:** Build `/my-courses/[courseId]`, the actual place students watch lessons and track progress — scoped to what's backed by real infrastructure (see Phase 3 planning note above for the full list of deferred sub-features: hls.js, PiP, keyboard shortcuts, discussion, bookmarks, notes, signed-URL downloads).
 

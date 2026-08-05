@@ -5,7 +5,7 @@
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3 (Enrollment/Payment/Review Services + checkout/dashboard/learning-interface/revenue/moderation/student-directory pages) is planned as of 2026-08-05 — see `PLAN.md` Tasks 19–30 for the full breakdown and per-task status as it lands. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3's full backend (`enrollment-service`, `payment-service`, `review-service`) and the student frontend (checkout, dashboard, my-courses, learning interface) are done as of 2026-08-05, live-verified in the browser including a real enroll → watch → complete → review-eligible loop. Admin frontend (revenue/transactions/reviews/students) is next — see `PLAN.md` Tasks 26–30 for the full breakdown and per-task status. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -257,13 +257,13 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 3.2 Frontends
 
 #### Student Frontend
-| Page | Features |
-|:---|:---|
-| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states |
-| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses |
-| `/my-courses` | Grid of enrolled courses with progress bars; filter by status |
-| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) |
-| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states | ✅ built and live-verified; Paystack's own popup is the method selector (no custom UI needed); real charge blocked on the deferred NGN/USD account gap, not a frontend issue |
+| `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses | ✅ built and live-verified, minus live-classes/notifications panels (no backing services) |
+| `/my-courses` | Grid of enrolled courses with progress bars; filter by status | ✅ built and live-verified |
+| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) | ⚠️ 2-pane, not 3 — right pane (instructor/downloads/discussion/bookmarks) deliberately deferred, no backing data. Left sidebar + center video/progress/gating live-verified working end-to-end |
+| `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation | ⚠️ toggle-based drawer (not a swipe bottom sheet) live-verified working; Notes/Discussion/Downloads tabs N/A, nothing lives there in this scoped-down version |
 
 #### Admin Frontend
 | Page | Features |

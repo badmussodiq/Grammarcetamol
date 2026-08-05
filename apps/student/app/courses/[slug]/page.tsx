@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFetch, Skeleton, Button, Badge, cn } from '@grammarcetamol/utilities';
+import { useFetch, useToast, Skeleton, Button, Badge, cn, ApiError } from '@grammarcetamol/utilities';
 import { useAuth } from '@/contexts/AuthContext';
 import type { CourseDetailResponse, LessonResponse } from '@/lib/course.api';
+import { enrollmentApi } from '@/lib/enrollment.api';
 
 function formatPrice(price: number, currency: string): string {
   if (price === 0) return 'Free';
@@ -156,7 +157,7 @@ export default function CourseDetailPage() {
           {course.discountPrice != null && course.discountPrice < course.price && (
             <p className="text-sm text-text-secondary line-through">{formatPrice(course.price, course.currency)}</p>
           )}
-          <EnrollButton slug={course.slug} isStudent={isStudent} />
+          <EnrollButton course={course} isStudent={isStudent} />
           <dl className="text-sm text-text-secondary flex flex-col gap-1 pt-4 border-t border-border">
             <div className="flex justify-between"><dt>Modules</dt><dd>{modules.length}</dd></div>
             <div className="flex justify-between">
@@ -173,17 +174,44 @@ export default function CourseDetailPage() {
   );
 }
 
-function EnrollButton({ slug, isStudent }: { slug: string; isStudent: boolean }) {
+function EnrollButton({ course, isStudent }: { course: CourseDetailResponse['course']; isStudent: boolean }) {
+  const router = useRouter();
+  const { addToast } = useToast();
+  const [enrolling, setEnrolling] = useState(false);
+
   if (!isStudent) {
     return (
-      <Link href={`/login?returnUrl=/courses/${slug}`}>
+      <Link href={`/login?returnUrl=/courses/${course.slug}`}>
         <Button className="w-full">Enroll now</Button>
       </Link>
     );
   }
+
+  const isFree = course.price === 0;
+
+  if (!isFree) {
+    return (
+      <Link href={`/checkout/${course.slug}`}>
+        <Button className="w-full">Enroll now</Button>
+      </Link>
+    );
+  }
+
+  async function handleEnrollFree() {
+    setEnrolling(true);
+    try {
+      await enrollmentApi.enrollFree(course.id);
+      addToast({ type: 'success', message: `You're enrolled in ${course.title}!` });
+      router.push(`/my-courses/${course.id}`);
+    } catch (err) {
+      addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Could not enroll — try again' });
+      setEnrolling(false);
+    }
+  }
+
   return (
-    <Button className="w-full" disabled title="Enrollment is coming soon">
-      Coming soon
+    <Button className="w-full" loading={enrolling} onClick={handleEnrollFree}>
+      Enroll for Free
     </Button>
   );
 }

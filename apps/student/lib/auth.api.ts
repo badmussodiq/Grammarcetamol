@@ -4,6 +4,8 @@ export interface AuthUser {
   userId: string;
   email: string;
   roles: string;
+  /** Only populated once refreshUser() has run — the login response itself doesn't include it. */
+  fullName?: string;
 }
 
 export interface ApiResponse<T> {
