@@ -1,26 +1,22 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { Button, Input } from '@grammarcetamol/ui';
+import { Button, Input, useFormState, useGenericState, useToast, ApiError } from '@grammarcetamol/utilities';
 import { authApi } from '../../../lib/auth.api';
-import { useFormState } from '../../../hooks/useFormState';
-import { useToast } from '../../../contexts/ToastContext';
-import { ApiError } from '../../../lib/api';
 import type { ChangeEvent, FormEvent } from 'react';
 
 export default function ForgotPasswordPage() {
-  const [sent, setSent] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [{ sent, cooldown }, updateFlow] = useGenericState({ sent: false, cooldown: 0 });
   const { addToast } = useToast();
   const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
     useFormState({ email: '' });
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    const t = setTimeout(() => updateFlow('cooldown', (c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [cooldown]);
+  }, [cooldown, updateFlow]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,8 +24,8 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     try {
       await authApi.forgotPassword(values.email);
-      setSent(true);
-      setCooldown(60);
+      updateFlow('sent', true);
+      updateFlow('cooldown', 60);
     } catch (err) {
       addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Request failed' });
     } finally {
@@ -46,7 +42,7 @@ export default function ForgotPasswordPage() {
       </div>
       <h2 className="text-xl font-semibold text-[#0F172A]">Check your inbox</h2>
       <p className="text-[#64748B] text-sm">If that email exists, we sent a reset link. Check your spam folder too.</p>
-      <Button variant="ghost" disabled={cooldown > 0} onClick={() => setSent(false)} className="mt-2">
+      <Button variant="ghost" disabled={cooldown > 0} onClick={() => updateFlow('sent', false)} className="mt-2">
         {cooldown > 0 ? `Try again in ${cooldown}s` : 'Try a different email'}
       </Button>
       <Link href="/login" className="text-sm text-primary hover:underline">Back to login</Link>

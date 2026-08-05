@@ -36,7 +36,9 @@ class JwtAuthFilterTest {
 
     @BeforeEach
     void setUp() {
-        when(chain.filter(any())).thenReturn(Mono.empty());
+        // lenient: invalidTokenReturns401 and missingTokenReturns401 never reach chain.filter(),
+        // since the request is rejected before the chain runs.
+        lenient().when(chain.filter(any())).thenReturn(Mono.empty());
     }
 
     @Test

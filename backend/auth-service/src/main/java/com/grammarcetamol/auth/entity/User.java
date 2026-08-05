@@ -38,8 +38,9 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "user_status")
-    @Convert(converter = User.StatusConverter.class)
     private Status status = Status.PENDING_VERIFICATION;
 
     @Column(name = "email_verified", nullable = false)
@@ -113,22 +114,5 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
-    }
-
-    // -----------------------------------------------------------------------
-    // Converter
-    // -----------------------------------------------------------------------
-
-    @Converter
-    public static class StatusConverter implements AttributeConverter<Status, String> {
-        @Override
-        public String convertToDatabaseColumn(Status attribute) {
-            return attribute == null ? null : attribute.name();
-        }
-
-        @Override
-        public Status convertToEntityAttribute(String dbData) {
-            return dbData == null ? null : Status.valueOf(dbData);
-        }
     }
 }

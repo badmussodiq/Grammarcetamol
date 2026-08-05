@@ -1,15 +1,21 @@
-'use client';
+﻿'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input } from '@grammarcetamol/ui';
+import { Button, Input, useFormState, useToast, ApiError } from '@grammarcetamol/utilities';
 import { authApi } from '../../../lib/auth.api';
-import { useFormState } from '../../../hooks/useFormState';
-import { useToast } from '../../../contexts/ToastContext';
-import { ApiError } from '../../../lib/api';
 import type { ChangeEvent, FormEvent } from 'react';
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordForm />
+    </Suspense>
+  );
+}
+
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token') ?? '';

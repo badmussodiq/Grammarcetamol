@@ -1,6 +1,7 @@
 package com.grammarcetamol.gateway.filter;
 
-
+import com.grammarcetamol.gateway.grpc.AuthProto;
+import com.grammarcetamol.gateway.grpc.AuthServiceGrpc;
 import io.grpc.StatusRuntimeException;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;

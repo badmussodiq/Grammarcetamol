@@ -76,7 +76,14 @@ public class UserProfileService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getAllUsers(String query, int page, int limit) {
-        Page<User> result = userRepository.search(query, PageRequest.of(page - 1, limit));
+        PageRequest pageRequest = PageRequest.of(page - 1, limit);
+        // A null query bound inside CONCAT() (as well as compared with IS NULL) gives
+        // Hibernate an ambiguous type to infer for the parameter, and it has been
+        // observed resolving it to bytea instead of varchar. Branch instead of relying
+        // on the :query IS NULL clause in the JPQL.
+        Page<User> result = (query == null || query.isBlank())
+            ? userRepository.findAll(pageRequest)
+            : userRepository.search(query, pageRequest);
         return Map.of(
             "data",  result.getContent(),
             "total", result.getTotalElements(),

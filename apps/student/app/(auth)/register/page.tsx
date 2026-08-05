@@ -1,13 +1,9 @@
-'use client';
+﻿'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input } from '@grammarcetamol/ui';
-import { useToast } from '../../../contexts/ToastContext';
-import { useFormState } from '../../../hooks/useFormState';
+import { Button, Input, Mapping, useToast, useFormState, useGenericState, ApiError } from '@grammarcetamol/utilities';
 import { authApi } from '../../../lib/auth.api';
-import { ApiError } from '../../../lib/api';
 import type { ChangeEvent, FormEvent } from 'react';
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
@@ -29,7 +25,7 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
 export default function RegisterPage() {
   const router = useRouter();
   const { addToast } = useToast();
-  const [agreed, setAgreed] = useState(false);
+  const [agreed, setAgreed] = useGenericState(false);
   const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
     useFormState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const strength = getPasswordStrength(values.password);
@@ -77,10 +73,12 @@ export default function RegisterPage() {
           {values.password && (
             <div className="flex items-center gap-2 mt-1">
               <div className="flex gap-1 flex-1">
-                {[1,2,3,4].map((i) => (
-                  <div key={i} className="h-1 flex-1 rounded-full transition-colors duration-200"
-                    style={{ backgroundColor: i <= strength.score ? strength.color : '#E2E8F0' }} />
-                ))}
+                <Mapping array={[1, 2, 3, 4]} keyExtractor={(i) => i}>
+                  {(i) => (
+                    <div className="h-1 flex-1 rounded-full transition-colors duration-200"
+                      style={{ backgroundColor: i <= strength.score ? strength.color : '#E2E8F0' }} />
+                  )}
+                </Mapping>
               </div>
               <span className="text-xs" style={{ color: strength.color }}>{strength.label}</span>
             </div>

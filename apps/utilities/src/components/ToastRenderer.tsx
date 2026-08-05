@@ -1,5 +1,6 @@
 'use client';
-import { ToastContainer } from '@grammarcetamol/ui';
+
+import { ToastContainer } from './Toast/Toast';
 import { useToast } from '../contexts/ToastContext';
 
 export function ToastRenderer() {

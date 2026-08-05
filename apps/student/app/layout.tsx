@@ -1,8 +1,7 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import './globals.css';
+import { ToastProvider, ToastRenderer } from '@grammarcetamol/utilities';
 import { AuthProvider } from '../contexts/AuthContext';
-import { ToastProvider } from '../contexts/ToastContext';
-import { ToastRenderer } from '../components/ToastRenderer';
 
 export const metadata: Metadata = {
   title: 'Grammarcetamol',

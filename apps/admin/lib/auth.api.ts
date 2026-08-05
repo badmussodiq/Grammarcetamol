@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+﻿import { apiFetch } from '@grammarcetamol/utilities';
 
 export interface AdminUser {
   userId: string;

@@ -144,15 +144,38 @@ class UserProfileServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void getAllUsers_returnsPagedResult() {
+    void getAllUsers_nullQuery_usesFindAllNotSearch() {
         User u = buildUser(UUID.randomUUID(), RoleName.STUDENT);
-        when(userRepository.search(isNull(), any(Pageable.class)))
+        when(userRepository.findAll(any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(u)));
 
         Map<String, Object> result = userProfileService.getAllUsers(null, 1, 20);
 
         assertThat((List<?>) result.get("data")).hasSize(1);
         assertThat(result.get("total")).isEqualTo(1L);
+        verify(userRepository, never()).search(any(), any());
+    }
+
+    @Test
+    void getAllUsers_blankQuery_usesFindAllNotSearch() {
+        when(userRepository.findAll(any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of()));
+
+        userProfileService.getAllUsers("   ", 1, 20);
+
+        verify(userRepository, never()).search(any(), any());
+    }
+
+    @Test
+    void getAllUsers_withQuery_usesSearchNotFindAll() {
+        User u = buildUser(UUID.randomUUID(), RoleName.STUDENT);
+        when(userRepository.search(eq("jane"), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of(u)));
+
+        Map<String, Object> result = userProfileService.getAllUsers("jane", 1, 20);
+
+        assertThat((List<?>) result.get("data")).hasSize(1);
+        verify(userRepository, never()).findAll(any(Pageable.class));
     }
 
     // -----------------------------------------------------------------------

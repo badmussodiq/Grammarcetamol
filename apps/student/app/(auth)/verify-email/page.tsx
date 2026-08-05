@@ -1,37 +1,44 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Spinner } from '@grammarcetamol/ui';
+import { Button, Spinner, useFormState, useGenericState, useToast, ApiError } from '@grammarcetamol/utilities';
 import { authApi } from '../../../lib/auth.api';
-import { useFormState } from '../../../hooks/useFormState';
-import { useToast } from '../../../contexts/ToastContext';
-import { ApiError } from '../../../lib/api';
 import type { FormEvent } from 'react';
 
 type Status = 'loading' | 'success' | 'expired' | 'no-token';
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const [status, setStatus] = useState<Status>(token ? 'loading' : 'no-token');
-  const [cooldown, setCooldown] = useState(0);
+  const [{ status, cooldown }, updateFlow] = useGenericState({
+    status: (token ? 'loading' : 'no-token') as Status,
+    cooldown: 0,
+  });
   const { values, setValue, isSubmitting, setSubmitting } = useFormState({ email: '' });
   const { addToast } = useToast();
 
   useEffect(() => {
     if (!token) return;
     authApi.verifyEmail(token)
-      .then(() => setStatus('success'))
-      .catch(() => setStatus('expired'));
-  }, [token]);
+      .then(() => updateFlow('status', 'success'))
+      .catch(() => updateFlow('status', 'expired'));
+  }, [token, updateFlow]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    const t = setTimeout(() => updateFlow('cooldown', (c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [cooldown]);
+  }, [cooldown, updateFlow]);
 
   async function handleResend(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,7 +47,7 @@ export default function VerifyEmailPage() {
     try {
       await authApi.resendVerification(values.email);
       addToast({ type: 'success', message: 'Verification email sent!' });
-      setCooldown(60);
+      updateFlow('cooldown', 60);
     } catch (err) {
       addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Failed to resend' });
     } finally {

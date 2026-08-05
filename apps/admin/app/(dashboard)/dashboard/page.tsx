@@ -1,8 +1,10 @@
-'use client';
+﻿'use client';
 
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '@grammarcetamol/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button, Mapping } from '@grammarcetamol/utilities';
 import { useRouter } from 'next/navigation';
+
+const STAT_LABELS = ['Total Students', 'Active Courses', 'Revenue', 'Support Requests'];
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -26,12 +28,14 @@ export default function DashboardPage() {
           <Button variant="secondary" onClick={handleLogout}>Sign Out</Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {['Total Students', 'Active Courses', 'Revenue', 'Support Requests'].map((label) => (
-            <div key={label} className="bg-surface rounded-lg border border-border p-6 shadow-sm">
-              <p className="text-sm text-[#64748B] mb-3">{label}</p>
-              <div className="h-7 bg-background rounded animate-pulse" />
-            </div>
-          ))}
+          <Mapping array={STAT_LABELS} keyExtractor={(label) => label}>
+            {(label) => (
+              <div className="bg-surface rounded-lg border border-border p-6 shadow-sm">
+                <p className="text-sm text-[#64748B] mb-3">{label}</p>
+                <div className="h-7 bg-background rounded animate-pulse" />
+              </div>
+            )}
+          </Mapping>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { ApiError } from '@grammarcetamol/utilities';
 import { authApi, AuthUser } from '../lib/auth.api';
 
 interface AuthState {
@@ -64,6 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await authApi.login({ email, password });
+    const roles = res.data.roles.split(',');
+    if (!roles.includes('STUDENT')) {
+      // Credentials were valid but this is a staff account — the backend has
+      // already issued cookies for it, so revoke them before rejecting the login.
+      try { await authApi.logout(); } catch {}
+      throw new ApiError(403, 'This portal is for students only. Please use the admin site to sign in.');
+    }
     dispatch({ type: 'SET_USER', payload: res.data });
   }, []);
 
