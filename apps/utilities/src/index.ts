@@ -54,3 +54,13 @@ export type { ModalProps } from './components/Modal/Modal';
 
 export { default as Mapping } from './components/Mapping/Mapping';
 export type { MappingProps } from './components/Mapping/Mapping';
+
+export { DataTable } from './components/DataTable/DataTable';
+export type { DataTableColumn, DataTableProps } from './components/DataTable/DataTable';
+
+export { BarChart } from './components/Charts/BarChart';
+export type { BarChartDatum, BarChartProps } from './components/Charts/BarChart';
+export { LineChart } from './components/Charts/LineChart';
+export type { LineChartSeries, LineChartProps } from './components/Charts/LineChart';
+export { DonutChart } from './components/Charts/DonutChart';
+export type { DonutChartDatum, DonutChartProps } from './components/Charts/DonutChart';
