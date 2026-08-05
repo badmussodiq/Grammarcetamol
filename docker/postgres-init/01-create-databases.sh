@@ -5,7 +5,7 @@
 # this creates every additional per-service database. Add new services here.
 set -e
 
-for db in course_db; do
+for db in course_db enrollment_db; do
   if ! psql -U "$POSTGRES_USER" -lqt | cut -d '|' -f 1 | grep -qw "$db"; then
     psql -U "$POSTGRES_USER" -c "CREATE DATABASE $db;"
   fi

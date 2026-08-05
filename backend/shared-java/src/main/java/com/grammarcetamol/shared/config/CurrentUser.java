@@ -1,11 +1,12 @@
-package com.grammarcetamol.course.config;
+package com.grammarcetamol.shared.config;
 
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Identity read straight off the gateway's X-User-Id / X-User-Role headers — course-service
- * never sees a raw JWT. id is null and roles is empty for anonymous (public route) requests.
+ * Identity read straight off the gateway's X-User-Id / X-User-Role headers — services on this
+ * shared module never see a raw JWT. id is null and roles is empty for anonymous (public route)
+ * requests.
  */
 public record CurrentUser(UUID id, Set<String> roles) {
 
@@ -23,7 +24,7 @@ public record CurrentUser(UUID id, Set<String> roles) {
         return roles.contains("SUPER_ADMIN");
     }
 
-    /** True for a super admin, or the resource's own owner. Used for course/module/lesson writes. */
+    /** True for a super admin, or the resource's own owner. */
     public boolean canModify(UUID resourceOwnerId) {
         return isSuperAdmin() || (isAuthenticated() && id.equals(resourceOwnerId));
     }

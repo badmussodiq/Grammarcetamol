@@ -1,7 +1,7 @@
 package com.grammarcetamol.course.controller;
 
-import com.grammarcetamol.course.config.CurrentUser;
-import com.grammarcetamol.course.dto.ApiResponse;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.dto.ApiResponse;
 import com.grammarcetamol.course.dto.CourseDetailResponse;
 import com.grammarcetamol.course.dto.CreateCourseRequest;
 import com.grammarcetamol.course.dto.UpdateCourseRequest;

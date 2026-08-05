@@ -10,6 +10,14 @@ modules, lessons) and the public course catalog. Reachable through the gateway a
 and no `Authentication` object; role/ownership checks are plain `if` statements in the service layer
 (`CurrentUser.canModify(instructorId)`, `CurrentUser.isAdminOrModerator()`).
 
+**As of Phase 3 (`PLAN.md` Task 19),** `ApiResponse`, `GlobalExceptionHandler`'s common exception
+mappings, and `CurrentUser`/`CurrentUserArgumentResolver`/`WebConfig` moved out to
+`backend/shared-java/` (`mvn install`ed locally, depended on here as a normal Maven dependency — see
+its own README). Only this service's domain-specific exceptions (`ForbiddenException`,
+`CoursePublishValidationException`, `CourseDeletionBlockedException`) still get a local
+`CourseExceptionHandler`; Spring resolves the most specific `@ExceptionHandler` across both advice
+beans automatically, no inheritance needed.
+
 Upload Service and Media Service (chunked video upload + transcoding) are **intentionally deferred** —
 no object storage or MongoDB is provisioned yet. Lessons carry a plain admin-supplied `video_url` string
 in the meantime. See `PLAN.md` Tasks 16–17.

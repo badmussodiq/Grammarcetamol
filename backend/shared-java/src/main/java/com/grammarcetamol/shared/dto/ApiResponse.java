@@ -1,4 +1,4 @@
-package com.grammarcetamol.course.dto;
+package com.grammarcetamol.shared.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

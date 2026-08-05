@@ -1,6 +1,6 @@
-package com.grammarcetamol.course.exception;
+package com.grammarcetamol.shared.exception;
 
-import com.grammarcetamol.course.dto.ApiResponse;
+import com.grammarcetamol.shared.dto.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +11,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+/**
+ * Common exception mappings shared by every header-trust service. Domain-specific exceptions
+ * (e.g. course-service's ForbiddenException/CoursePublishValidationException) get their own
+ * {@code @RestControllerAdvice} in the owning service — Spring resolves the most specific
+ * matching handler across ALL advice beans, not just the one declaring it, so a service-local
+ * advice for a RuntimeException subtype still wins over this class's catch-all without any
+ * inheritance between the two.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -30,16 +38,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiResponse<Object>> handleForbidden(ForbiddenException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage()));
-    }
-
-    @ExceptionHandler(CoursePublishValidationException.class)
-    public ResponseEntity<ApiResponse<Object>> handlePublishValidation(CoursePublishValidationException ex) {
-        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage(), ex.getErrors()));
-    }
-
-    @ExceptionHandler(CourseDeletionBlockedException.class)
-    public ResponseEntity<ApiResponse<Object>> handleDeletionBlocked(CourseDeletionBlockedException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

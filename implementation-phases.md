@@ -5,7 +5,7 @@
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** **Phase 1 done**; **actively in Phase 2**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 and Phase 2 done**; **actively in Phase 3**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). Phase 3 (Enrollment/Payment/Review Services + checkout/dashboard/learning-interface/revenue/moderation/student-directory pages) is planned as of 2026-08-05 — see `PLAN.md` Tasks 19–30 for the full breakdown and per-task status as it lands. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -212,17 +212,20 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 > 🔴 **Hard Dependency:** Phase 2 (courses must exist to enroll in)  
 > 🔴 **Hard Dependency:** Phase 1 (auth required for enrollment)  
-> ⭐ **Milestone:** First paid enrollment completes; student resumes video at exact timestamp.
+> ⭐ **Milestone:** First paid enrollment completes; student resumes video at exact timestamp.  
+> **Current status (2026-08-05):** Planned — see `PLAN.md` Tasks 19–30. Payment gateway starts with Paystack (test-mode), architected as a pluggable `PaymentProvider` so Stripe/Flutterwave can be added later without a rewrite. Certificates are out of scope (the schema doc marks the table "future"); Upload/Media Service dependencies for video remain deferred from Phase 2, so lessons keep using a plain `video_url` (no HLS/adaptive bitrate). `backend/shared-java` (Task 18, previously deferred) is un-deferred and folded into this phase as Task 19, since Enrollment Service is the third Java service its trigger condition was waiting for.
 
 ### 3.1 Backend Services
 
 #### Enrollment Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-STU-006: Free Course Enrollment | Instant enrollment; idempotent (re-click is no-op); appears in "My Courses" immediately |
-| US-STU-005: Resume Learning | `GET /progress/{courseId}` returns last position per lesson; `PATCH` every 5s debounced |
-| US-STU-008: Interactive Learning Interface | Lesson completion toggle; prerequisite gating (can't open Lesson 3 if Lesson 2 incomplete) |
-| US-ADM-005: Student Engagement Insights | At-risk flagging (<20% progress after 14 days); completion rate aggregation |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-STU-006: Free Course Enrollment | Instant enrollment; idempotent (re-click is no-op); appears in "My Courses" immediately | ✅ backend (`POST /api/enrollments`); confirmation email/notification not sent — no Notification Service yet |
+| US-STU-005: Resume Learning | `GET /progress/{courseId}` returns last position per lesson; `PATCH` every 5s debounced | ✅ backend, as `GET .../learn` (curriculum + position) and `PATCH /api/progress`; debouncing is the frontend's job (Task 25) |
+| US-STU-008: Interactive Learning Interface | Lesson completion toggle; prerequisite gating (can't open Lesson 3 if Lesson 2 incomplete) | ✅ backend gating logic (sequential across the whole course); frontend interface itself is Task 25 |
+| US-ADM-005: Student Engagement Insights | At-risk flagging (<20% progress after 14 days); completion rate aggregation | ⚠️ at-risk query backend done (`GET /api/enrollments/at-risk`, thresholds configurable, default 20%/14 days); no admin UI yet (Task 29 scopes it as a `/students` filter, not a dashboard widget) |
+
+> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 20. Paid enrollment (via `payment.completed`) is wired but untestable end-to-end until `payment-service` (Task 21) exists; free enrollment and progress/gating are fully functional today.
 
 **Database:** `enrollment_db` — run `V1__enrollment_initial_schema.sql`  
 **Events Published:** `enrollment.created`, `enrollment.completed`, `lesson.progress.updated`  

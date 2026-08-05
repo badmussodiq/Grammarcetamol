@@ -1,4 +1,4 @@
-package com.grammarcetamol.course.config;
+package com.grammarcetamol.shared.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.MethodParameter;

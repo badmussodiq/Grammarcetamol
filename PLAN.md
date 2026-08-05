@@ -16,6 +16,8 @@ Let me now complete the full plan with these corrections applied throughout.
 > **Status as of 2026-08-05:** Tasks 1–10 below (Phase 0 + Phase 1) are implemented, with real divergences from this original plan noted inline per task — most notably: no root npm workspace (the repo root is a plain container folder, not a project; `apps/utilities` — renamed from `packages/ui` — is a sibling each app reaches via a `tsconfig.json` path + `turbopack.root`, not an npm dependency), Google OAuth deferred, and gateway CORS handled via Spring Cloud Gateway's native `globalcors` config instead of a hand-rolled `CorsWebFilter` bean (the two conflicted and produced duplicate CORS headers that browsers reject). See `implementation-phases.md` for the phase-level exit-criteria view of the same status.
 >
 > **Phase 2 planning added 2026-08-05** (Tasks 11–18 below). Backend-first, dependency-first ordering, same as Phase 1: Course Service (Java/Spring Boot, same stack as auth-service) lands before either frontend touches courses. **Tasks 11–12 (Course Service backend) are done as of 2026-08-05** — see their status notes below. Tasks 13–15 (both frontends' course pages, integration) are next. Upload Service and Media Service (Tasks 16–17) are **deferred from the start** — no MinIO/S3 or MongoDB is provisioned in `docker/docker-compose.dev.yml` yet, and the phase's own soft-dependency note explicitly allows stubbing media ("accept file, return mock URL"). Lessons carry a plain admin-supplied `video_url` string until that lands. Course Service also denormalizes `instructor_name`/`instructor_bio`/`instructor_avatar_url` directly onto `courses` — there's no instructor directory or role yet (`admin-frontend.md` lists "Instructor Management" as **Future**), so `instructor_id` is just the creating admin/moderator's user id for audit purposes, not a foreign key into a real instructor entity.
+>
+> **Phase 3 planning added 2026-08-05** (Tasks 19–30 below). Phase 2 is done and verified end-to-end (see status notes on Tasks 11–15). Phase 3 covers Enrollment Service, Payment Service (Paystack, pluggable for Stripe/Flutterwave later), Review Service, and the student/admin frontend pages built on top of them. **Task 18 (extract `backend/shared-java`) is un-deferred and folded in as Task 19** — its own trigger condition ("once a third Java service exists") is met by Enrollment Service. Cross-service reads (Enrollment→Course, Review→Enrollment) are plain internal REST calls, not gRPC — course-service has no gRPC infrastructure and adding it just to satisfy the original architecture doc's unbuilt aspiration isn't worth the new surface area. Payment Service is the first NestJS service in the repo; no ORM, a thin `pg` client + hand-rolled SQL migration runner, mirroring the Java side's Flyway-file convention without pulling in a Java-less equivalent. Certificates, Upload/Media Service, and email/in-app notifications remain out of scope (no backing infrastructure exists yet for any of them) — see the Task 19–30 status notes below as they land.
 
 ## Problem Statement
 Build a full-stack digital learning platform from scratch. Two Next.js frontends (student + admin), 13 backend microservices (Java/Spring Boot + Node.js/NestJS), Spring Cloud Gateway as the single entry point, and a shared UI library. PostgreSQL, MongoDB, Redis, and RabbitMQ are already running. No Kubernetes/infrastructure work. No service registry — routing is programmatic via config.
@@ -619,3 +621,207 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 > **Status: 🔲 Not started, deliberately deferred.** `course-service` (Task 11) duplicates `ApiResponse`, the `GlobalExceptionHandler` pattern, and the `CurrentUser`/header-auth resolver that `auth-service` and the gateway already established. That duplication is real but small (~150 lines) and not worth pausing Task 12 mid-flight to fix — **decided 2026-08-05:** extract into a shared Maven module once a **third** Java service exists and the duplication pattern is fully proven out, not guessed at in advance. Cross-stack sharing (with the future NestJS services) isn't in scope for this — there's no runtime in common between a `@RestControllerAdvice` and a NestJS exception filter; the only thing crossing that boundary is JSON over HTTP, which the frontends already handle stack-agnostically via `apiFetch`.
 
 **When resumed:** create `backend/shared-java/` (own `pom.xml`, `mvn install`ed to the local repo, versioned — not a multi-module Maven reactor, since the existing service poms are deliberately standalone), move `ApiResponse`, `GlobalExceptionHandler`'s common exception mappings, and `CurrentUser`/`CurrentUserArgumentResolver`/`WebConfig` into it, then update `auth-service` and `course-service` to depend on it and delete their local copies.
+
+> **Status: superseded by Task 19 (2026-08-05).** Enrollment Service (Task 20) is the third Java service this task's own trigger condition was waiting for — see Task 19 below for the actual extraction (which only migrates `course-service`, not `auth-service`; see Task 19's own status note for why).
+
+---
+
+### PHASE 3 — Enrollment, Payments & Learning Loop
+
+---
+
+**Task 19: Extract `backend/shared-java`**
+
+> **Status: ✅ Done (2026-08-05), verified live.** `backend/shared-java` created and `mvn install`ed locally as a **plain library jar** — no Spring Boot auto-configuration, no `spring-boot-maven-plugin`, nothing that self-registers; an earlier draft of this task used `META-INF/spring/...AutoConfiguration.imports` for auto-discovery but that made shared-java feel like its own mini Spring Boot starter rather than "just a library," so it was replaced with one explicit `@ComponentScan(basePackages = {"com.grammarcetamol.course", "com.grammarcetamol.shared"})` line on `CourseServiceApplication` — visible per-service wiring, no hidden discovery. `course-service` migrated (its local `ApiResponse`/`CurrentUser`/`CurrentUserArgumentResolver`/`WebConfig`/common-exception-mappings deleted, replaced by the shared dependency; kept a local `CourseExceptionHandler` for its three domain exceptions). `auth-service` intentionally **not** migrated — see the shared-java README for why. `course-service`'s full test suite (13 tests) passes unchanged post-migration, proving no behavior change. Verified live twice: once against the real dev stack via the user's own running instance (`GET /actuator/health` → `UP`, `GET /api/categories` → real seeded rows correctly wrapped in the shared `ApiResponse` envelope) before the auto-configuration→`@ComponentScan` rework, and again afterward via a scratch-port boot (`:8093`, so as not to disturb that running instance) — Spring context fully initialized (Flyway validated, Hibernate/JPA loaded, all shared-java beans wired) and only failed at Tomcat's OS-level loopback-socket bind, the same pre-existing Windows environment issue already documented in `auth-service`/`course-service`'s READMEs, unrelated to this change.
+
+**Objective:** Stop copy-pasting `ApiResponse`, `GlobalExceptionHandler`, and the header-trust `CurrentUser`/`CurrentUserArgumentResolver`/`WebConfig` pattern into every new header-trust Java service. Enrollment Service (Task 20) would be the third copy — extract now, before it's written, so it's built on the shared module from day one.
+
+**Implementation guidance:**
+- New standalone Maven module `backend/shared-java/` — own `pom.xml` (group `com.grammarcetamol`, artifact `shared-java`), Spring Boot 3.2.5 / Java 21 to match, packaging `jar`, `mvn install`ed to the local `~/.m2` repo (not a multi-module reactor — the existing service poms are deliberately standalone, per Task 18's original note).
+- Move from `course-service` into `shared-java`: `dto/ApiResponse.java`, the common exception-mapping portion of `GlobalExceptionHandler` (`MethodArgumentNotValidException`, `EntityNotFoundException`, `IllegalArgumentException`, catch-all `RuntimeException`), and `config/CurrentUser.java` / `CurrentUserArgumentResolver.java` / `WebConfig.java`.
+- `course-service` depends on `shared-java` (`<dependency>` in its `pom.xml`), deletes its local copies, keeps only its own domain exceptions (`ForbiddenException`, `CoursePublishValidationException`, `CourseDeletionBlockedException`) and their `@ExceptionHandler` mappings — either as a small course-service-local `@RestControllerAdvice` extending/alongside the shared one, or (simpler) course-service's `GlobalExceptionHandler` becomes a thin subclass-equivalent that only adds its domain-specific handlers, since `@RestControllerAdvice` classes don't compose via inheritance cleanly in Spring — verify which actually works cleanly with Spring's advice ordering before committing to one shape.
+- `auth-service` is **not** migrated — it has a materially different `ApiResponse.error()` overload set already in sync with `course-service`'s (fine to leave as-is), a much larger domain-specific exception set, and real JWT-based identity instead of header-trust, so there's nothing header-trust-shaped to share with it. Migrating it would be a bigger, riskier refactor for no behavior change — not worth doing opportunistically here.
+
+**Tests:** `course-service`'s existing `CourseServiceTest`/`CourseStructureServiceTest` suite passes unchanged after the migration (proves no behavior change). `mvn spring-boot:run` still starts cleanly on `:8083`.
+
+**Demo:** `mvn install` in `backend/shared-java/` succeeds. `mvn test` in `backend/course-service/` passes with zero changes to test assertions, only import-path changes.
+
+---
+
+**Task 20: Enrollment Service — Bootstrap, Schema, Enrollment & Progress**
+
+> **Status: ✅ Done (2026-08-05).** `backend/enrollment-service` scaffolded on `shared-java`, port `8084`, `enrollment_db` created and migrated (`enrollments`, `lesson_progress`; `certificates` skipped as spec'd "future"). All endpoints implemented as planned: free enrollment (idempotent, rejects paid courses with a 400 pointing at checkout), `GET .../learn` (curriculum + per-lesson lock state), `PATCH /api/progress`, the admin at-risk query, and the internal completion-check endpoint `review-service` (Task 22) will call. `CourseServiceClient` calls `course-service` directly via `RestClient` (no gRPC — see the Phase 3 planning note), presenting as a trusted internal caller (`X-User-Role: SUPER_ADMIN`) since course-service has no "enrolled student" concept to authorize against otherwise. RabbitMQ: publishes `enrollment.created`/`enrollment.completed`/`lesson.progress.updated`; consumes `payment.completed` (queue/binding declared here independently of whether `payment-service` has started). Gateway wiring done (`enrollmentServiceUrl` + two new routes, no public/optional tier needed). 12 Mockito unit tests pass, covering idempotency, prerequisite gating, auto-completion, and the at-risk threshold boundary. **Real deviation found during this task:** `RestClient`'s default JDK `HttpClient`-based request factory also trips the pre-existing Windows loopback-socket issue (it opens an NIO `Selector` at construction, same as Tomcat's connector) — fixed by using `SimpleClientHttpRequestFactory` instead, a genuine reliability improvement on affected dev machines, not just a workaround. **Verified:** compiles, all tests pass, Flyway migration applies cleanly against the real `enrollment_db` (confirmed live via `psql \d`), full Spring bean graph constructs successfully including the RestClient/RabbitMQ/JPA layers. The Tomcat NIO-connector loopback issue documented for `auth-service`/`course-service` blocked an automated `mvn spring-boot:run` (tried via both Bash and PowerShell) in this sandbox specifically — running it directly (outside sandboxed automation) started cleanly: `GET :8084/actuator/health` → `UP`, confirmed live.
+
+**Objective:** Stand up `backend/enrollment-service/` so students can enroll (free instantly, paid via a `payment.completed` event), track lesson progress, get prerequisite-gated access to the curriculum, and let admins query at-risk students.
+
+**Implementation guidance:**
+- Bootstrap identical to `course-service`'s Task 11 pattern, on top of `shared-java`: Spring Boot 3.2.5/Java 21, `spring-boot-starter-web/data-jpa/validation/actuator`, `postgresql`, `flyway-core`, `spring-boot-starter-amqp` (this service does publish/consume, unlike course-service), no security/gRPC. Port `8084`, datasource `enrollment_db`.
+- **Migration `V1__enrollment_initial_schema.sql`** — adapted from `database-schema-and-migrations.md` §3.4 with the same enum-syntax fix already established (`CREATE TYPE enrollment_status AS (...)` is invalid Postgres — use `VARCHAR(20) CHECK (status IN ('active','completed','dropped','expired'))` instead, matching `lesson_progress.status`'s own `VARCHAR + CHECK`). Tables: `enrollments`, `lesson_progress`. Skip `certificates` (explicitly commented "(future)" in the spec).
+- **Cross-service reads via plain REST** (`RestClient`, Spring's newer synchronous HTTP client) to `course-service` at `${COURSE_SERVICE_URL:http://localhost:8083}` — no gRPC (see Phase 3 planning note above for why). Needed for: validating a course exists/is published before creating an enrollment, and fetching the module/lesson tree to compute prerequisite gating + completion percentage.
+- **`EnrollmentController`**: `POST /api/enrollments` (any authenticated student; body `{courseId}`; free courses only — paid courses go through Payment Service's flow; idempotent on `(user_id, course_id)` via a unique constraint + catch-and-return-existing), `GET /api/enrollments/mine` (list with course summary), `GET /api/enrollments/course/{courseId}/learn` (assembles Course Service's curriculum with this service's `lesson_progress` rows into per-lesson `locked | unlocked | completed | current` state — the endpoint the learning interface page consumes), `PATCH /api/progress` (body `{lessonId, currentTime, completed}`, upserts `lesson_progress`), `GET /api/enrollments/at-risk` (SUPER_ADMIN/MODERATOR; `completion < 20%` AND `enrolled_at < now() - 14 days` AND `status = 'active'`).
+- **RabbitMQ**: `EnrollmentEventPublisher` publishes `enrollment.created`, `enrollment.completed` (when all lessons reach `completed`), `lesson.progress.updated` — same `TopicExchange` + fire-and-forget-with-logging pattern as `auth-service`'s `UserEventPublisher`. `PaymentEventListener` consumes `payment.completed` off `payment.exchange` (declared here as a consumer-side queue/binding, matching how `auth-service` declares its own queues) and creates the enrollment with `price_paid`/`currency`/`payment_id` populated — same idempotency guard as the free-enrollment path.
+- **Gateway wiring**: add `enrollmentServiceUrl` to `AppGatewayProperties` + `application.yml`, new `.route("enrollment-service", r -> r.path("/api/enrollments/**").uri(...))` — no public/optional tier needed, everything here requires auth (unlike course catalog reads).
+
+**Tests:** Mockito unit tests — idempotent enrollment (second call for the same user+course returns the existing row, doesn't error or duplicate), prerequisite gating (lesson N+1 stays locked until lesson N is completed), at-risk query boundary (exactly 20%/exactly 14 days edge cases), `payment.completed` consumer creates an enrollment with the right `price_paid`.
+
+**Demo:** `mvn spring-boot:run` starts on `:8084`, Flyway applies cleanly. `POST /api/enrollments` for a free course (as a seeded student) → `GET /api/enrollments/mine` shows it. `PATCH /api/progress` on lesson 1 → `GET .../learn` shows lesson 2 unlocked, lesson 3 still locked. Publishing a manual `payment.completed` message via the RabbitMQ management UI creates a paid enrollment.
+
+---
+
+**Task 21: Payment Service — Bootstrap (first NestJS service) & Paystack Checkout**
+
+**Objective:** Stand up `backend/payment-service/` as the repo's first Node.js/NestJS service, behind a gateway-agnostic `PaymentProvider` abstraction, with Paystack as the sole live implementation (test-mode keys provided by the user).
+
+**Implementation guidance:**
+- New NestJS project at `backend/payment-service/`. No ORM — a thin `DatabaseModule` wrapping `pg` (`node-postgres`), plus a small hand-rolled migration runner (`db/migration/V1__payment_initial_schema.sql`, executed in filename order at boot, tracked in a `schema_migrations` table) — mirrors the Flyway-file convention on the Java side without adding a Java-less ORM dependency. Port `8086`.
+- **Migration** — adapted from `database-schema-and-migrations.md` §3.5, same enum→`VARCHAR+CHECK` fix. Tables: `payments`, `transactions`, `refunds` (skip `invoices` unless trivial to fold in alongside).
+- **`PaymentProvider` interface** (`src/providers/payment-provider.interface.ts`): `initialize(order): Promise<{reference, accessCode, raw}>`, `verify(reference): Promise<{status, amount, raw}>`, `verifyWebhookSignature(payload, signature): boolean`. `PaystackProvider` implements it (`src/providers/paystack.provider.ts`) against Paystack's REST API (`https://api.paystack.co/transaction/initialize`, `/transaction/verify/:reference`), signature check via HMAC-SHA512 with the secret key per Paystack's documented webhook-verification recipe. A tiny `PaymentProviderRegistry` (`Map<string, PaymentProvider>`) resolves the active provider from `PAYMENT_GATEWAY` env var (`paystack` for now) — adding `StripeProvider`/`FlutterwaveProvider` later is a new class + registry entry.
+- **Secrets**: `backend/payment-service/.env` (already covered by the `backend/**/.env` gitignore pattern) holding `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_SECRET_KEY`, `PAYMENT_GATEWAY=paystack`, `DB_*`. Commit a `.env.example` with placeholder values only, never the real keys.
+- **`PaymentsController`**: `POST /api/payments/initialize` (authenticated student; body `{courseId}`; looks up course price via REST call to `course-service`, creates a `pending` `payments` row, calls the active provider's `initialize`, returns `{reference, accessCode, publicKey}` — the public key is safe to return to the frontend, it's not a secret), `POST /api/payments/{reference}/confirm` (re-verifies against the provider server-side, idempotently transitions the payment to `completed`/`failed`, writes a `transactions` ledger row, publishes `payment.completed`/`payment.failed`), `POST /api/payments/webhook` (signature-verified, same idempotent transition as `/confirm` — both converge on one internal method so whichever arrives first wins and the second is a no-op), `POST /api/payments/{id}/refund` (SUPER_ADMIN only; creates a `refunds` row, publishes `refund.requested`/`refund.completed`).
+- **Gateway wiring**: `paymentServiceUrl` in `AppGatewayProperties` + `application.yml`, new route for `/api/payments/**`. The webhook path (`POST /api/payments/webhook`) needs to reach payment-service without the gateway's JWT filter rejecting it (Paystack calls it directly, no user session) — add it to `PUBLIC_ROUTES` (it authenticates itself via the Paystack signature header instead of a JWT, so this is safe the same way login/register are public-but-self-validating).
+
+**Tests:** Jest unit tests (NestJS default) — `PaystackProvider`'s signature verification (valid/invalid/tampered payload), the idempotent confirm/webhook convergence (second call is a no-op, doesn't double-publish or double-write the ledger), refund validation (can't refund more than the paid amount).
+
+**Demo:** `npm run start:dev` in `backend/payment-service/` boots on `:8086`, migration runner applies `V1` cleanly. `POST /api/payments/initialize` against a real Paystack test-mode course purchase returns a working `accessCode`; completing payment with Paystack's documented test card and calling `/confirm` transitions the payment to `completed` and an enrollment appears via Task 20's consumer.
+
+---
+
+**Task 22: Review Service — Bootstrap, Schema, Reviews & Moderation**
+
+**Objective:** Stand up `backend/review-service/` so students who've completed at least 50% of a course can rate and review it, and admins can moderate submissions.
+
+**Implementation guidance:**
+- Bootstrap identical to Task 20's pattern, on `shared-java` (fourth consumer). Port `8085`, datasource `review_db`, `spring-boot-starter-amqp` for publishing.
+- **Migration `V1__review_initial_schema.sql`** — adapted from `database-schema-and-migrations.md` §3.6, same enum fix (`VARCHAR(20) CHECK (status IN ('pending','approved','rejected','flagged'))`). Tables: `reviews`, `review_votes`.
+- **Cross-service read**: REST call to `enrollment-service` (`${ENROLLMENT_SERVICE_URL:http://localhost:8084}`) for the current user's completion percentage on the course being reviewed — the 50% gate check at submission time, no denormalized/event-driven completion flag.
+- **`ReviewController`**: `POST /api/reviews` (authenticated student; 403 with a clear message if completion < 50%; `UNIQUE(user_id, course_id)` enforced, so a second submit is really an edit path — return 409 pointing at the PATCH endpoint), `PATCH /api/reviews/{id}` (owner only, only within 7 days of `created_at`, sets `is_edited`/`edited_at`), `GET /api/courses/{courseId}/reviews` (public, `status = 'approved'` only, paginated), admin `GET /api/reviews` (SUPER_ADMIN/MODERATOR, all statuses, filterable by status/course/rating), `PATCH /api/reviews/{id}/moderate` (admin; transitions status, sets `moderated_by`/`moderated_at`/`moderation_note`).
+- **RabbitMQ**: publishes `review.submitted`, `review.approved`, `review.moderated` (fire-and-forget, same pattern as the other two new services). No consumer — the completion check is a live REST call, not an event subscription (see Phase 3 planning note above for why).
+- **Gateway wiring**: `reviewServiceUrl` + route for `/api/reviews/**`; `GET /api/courses/{courseId}/reviews` goes in `OPTIONALLY_AUTHENTICATED_ROUTES` (same treatment as course catalog GETs) since it's a public read that doesn't need identity.
+
+**Tests:** Mockito — 50%-gate boundary (49% blocked, 50% allowed), 7-day edit-window boundary, duplicate-submission returns 409 not a second row, moderation transition sets the right audit fields.
+
+**Demo:** As a seeded student with <50% progress, `POST /api/reviews` → 403 with the completion requirement in the message. Progress past 50% (via Task 20's progress endpoint) → same request succeeds, status `pending`. Admin `PATCH .../moderate` with `{status: "approved"}` → `GET /api/courses/{id}/reviews` (no auth) now shows it.
+
+---
+
+**Task 23: Student Frontend — Checkout Flow**
+
+**Objective:** Let a logged-in student buy a paid course through a page-hosted Paystack popup, and enroll in a free course with one click — no external state library, following the established `useGenericState`/`apiFetch` conventions.
+
+**Implementation guidance:**
+- `lib/enrollment.api.ts` — `enrollFree(courseId)`, `getMyEnrollments()`, types. `lib/checkout.api.ts` — `initializePayment(courseId)`, `confirmPayment(reference)`, types. Both get `*.test.ts` logic tests for any pure helper (e.g. price/currency formatting reused from the course detail page), matching `course.api.test.ts`'s pattern.
+- Course detail page (`/courses/[slug]`, from Task 13): the existing "disabled Coming soon" enroll button for logged-in students becomes real — free courses call `enrollFree` directly (toast + redirect to `/my-courses/[courseId]`), paid courses route to `/checkout/[courseId]`.
+- `/checkout/[courseId]` — two-column layout per `student-frontend.md` §5.6: left = order summary (thumbnail/title/instructor/price breakdown, reusing the `Intl.NumberFormat` currency pattern already used in `CourseCard`/course detail); right = customer details (`useGenericState`, pre-filled from `useAuth()`) + a "Pay" button that calls `initializePayment`, loads Paystack's `inline.js` script (`https://js.paystack.co/v1/inline.js`) once, and opens `PaystackPop.setup({ key: publicKey, ... }).openIframe()` with the returned `accessCode`/`reference`. On the popup's `onSuccess` callback, call `confirmPayment(reference)`, then poll `getMyEnrollments()` a few times (short interval) until the course appears, then show the success state (checkmark, "Start Learning Now" → `/my-courses/[courseId]`, "Go to Dashboard"). `onClose`/failure → inline error + "Try Again".
+- No payment-method-selector UI needed — Paystack's popup already offers card/bank/USSD/mobile money.
+
+**Tests:** Unit tests for `checkout.api.ts`/`enrollment.api.ts` pure functions. No component/RTL tests for the checkout page itself, consistent with this repo's existing test scope (see frontend research findings — `apps/student`'s vitest config has no jsdom).
+
+**Demo:** Logged-in student on a free course's detail page clicks "Enroll for Free" → toast → redirected to the (still-building) `/my-courses/[courseId]`. On a paid course, `/checkout/[slug]` loads, "Pay" opens the real Paystack test-mode popup, completing it with Paystack's documented test card shows the success state and the course appears in `GET /api/enrollments/mine`.
+
+---
+
+**Task 24: Student Frontend — Dashboard & My Courses**
+
+**Objective:** Give a logged-in student a home base and an enrolled-courses list — both pages designed fresh since neither has a detailed spec in `student-frontend.md` beyond a one-line route mention (`/my-courses`) or a partial section (`/dashboard` §5.4, live-classes panel excluded — no Live Class Service exists).
+
+**Implementation guidance:**
+- `lib/dashboard.api.ts` / reuse `lib/enrollment.api.ts` — `useFetch` against `GET /api/enrollments/mine` (+ course summaries) for both pages.
+- `/dashboard` — welcome card ("Good morning/afternoon/evening, [name]" by local time-of-day, per §5.4), "Continue Learning" card (most recently accessed in-progress enrollment, `Resume` → learning interface; empty state CTA to `/courses`), My Courses tabbed preview (In Progress | Completed | Not Started, 3-card grid, "View All" → `/my-courses`), Recommended Courses (simple: `GET /api/courses?sort=enrollment_count&limit=6` excluding already-enrolled, reusing `CourseCard`). Skip: live-classes panel, notifications panel (no dedicated notifications backend yet beyond the toast system).
+- `/my-courses` — grid of all enrollments (`CourseCard`-style with a `ProgressBar` from `apps/utilities` added), status filter (`Tabs`: All | In Progress | Completed), empty state CTA to `/courses`.
+
+**Tests:** Any pure helper (e.g. "time of day" greeting logic, enrollment status grouping) gets a logic test.
+
+**Demo:** Logged-in student with 2 enrollments (one in-progress, one completed) sees both correctly grouped on `/dashboard`'s preview and `/my-courses`'s filtered grid; "Continue Learning" resumes the in-progress one.
+
+---
+
+**Task 25: Student Frontend — Learning Interface**
+
+**Objective:** Build `/my-courses/[courseId]`, the actual place students watch lessons and track progress — scoped to what's backed by real infrastructure (see Phase 3 planning note above for the full list of deferred sub-features: hls.js, PiP, keyboard shortcuts, discussion, bookmarks, notes, signed-URL downloads).
+
+**Implementation guidance:**
+- Single `useFetch` against Task 20's `GET /api/enrollments/course/{courseId}/learn` for the full curriculum + progress state; local state for the currently-selected lesson.
+- **Left sidebar** (collapsible): module accordion (title + completion fraction), lesson rows with icon state (lock / play / check / pulse-for-current) per `student-frontend.md` §5.5; clicking a locked lesson is a no-op (or a toast explaining why).
+- **Main area**: plain HTML5 `<video>` element pointed at the lesson's `videoUrl`, seeking to `lastWatchedPosition` on load; below it, lesson title, a "Mark Complete" checkbox/button, Previous/Next navigation (respecting lock state), and — once the course-wide completion crosses 50% — a "Leave a Review" link to a simple inline review form (rating + text) posting to Task 22's `POST /api/reviews`.
+- **Progress sync**: `timeupdate` handler, debounced to once per 5s, `PATCH /api/progress` with `{lessonId, currentTime, completed}`; `completed` flips true on `ended` or when watch position crosses a completion threshold (e.g. 90%).
+- **Mobile**: left sidebar collapses into a bottom-sheet/drawer toggle instead of a fixed pane; right-sidebar content (none exists in this scoped-down version) is skipped rather than becoming mobile tabs, since nothing lives there yet.
+
+**Tests:** Logic test for the 5s-debounce/completion-threshold helper if it's extracted as a pure function.
+
+**Demo:** Enrolled student opens `/my-courses/[courseId]`, video resumes at last position, watches past the completion threshold, lesson flips to completed and the next lesson unlocks, reloading the page preserves the resume position.
+
+---
+
+**Task 26: Admin Frontend — Shell Layout & Shared Primitives**
+
+**Objective:** Give the admin app a real persistent shell (it's been a bare `<div>` since Phase 1) and build the `DataTable`/chart primitives every Phase 3 admin page below needs — both real gaps, not copy-paste from an existing pattern.
+
+**Implementation guidance:**
+- Fix the `hasPermission` bug in `apps/admin/contexts/AuthContext.tsx` first (`roles === 'super_admin'` → compare against the actual uppercase role string(s) correctly) — new pages gate on this.
+- `Sidebar` (nav groups per `admin-frontend.md`'s sketch: Overview, Education, People, Business, Insights; items gated by `hasPermission`; active route via `usePathname()`; collapse toggle in `localStorage`) + `TopHeader` (user avatar dropdown with Profile/Logout, breadcrumb) + `Breadcrumb` (derived from `usePathname()`), replacing the bare `<div>` in `app/(dashboard)/layout.tsx`. Uses the already-defined-but-unused `--color-sidebar*` tokens in `globals.css`.
+- `DataTable` in `apps/utilities/src/components/DataTable/` — columns config (header, accessor, sortable, optional cell renderer), client-side sort, pagination, loading (skeleton rows)/empty states; deliberately not the full spec (no bulk-action floating bar, no column-level filter UI, no drag-resize) — just what Transactions/Reviews/Students actually need. RTL tests matching `Mapping.test.tsx`'s pattern.
+- Chart primitives in `apps/utilities/src/components/Charts/` — hand-rolled SVG `BarChart`, `LineChart`, `DonutChart` (no Recharts/Chart.js, per the project's standing "minimize external packages" constraint and the existing custom-built-component precedent). Simple props (`data`, `xKey`, `yKey`, `color`), no zoom/pan/brush. RTL tests for basic rendering with sample data.
+
+**Tests:** `DataTable`/chart component tests (RTL, in `apps/utilities` where `jsdom` is already configured). `hasPermission` unit test covering the bug fix explicitly.
+
+**Demo:** Admin app now has a persistent sidebar across all pages; moderator login hides Revenue/Settings per `hasPermission` (now actually working); `DataTable` and a sample chart render correctly with mock data in a scratch page before being wired into real Phase 3 pages.
+
+---
+
+**Task 27: Admin Frontend — Revenue & Transactions**
+
+**Objective:** Give admins the revenue visibility and refund workflow from `admin-frontend.md` §6.8, scoped to one chart type per metric instead of the full interactive-everything spec.
+
+**Implementation guidance:**
+- `lib/revenue.api.ts` / `lib/transactions.api.ts` against Payment Service (via gateway).
+- `/revenue` — `StatCard` row (lifetime/month/week/today revenue, avg transaction value, refund rate), one `LineChart`/`BarChart` with a Daily/Weekly/Monthly toggle (not a date-range picker), a `DonutChart` for revenue-by-category (course category, joined against Course Service category data), a ranked best-sellers list (top 10 by enrollment count/revenue).
+- `/transactions` — `DataTable` (ID, date, student, course, amount, method, status), status/date-range filters, refund action opening a `Modal` (reason textarea + amount, calls Task 21's refund endpoint) with `ToastContext` feedback.
+
+**Tests:** Any pure aggregation/formatting helper (e.g. revenue-by-period bucketing) gets a logic test.
+
+**Demo:** After a completed Paystack test transaction (Task 21/23), `/revenue`'s today/lifetime stat cards and the trend chart reflect it; `/transactions` lists it and the refund modal successfully calls the backend.
+
+---
+
+**Task 28: Admin Frontend — Review Moderation**
+
+**Objective:** Give admins a moderation queue for reviews — a filtered table, not the Kanban board the phase's original aspirational task list implied (no such spec exists for reviews; the only real Kanban spec in the docs is Phase 5's Service Requests).
+
+**Implementation guidance:**
+- `lib/reviews.api.ts` against Review Service.
+- `/reviews` — `DataTable` with a status-tab filter (Pending | Approved | Rejected | Flagged | All), columns (student, course, rating, excerpt, submitted date, status), row action → `/reviews/[id]`.
+- `/reviews/[id]` — full review text + rating + course/student context, moderate actions (Approve/Reject/Flag with an optional note), calling Task 22's moderate endpoint.
+
+**Tests:** Any pure status-grouping/filter helper gets a logic test.
+
+**Demo:** A pending review submitted in Task 22's demo shows up in `/reviews`'s Pending tab; approving it there makes it appear on the public course detail page's reviews section.
+
+---
+
+**Task 29: Admin Frontend — Student Directory**
+
+**Objective:** Give admins the student directory and profile drill-down from `admin-frontend.md` §6.7, reusing the Task 26 `DataTable`.
+
+**Implementation guidance:**
+- Extends the existing `/users` admin functionality (Task 9) rather than duplicating it — `/students` can be the same underlying user list filtered to `role = STUDENT`, or a dedicated route reusing the same data source; decide based on how much Task 9's existing `/users` page can be reused vs. how different the column set actually needs to be (enrollment count, last active aren't on the current `/users` table).
+- `/students` — `DataTable` + filter sidebar (search, registration date range, status, enrollment count range) per §6.7; enrollment-count/last-active columns need Enrollment Service data joined in (REST call per row or a batch lookup, not N+1 — batch by user ids).
+- `/students/[id]` — header (avatar/name/status/actions), info grid, tabs: Activity (best-effort simple timeline from available data — full cross-service activity aggregation may be thin given no dedicated activity-log table exists), Enrollments (course cards + progress bars from Enrollment Service), Progress (per-course breakdown), Transactions (Payment Service history). Skip the Notes tab unless a trivial backing table is worth adding — no notes schema currently exists anywhere in the spec.
+
+**Tests:** Any pure filter/query-building helper gets a logic test, matching `course.api.test.ts`'s pattern.
+
+**Demo:** `/students` lists all students with real enrollment counts; clicking through to `/students/[id]` shows their actual enrollments/progress/transaction history from the three backend services.
+
+---
+
+**Task 30: Phase 3 Integration & Verification**
+
+**Objective:** Confirm the full enrollment → payment → learning → review → moderation loop works end-to-end through the gateway, across both frontends, same verification discipline as Task 15 closed out Phase 2.
+
+**Implementation guidance:**
+- Full chain: guest browses a paid course → registers/logs in → checkout with Paystack test card → payment confirms → enrollment appears in "My Courses" → learning interface plays the video and persists progress across a reload → crossing 50% unlocks the review form → submitted review appears in admin's Pending queue → approving it surfaces it on the public course page → the transaction shows up in `/revenue` and `/transactions`.
+- Auth boundary checks via `curl`: write endpoints on all three new services 401 with no session, 403 for the wrong role.
+- Update `PLAN.md`/`implementation-phases.md` status notes for Tasks 19–29 and the Phase 3 header as each is actually verified, same convention as Phases 1–2 — this task's own status note is where any real deviations found only during integration (like Phase 2's gateway-whitelist bug) get recorded.
+
+**Tests:** The integration/unit tests specified in Tasks 19–29, run together against a single running stack.
+
+**Demo:** Same as Phase 3's exit criteria in `implementation-phases.md`.

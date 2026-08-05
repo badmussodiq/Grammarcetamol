@@ -11,5 +11,6 @@ public class AppGatewayProperties {
 
     private String authServiceUrl;
     private String courseServiceUrl;
+    private String enrollmentServiceUrl;
     private String internalToken;
 }

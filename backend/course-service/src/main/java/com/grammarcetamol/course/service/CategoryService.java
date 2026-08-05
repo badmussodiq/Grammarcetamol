@@ -1,9 +1,9 @@
 package com.grammarcetamol.course.service;
 
-import com.grammarcetamol.course.config.CurrentUser;
+import com.grammarcetamol.shared.config.CurrentUser;
 import com.grammarcetamol.course.dto.CreateCategoryRequest;
 import com.grammarcetamol.course.entity.Category;
-import com.grammarcetamol.course.exception.ForbiddenException;
+import com.grammarcetamol.shared.exception.ForbiddenException;
 import com.grammarcetamol.course.repository.CategoryRepository;
 import com.grammarcetamol.course.util.SlugUtil;
 import lombok.RequiredArgsConstructor;
