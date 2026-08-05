@@ -39,8 +39,20 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         new String[]{"POST", "/api/auth/resend-verification"},
         new String[]{"GET",  "/api/auth/verify-email"},
         new String[]{"GET",  "/api/auth/.well-known/jwks.json"},
-        new String[]{"*",    "/api/auth/oauth2/**"},
-        new String[]{"GET",  "/api/courses/**"}
+        new String[]{"*",    "/api/auth/oauth2/**"}
+    );
+
+    /**
+     * Unlike PUBLIC_ROUTES, these don't require a token — but if one IS present (a logged-in
+     * admin viewing their own draft course, e.g.), it's still validated and the identity headers
+     * are still injected, rather than silently stripping identity. Course-service relies on this
+     * to distinguish "guest browsing the published catalog" from "owner viewing their own draft."
+     * An invalid/expired token or an unreachable auth-service both fail open to anonymous here
+     * (never a 401/503) — these routes work for guests by design.
+     */
+    private static final List<String[]> OPTIONALLY_AUTHENTICATED_ROUTES = List.of(
+        new String[]{"GET", "/api/courses/**"},
+        new String[]{"GET", "/api/categories/**"}
     );
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
@@ -56,12 +68,15 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         String path   = request.getPath().value();
         String method = request.getMethod().name();
 
-        if (isPublicRoute(method, path)) {
+        if (matchesRoute(method, path, PUBLIC_ROUTES)) {
             return chain.filter(exchange);
         }
 
+        boolean optionalAuth = matchesRoute(method, path, OPTIONALLY_AUTHENTICATED_ROUTES);
         String token = extractToken(request);
+
         if (token == null) {
+            if (optionalAuth) return chain.filter(exchange);
             return unauthorizedResponse(exchange, "Missing or invalid access token");
         }
 
@@ -71,6 +86,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             );
 
             if (!response.getValid()) {
+                if (optionalAuth) return chain.filter(exchange);
                 return unauthorizedResponse(exchange, "Unauthorized");
             }
 
@@ -87,6 +103,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange.mutate().request(mutated).build());
 
         } catch (StatusRuntimeException e) {
+            if (optionalAuth) return chain.filter(exchange);
             return serviceUnavailableResponse(exchange, "Auth service unavailable");
         }
     }
@@ -106,8 +123,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return cookie != null ? cookie.getValue() : null;
     }
 
-    private boolean isPublicRoute(String method, String path) {
-        for (String[] route : PUBLIC_ROUTES) {
+    private boolean matchesRoute(String method, String path, List<String[]> routes) {
+        for (String[] route : routes) {
             String routeMethod = route[0];
             String routePath   = route[1];
             boolean methodMatch = routeMethod.equals("*") || routeMethod.equals(method);

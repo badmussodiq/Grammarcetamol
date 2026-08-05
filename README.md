@@ -12,6 +12,7 @@ Grammarcetamol/
 │   └── utilities/      Shared React component/hook library (@grammarcetamol/utilities)
 ├── backend/
 │   ├── auth-service/    Spring Boot — auth, profiles, RBAC (Java 21)
+│   ├── course-service/  Spring Boot — categories, courses, modules, lessons, catalog (Java 21)
 │   └── gateway-service/ Spring Cloud Gateway — single entry point, JWT validation (Java 21)
 ├── docker/
 │   └── docker-compose.dev.yml   Local Postgres, Redis, RabbitMQ
@@ -23,13 +24,16 @@ Grammarcetamol/
 └── user-stories.md                  Full product backlog
 ```
 
-## Current state (Phase 1: Identity, Access & User Management)
+## Current state (Phase 1 done; Phase 2 done except deferred Upload/Media)
 
-The auth module is implemented and working end-to-end for both portals:
+**Phase 1 — Identity, Access & User Management** is implemented and working end-to-end for both portals:
 
 - **Backend**: registration, email verification, login/logout, refresh, forgot/reset password, gRPC token validation, profile management, admin user (moderator/support) provisioning. Google OAuth is **intentionally deferred** — see `PLAN.md`.
 - **Frontend**: both portals have working login/register/forgot-password/reset-password flows, and the admin portal has a working `/users` list + `/users/create` page. Cross-portal login is rejected — a student's credentials don't grant access to the admin site and vice versa.
-- **Not yet built**: everything past auth (courses, enrollment, payments, live classes, etc. — Phases 2 onward in `implementation-phases.md`).
+
+**Phase 2 — Course Content & Discovery** is implemented and verified end-to-end, live: `course-service` (categories, courses with draft/review/published/archived lifecycle + versioning, modules, lessons, public catalog with search/filter/sort), the student catalog/detail pages + landing hero, and the admin course-management pages (list, create, per-course Overview/Edit/Content/Versions tabs). Upload Service and Media Service are **intentionally deferred** — no object storage or MongoDB is provisioned yet; lessons take a plain admin-pasted `video_url` in the meantime, per the phase's own "Media Service can be stubbed" allowance.
+
+**Not yet built**: enrollment, payments, live classes, and everything else past Phase 2 (`implementation-phases.md`).
 
 See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date status of every task and phase.
 
@@ -47,10 +51,11 @@ This exposes Postgres on `5433`, Redis on `6380`, and RabbitMQ on `5673` (manage
 
 ### 2. Backend
 
-Both services need an RSA keypair for JWT signing before they'll start — see `backend/auth-service/README.md`. Then, in order (gateway depends on auth-service's gRPC endpoint being reachable):
+`auth-service` needs an RSA keypair for JWT signing before it'll start — see `backend/auth-service/README.md`. `course-service` needs `course_db` to exist first — see `backend/course-service/README.md` if you're on a Postgres volume that predates this service. Then, in order (gateway depends on auth-service's gRPC endpoint being reachable):
 
 ```bash
 cd backend/auth-service && mvn spring-boot:run
+cd backend/course-service && mvn spring-boot:run
 cd backend/gateway-service && mvn spring-boot:run
 ```
 
@@ -71,8 +76,8 @@ npm --prefix apps/utilities install
 
 ## Known environment gotchas (Windows)
 
-- **`Selector.open()` / "Unable to establish loopback connection"** when starting either Spring Boot service: a JDK-level Windows NIO issue, most often caused by security/endpoint-protection software (Acronis Active Protection and Windows Defender's Network Inspection Service have both been observed causing this) intercepting the loopback socket. Add a process exclusion for `java.exe` if you hit this.
-- Both backend services need Java 21 and Maven on `PATH`.
+- **`Selector.open()` / "Unable to establish loopback connection"** when starting any Spring Boot service: a JDK-level Windows NIO issue, most often caused by security/endpoint-protection software (Acronis Active Protection and Windows Defender's Network Inspection Service have both been observed causing this) intercepting the loopback socket. Add a process exclusion for `java.exe` if you hit this.
+- All three backend services need Java 21 and Maven on `PATH`.
 - Node 20+ is required for both frontends (Next.js 16's minimum).
 
 ## Documentation map
@@ -82,6 +87,6 @@ npm --prefix apps/utilities install
 | `PLAN.md` | Task-by-task build plan, updated as work lands |
 | `implementation-phases.md` | Phase-level roadmap, sprint grouping, exit criteria |
 | `admin-frontend.md` / `student-frontend.md` | Full target UI/UX design spec per portal — describes where the product is headed, not just what's built today |
-| `database-schema-and-migrations.md` | Target schema for every planned service — see the note at the top for where it currently diverges from the real, implemented `auth_db` schema |
+| `database-schema-and-migrations.md` | Target schema for every planned service — see the note at the top for where it currently diverges from the real, implemented `auth_db`/`course_db` schemas |
 | `user-stories.md` | Full product backlog |
-| `backend/auth-service/README.md`, `backend/gateway-service/README.md`, `apps/*/README.md` | Per-project setup and reference docs |
+| `backend/auth-service/README.md`, `backend/course-service/README.md`, `backend/gateway-service/README.md`, `apps/*/README.md` | Per-project setup and reference docs |

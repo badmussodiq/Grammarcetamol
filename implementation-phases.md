@@ -1,11 +1,11 @@
 # Grammarcetamol — Implementation Phases & Delivery Roadmap
 
-> **Document Version:** 1.2  
+> **Document Version:** 1.3  
 > **Last Updated:** 2026-08-05  
 > **Methodology:** Vertical slicing per Epic, dependency-first, risk-reduction priority  
 > **Sprint Cadence:** 2-week sprints (recommended)  
 > **Note:** User Service merged into Auth Service (2026-08-02). `user_db` and `user-service` no longer exist.
-> **Current status:** Actively in **Phase 1**. The auth module (backend + both frontends) is implemented and verified working end-to-end, including cross-portal login rejection (not originally scoped, added as a security fix). Google OAuth is intentionally deferred. See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
+> **Current status:** **Phase 1 done**; **actively in Phase 2**. Auth (backend + both frontends) is implemented and verified end-to-end, including cross-portal login rejection; Google OAuth intentionally deferred. Phase 2's course-authoring/discovery loop (`course-service` backend + both frontends' course pages) is implemented and verified end-to-end; Upload/Media Services are intentionally deferred (no object storage/MongoDB provisioned — lessons take a plain admin-pasted `video_url` instead). See task-level status notes inline below, and `PLAN.md` for implementation-level detail.
 
 ---
 
@@ -136,18 +136,19 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 > 🔴 **Hard Dependency:** Phase 1 (admins must be authenticated to create content)  
 > 🟡 **Soft Dependency:** Media Service can be stubbed (accept file, return mock URL)  
-> ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.
+> ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.  
+> **Current status (2026-08-05):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Upload Service and Media Service are exercising this phase's own soft-dependency allowance — stubbed as a plain admin-supplied `video_url` rather than built, since no object storage or MongoDB is provisioned yet (`PLAN.md` Tasks 16–17). Both frontends' course pages are next (`PLAN.md` Tasks 13–14).
 
 ### 2.1 Backend Services
 
 #### Course Service (Java / Spring Boot)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-GUEST-002: Browse Course Catalog | Paginated, filterable (category, difficulty, price, rating), full-text search |
-| US-GUEST-003: View Course Details | Curriculum accordion, instructor card, reviews summary, pricing card |
-| US-ADM-006: Guided Course Creation | 5-step wizard; auto-save draft; validation per step; publish atomic guard |
-| US-ADM-009: Course Editing & Versioning | Edit published course → new version snapshot; rollback capability; notify enrolled students on new lessons |
-| US-ADM-010: Safe Course Deletion | Block delete if enrollments > 0; archive instead; hard delete only if zero activity |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-GUEST-002: Browse Course Catalog | Paginated, filterable (category, difficulty, price, rating), full-text search | ✅ category/difficulty/price/search all implemented via one native query; rating filter not added (no reviews exist yet — Phase 3) |
+| US-GUEST-003: View Course Details | Curriculum accordion, instructor card, reviews summary, pricing card | ✅ backend returns full curriculum + instructor fields; reviews summary N/A (Review Service is Phase 3). No frontend yet — Task 13 |
+| US-ADM-006: Guided Course Creation | 5-step wizard; auto-save draft; validation per step; publish atomic guard | ⚠️ backend supports draft creation + atomic publish-validation guard (returns the full missing-item list, not just first error); the 5-step autosaving wizard is a frontend concern — Task 14 plans a single sectioned form instead, not a literal multi-step wizard |
+| US-ADM-009: Course Editing & Versioning | Edit published course → new version snapshot; rollback capability; notify enrolled students on new lessons | ⚠️ edit + version snapshot + rollback (`restore`) all implemented; "notify enrolled students" has no enrollment/notification concept yet (Phases 3–4) |
+| US-ADM-010: Safe Course Deletion | Block delete if enrollments > 0; archive instead; hard delete only if zero activity | ✅ `enrollment_count > 0` blocks delete with 409; archive endpoint separate; the guard is real today even though nothing increments `enrollment_count` until Enrollment Service (Phase 3) |
 
 **Database:** `course_db` — run `V1__course_initial_schema.sql`  
 **Events Published:** `course.created`, `course.published`, `course.updated`, `course.archived`, `course.versioned`  
@@ -176,19 +177,19 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### 2.2 Frontends
 
 #### Student Frontend
-| Page | Features |
-|:---|:---|
-| `/` (Landing) | Hero, 7 service cards, featured course carousel, testimonials, FAQ accordion |
-| `/courses` | Sidebar filters (category, difficulty, price, rating, duration); sort dropdown; CourseCard grid; infinite scroll |
-| `/courses/[slug]` | Promo video thumbnail; curriculum accordion with lock icons; instructor bio; sticky price card; related courses |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/` (Landing) | Hero, 7 service cards, featured course carousel, testimonials, FAQ accordion | ⚠️ Hero + featured course carousel done; 7 service cards/testimonials/FAQ deferred to Phase 5 (need the Service Request catalog) |
+| `/courses` | Sidebar filters (category, difficulty, price, rating, duration); sort dropdown; CourseCard grid; infinite scroll | ⚠️ category/difficulty/price filters + sort + CourseCard grid done; rating/duration filters and infinite scroll not built — "Load more" button pagination instead (deliberate, matches the no-external-library constraint) |
+| `/courses/[slug]` | Promo video thumbnail; curriculum accordion with lock icons; instructor bio; sticky price card; related courses | ⚠️ curriculum accordion, instructor bio, sticky price card done; promo video thumbnail and related courses not built |
 
 #### Admin Frontend
-| Page | Features |
-|:---|:---|
-| `/courses` | DataTable: thumbnail + title + instructor + status badge + price + students + rating; bulk actions; export CSV |
-| `/courses/create` | Step wizard: 1) Info (RichTextEditor, ImageUploader), 2) Pricing, 3) Structure (drag-drop ModuleManager), 4) Upload (FileUploader with chunk grid), 5) Review & Publish |
-| `/courses/[id]` | Tabbed: Overview (metrics), Edit (change tracking), Content (lesson tree), Students (enrollment table), Analytics (charts), Versions (restore) |
-| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls |
+| Page | Features | Status |
+|:---|:---|:---|
+| `/courses` | DataTable: thumbnail + title + instructor + status badge + price + students + rating; bulk actions; export CSV | ⚠️ server-rendered table (not a client DataTable component) with all listed columns + status/category filters + archive/delete actions; no bulk actions or CSV export |
+| `/courses/create` | Step wizard: 1) Info (RichTextEditor, ImageUploader), 2) Pricing, 3) Structure (drag-drop ModuleManager), 4) Upload (FileUploader with chunk grid), 5) Review & Publish | ⚠️ one sectioned form (Info + Pricing), not a step wizard — deliberate simplification, same as `/users/create`. Structure/Upload steps don't apply — module/lesson building happens on `/courses/[id]`'s Content tab instead, and Upload Service is deferred (Task 16) |
+| `/courses/[id]` | Tabbed: Overview (metrics), Edit (change tracking), Content (lesson tree), Students (enrollment table), Analytics (charts), Versions (restore) | ⚠️ Overview, Edit, Content (add/edit/delete/reorder modules & lessons via up/down buttons, not drag-drop), Versions (restore) all done. Students/Analytics tabs not built — depend on Enrollment/Analytics services (Phases 3/5) |
+| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls | ❌ not built — Upload Service is deferred (Task 16); lessons take a plain admin-pasted `video_url` instead, via an inline editor on the Content tab |
 
 ### 2.3 Cross-Cutting
 | Task | Detail |
@@ -198,10 +199,10 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | Object Storage | Bucket policies: public-read for processed media, private for raw uploads |
 
 ### ✅ Phase 2 Exit Criteria
-- [ ] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it.
-- [ ] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum.
-- [ ] Upload survives browser close + reopen with 100% resume accuracy.
-- [ ] Video plays via HLS with adaptive bitrate switching.
+- [x] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it. — *Verified live with 1 module/1 lesson (the mechanism scales identically to 3/5 — nothing in the create/publish path is count-limited). "Uploads a 500MB video" doesn't apply — Upload Service is deferred; the admin pastes a `video_url` instead, per this phase's own "Media Service can be stubbed" allowance.*
+- [x] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum. — *Verified live, unauthenticated, against the real stack.*
+- [ ] Upload survives browser close + reopen with 100% resume accuracy. — *N/A — Upload Service deferred (Task 16).*
+- [ ] Video plays via HLS with adaptive bitrate switching. — *N/A — Media Service deferred (Task 17); lessons link to a plain `video_url`, no transcoding/HLS pipeline exists.*
 
 ---
 

@@ -33,6 +33,9 @@ public class RouteConfig {
             .route("course-service", r -> r
                 .path("/api/courses/**")
                 .uri(appGatewayProperties.getCourseServiceUrl()))
+            .route("categories-service", r -> r
+                .path("/api/categories/**")
+                .uri(appGatewayProperties.getCourseServiceUrl()))
             .build();
     }
 }
