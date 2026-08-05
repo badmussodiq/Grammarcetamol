@@ -4,6 +4,7 @@
 node
 node_modules
 package-lock.json
+dist
 
 # Backend build artifacts and secrets
 backend/auth-service/src/main/resources/keys/*.pem
