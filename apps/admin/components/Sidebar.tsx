@@ -3,12 +3,50 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '@grammarcetamol/utilities';
 import { useAuth } from '@/contexts/AuthContext';
+
+function iconProps() {
+  return {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+}
+
+const DashboardIcon = () => (
+  <svg {...iconProps()}><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>
+);
+const CoursesIcon = () => (
+  <svg {...iconProps()}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+);
+const UsersIcon = () => (
+  <svg {...iconProps()}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+);
+const StudentsIcon = () => (
+  <svg {...iconProps()}><path d="M22 10 12 4 2 10l10 6 10-6Z" /><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" /></svg>
+);
+const RevenueIcon = () => (
+  <svg {...iconProps()}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+);
+const TransactionsIcon = () => (
+  <svg {...iconProps()}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18" /><path d="M7 14h4" /></svg>
+);
+const ReviewsIcon = () => (
+  <svg {...iconProps()}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+);
 
 interface NavItem {
   label: string;
   href: string;
+  icon: ReactNode;
   superAdminOnly?: boolean;
 }
 
@@ -21,17 +59,17 @@ interface NavGroup {
 // Insights/Communication/System groups, but nothing backs those yet (no analytics/notification
 // services, no settings pages), so they're left out rather than shown empty.
 const NAV_GROUPS: NavGroup[] = [
-  { label: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard' }] },
-  { label: 'Education', items: [{ label: 'Courses', href: '/courses' }] },
+  { label: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard', icon: <DashboardIcon /> }] },
+  { label: 'Education', items: [{ label: 'Courses', href: '/courses', icon: <CoursesIcon /> }] },
   { label: 'People', items: [
-    { label: 'Users', href: '/users' },
-    { label: 'Students', href: '/students' },
+    { label: 'Users', href: '/users', icon: <UsersIcon /> },
+    { label: 'Students', href: '/students', icon: <StudentsIcon /> },
   ] },
   { label: 'Business', items: [
-    { label: 'Revenue', href: '/revenue', superAdminOnly: true },
-    { label: 'Transactions', href: '/transactions' },
+    { label: 'Revenue', href: '/revenue', icon: <RevenueIcon />, superAdminOnly: true },
+    { label: 'Transactions', href: '/transactions', icon: <TransactionsIcon /> },
   ] },
-  { label: 'Feedback', items: [{ label: 'Reviews', href: '/reviews' }] },
+  { label: 'Feedback', items: [{ label: 'Reviews', href: '/reviews', icon: <ReviewsIcon /> }] },
 ];
 
 const STORAGE_KEY = 'admin-sidebar-collapsed';
@@ -85,11 +123,13 @@ export function Sidebar() {
                     href={item.href}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'flex items-center px-4 py-2.5 text-sm transition-colors truncate',
+                      'flex items-center gap-3 px-4 py-2.5 text-sm transition-colors',
+                      collapsed && 'justify-center px-0',
                       active ? 'bg-sidebar-active text-white font-medium' : 'text-sidebar-text hover:bg-white/5',
                     )}
                   >
-                    {item.label}
+                    <span className="flex-shrink-0">{item.icon}</span>
+                    {!collapsed && <span className="truncate">{item.label}</span>}
                   </Link>
                 );
               })}
@@ -100,7 +140,11 @@ export function Sidebar() {
       <button
         type="button"
         onClick={toggleCollapsed}
-        className="px-4 py-3 text-xs text-white/50 hover:text-white border-t border-white/10 text-left"
+        title={collapsed ? 'Expand' : undefined}
+        className={cn(
+          'py-3 text-xs text-white/50 hover:text-white border-t border-white/10',
+          collapsed ? 'flex justify-center' : 'px-4 text-left',
+        )}
       >
         {collapsed ? '→' : '← Collapse'}
       </button>
