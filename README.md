@@ -18,7 +18,8 @@ Grammarcetamol/
 │   ├── payment-service/    NestJS — checkout, pluggable payment provider (Paystack), refunds (Node 20+)
 │   ├── review-service/     Spring Boot — course reviews, 50%-completion gate, moderation (Java 21)
 │   ├── upload-service/     NestJS — resumable chunked upload, pluggable object-storage provider (MinIO/S3) (Node 20+)
-│   └── gateway-service/    Spring Cloud Gateway — single entry point, JWT validation (Java 21)
+│   ├── gateway-service/    Spring Cloud Gateway — single entry point, JWT validation (Java 21)
+│   └── integration-tests/  Cross-service Jest suite — hits the real running stack through the gateway, not mocks (Node 20+)
 ├── docker/
 │   └── docker-compose.dev.yml   Local Postgres, Redis, RabbitMQ, MinIO
 ├── PLAN.md                          Task-by-task implementation plan
@@ -88,6 +89,19 @@ npm --prefix apps/admin install && npm --prefix apps/admin run dev      # http:/
 npm --prefix apps/utilities install
 ```
 
+### 4. Integration tests
+
+`backend/integration-tests` is a real Jest suite that hits the running stack through the
+gateway (not mocks) to prove cross-service concerns actually hold — currently the
+auth-boundary sweep (every write/admin-gated endpoint on `enrollment-service`,
+`payment-service`, `review-service` correctly 401s with no token and 403s for the wrong
+role). Needs the full backend up plus a seeded `SUPER_ADMIN` and one `STUDENT` account —
+see its own `README.md`.
+
+```bash
+cd backend/integration-tests && npm install && npm test
+```
+
 ## Known environment gotchas (Windows)
 
 - **`Selector.open()` / "Unable to establish loopback connection"** when starting any Spring Boot service (or, as seen in `enrollment-service`, any code path that opens an NIO `Selector` — including the JDK's `java.net.http.HttpClient`, not just Tomcat's connector): a JDK-level Windows NIO issue, most often caused by security/endpoint-protection software (Acronis Active Protection and Windows Defender's Network Inspection Service have both been observed causing this) intercepting the loopback socket. Add a process exclusion for `java.exe` if you hit this. It appears more reliable from an IDE launch than from an automated/scripted `mvn spring-boot:run`.
@@ -102,4 +116,4 @@ npm --prefix apps/utilities install
 | `admin-frontend.md` / `student-frontend.md` | Full target UI/UX design spec per portal — describes where the product is headed, not just what's built today |
 | `database-schema-and-migrations.md` | Target schema for every planned service — see the note at the top for where it currently diverges from the real, implemented `auth_db`/`course_db` schemas |
 | `user-stories.md` | Full product backlog |
-| `backend/auth-service/README.md`, `backend/course-service/README.md`, `backend/enrollment-service/README.md`, `backend/payment-service/README.md`, `backend/review-service/README.md`, `backend/upload-service/README.md`, `backend/gateway-service/README.md`, `backend/shared-java/README.md`, `apps/*/README.md` | Per-project setup and reference docs |
+| `backend/auth-service/README.md`, `backend/course-service/README.md`, `backend/enrollment-service/README.md`, `backend/payment-service/README.md`, `backend/review-service/README.md`, `backend/upload-service/README.md`, `backend/gateway-service/README.md`, `backend/integration-tests/README.md`, `backend/shared-java/README.md`, `apps/*/README.md` | Per-project setup and reference docs |

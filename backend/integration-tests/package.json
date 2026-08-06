@@ -1,0 +1,26 @@
+{
+  "name": "integration-tests",
+  "version": "0.0.1",
+  "description": "Cross-service integration tests — hit the real running stack through the gateway, not mocks. Doesn't belong to any single service, so it's its own sibling project rather than living inside one.",
+  "private": true,
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.9",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.5.3"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": ".",
+    "testRegex": ".*\\.integration\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "testTimeout": 15000
+  }
+}
