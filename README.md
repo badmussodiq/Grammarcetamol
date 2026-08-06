@@ -72,7 +72,7 @@ cd backend/review-service && mvn spring-boot:run
 cd backend/gateway-service && mvn spring-boot:run
 ```
 
-`payment-service` and `upload-service` are Node/NestJS, not Maven — see each one's own README for `.env` setup (`payment-service` needs real Paystack test-mode keys; `upload-service`'s defaults already match the compose file's MinIO credentials) before `npm install && npm run start:dev`. `upload-service` also needs its own `upload_db` created first, same as the Java services (see its README).
+`payment-service` and `upload-service` are Node/NestJS, not Maven — see each one's own README for `.env` setup (`payment-service` needs real Paystack test-mode keys; `upload-service`'s defaults already match the compose file's MinIO credentials) before `npm install && npm run start:dev`. `upload-service` also needs its own `upload_db` created first, same as the Java services (see its README). Both keep their unit-test specs in their own `test/` directory mirroring `src/` (e.g. `backend/payment-service/test/payments/payments.service.spec.ts` tests `src/payments/payments.service.ts`), same convention as the Java services' `src/test/java/` vs. `src/main/java/` split — run with `npm test` (each service's own `package.json` points Jest at `test/` via `roots`). `upload-service`'s `e2e/upload-flow.e2e.ts` is separate again — a real end-to-end script, not a unit spec, run via `npm run test:e2e`.
 
 Auth service seeds a super admin on first boot — check `SuperAdminSeeder.java` / the `app.super-admin-email` and `app.super-admin-password` properties for the default credentials (change them for anything beyond local dev).
 
@@ -116,6 +116,14 @@ if you add a new component test: `apps/utilities` is a sibling project with its 
 `node_modules` (see its `README.md`), so admin/student's vitest configs need
 `resolve.dedupe: ['react', 'react-dom']` or you'll hit "Invalid hook call" from two React
 copies in the same render tree.
+
+**Tests live in their own `test/` tree, not next to the source they test** — every frontend
+app's `test/` directory mirrors its source layout 1:1 (e.g.
+`apps/admin/test/app/(dashboard)/courses/[id]/ContentTab.test.tsx` tests
+`apps/admin/app/(dashboard)/courses/[id]/ContentTab.tsx`; `apps/utilities/test/hooks/useFetch.test.ts`
+tests `apps/utilities/src/hooks/useFetch.ts`), matching how the Java services already
+separate `src/test/java/` from `src/main/java/`. The two NestJS backend services follow the
+same convention — see the next section.
 
 ```bash
 npm --prefix apps/admin test

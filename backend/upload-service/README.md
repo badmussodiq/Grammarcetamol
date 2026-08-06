@@ -115,12 +115,14 @@ commented-out `AWS_*` vars that register a second `s3` provider the moment they'
 
 ## Tests
 
-`npm test` — 23 unit tests (`src/uploads/uploads.service.spec.ts`), one consolidated file
+`npm test` — 25 unit tests (`test/uploads/uploads.service.spec.ts`), one consolidated file
 covering session creation (including chunk-splitting math and the course-lookup/rollback paths),
 resume/retry semantics, atomic byte-counter updates, multipart completion (including the
-"session only completes once every file does" convergence logic), and failure/abort handling. The
-`pg` `Pool` and `StorageProvider` are mocked directly (no test-double library), same style as
-`payment-service`'s tests.
+"session only completes once every file does" convergence logic), failure/abort handling, and
+signed download-URL resolution. The `pg` `Pool` and `StorageProvider` are mocked directly (no
+test-double library), same style as `payment-service`'s tests. Test specs live in their own
+`test/` directory mirroring `src/`, not next to the source they test — see the root `README.md`'s
+"Running everything locally" for why.
 
 `npm run test:e2e` — a from-scratch end-to-end script (no prior harness like this existed anywhere
 in the repo to mirror) that exercises the entire real flow against the actually-running stack:
