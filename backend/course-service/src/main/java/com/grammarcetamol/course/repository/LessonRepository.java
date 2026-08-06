@@ -10,5 +10,5 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
     List<Lesson> findByModuleIdOrderByPositionAsc(UUID moduleId);
     List<Lesson> findByModuleIdInOrderByPositionAsc(List<UUID> moduleIds);
     long countByModuleIdIn(List<UUID> moduleIds);
-    long countByModuleIdInAndTypeAndVideoUrlIsNull(List<UUID> moduleIds, String type);
+    long countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(List<UUID> moduleIds, String type);
 }

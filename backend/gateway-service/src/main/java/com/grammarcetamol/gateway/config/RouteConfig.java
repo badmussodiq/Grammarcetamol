@@ -57,6 +57,10 @@ public class RouteConfig {
             .route("review-service", r -> r
                 .path("/api/reviews/**")
                 .uri(appGatewayProperties.getReviewServiceUrl()))
+            // Upload service routes
+            .route("upload-service", r -> r
+                .path("/api/uploads/**")
+                .uri(appGatewayProperties.getUploadServiceUrl()))
             .build();
     }
 }

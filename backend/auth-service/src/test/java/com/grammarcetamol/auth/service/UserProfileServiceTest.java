@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
 import java.util.Map;
@@ -143,39 +144,73 @@ class UserProfileServiceTest {
     // getAllUsers
     // -----------------------------------------------------------------------
 
+    // getAllUsers is now built on Specification (see UserProfileService — a static JPQL
+    // "(:x IS NULL OR field = :x)" clause fails outright for the native-enum `status` column when
+    // :x is null). Specification predicates are lambdas, not easily asserted by content with plain
+    // Mockito, so these tests confirm delegation and pass-through of results rather than the exact
+    // predicate shape — the predicate shape itself is covered by the live/integration verification
+    // in PLAN.md Task 29.
+
     @Test
-    void getAllUsers_nullQuery_usesFindAllNotSearch() {
+    void getAllUsers_returnsRepositoryPageContentAndMetadata() {
         User u = buildUser(UUID.randomUUID(), RoleName.STUDENT);
-        when(userRepository.findAll(any(Pageable.class)))
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(u)));
 
-        Map<String, Object> result = userProfileService.getAllUsers(null, 1, 20);
+        Map<String, Object> result = userProfileService.getAllUsers(null, null, null, 1, 20);
 
-        assertThat((List<?>) result.get("data")).hasSize(1);
+        List<?> data = (List<?>) result.get("data");
+        assertThat(data).hasSize(1);
+        assertThat(data.get(0)).isEqualTo(u);
         assertThat(result.get("total")).isEqualTo(1L);
-        verify(userRepository, never()).search(any(), any());
+        assertThat(result.get("page")).isEqualTo(1);
+        assertThat(result.get("limit")).isEqualTo(20);
     }
 
     @Test
-    void getAllUsers_blankQuery_usesFindAllNotSearch() {
-        when(userRepository.findAll(any(Pageable.class)))
+    void getAllUsers_blankQuery_stillDelegatesToRepository() {
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of()));
 
-        userProfileService.getAllUsers("   ", 1, 20);
+        Map<String, Object> result = userProfileService.getAllUsers("   ", null, null, 1, 20);
 
-        verify(userRepository, never()).search(any(), any());
+        assertThat((List<?>) result.get("data")).isEmpty();
     }
 
     @Test
-    void getAllUsers_withQuery_usesSearchNotFindAll() {
+    void getAllUsers_withQuery_delegatesToRepository() {
         User u = buildUser(UUID.randomUUID(), RoleName.STUDENT);
-        when(userRepository.search(eq("jane"), any(Pageable.class)))
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(u)));
 
-        Map<String, Object> result = userProfileService.getAllUsers("jane", 1, 20);
+        Map<String, Object> result = userProfileService.getAllUsers("jane", null, null, 1, 20);
 
-        assertThat((List<?>) result.get("data")).hasSize(1);
-        verify(userRepository, never()).findAll(any(Pageable.class));
+        List<?> data = (List<?>) result.get("data");
+        assertThat(data).hasSize(1);
+        assertThat(data.get(0)).isEqualTo(u);
+    }
+
+    @Test
+    void getAllUsers_roleFilter_delegatesToRepository() {
+        User u = buildUser(UUID.randomUUID(), RoleName.STUDENT);
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of(u)));
+
+        Map<String, Object> result = userProfileService.getAllUsers(null, "STUDENT", null, 1, 20);
+
+        List<?> data = (List<?>) result.get("data");
+        assertThat(data).hasSize(1);
+        assertThat(data.get(0)).isEqualTo(u);
+    }
+
+    @Test
+    void getAllUsers_invalidRole_treatedAsNoFilter_stillDelegates() {
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of()));
+
+        Map<String, Object> result = userProfileService.getAllUsers(null, "NOT_A_ROLE", null, 1, 20);
+
+        assertThat((List<?>) result.get("data")).isEmpty();
     }
 
     // -----------------------------------------------------------------------

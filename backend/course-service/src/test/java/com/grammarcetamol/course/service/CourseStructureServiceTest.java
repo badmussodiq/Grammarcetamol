@@ -1,9 +1,12 @@
 package com.grammarcetamol.course.service;
 
 import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.course.dto.CreateLessonRequest;
 import com.grammarcetamol.course.dto.ReorderRequest;
+import com.grammarcetamol.course.dto.UpdateLessonRequest;
 import com.grammarcetamol.course.entity.Course;
 import com.grammarcetamol.course.entity.CourseModule;
+import com.grammarcetamol.course.entity.Lesson;
 import com.grammarcetamol.shared.exception.ForbiddenException;
 import com.grammarcetamol.course.repository.CourseModuleRepository;
 import com.grammarcetamol.course.repository.CourseRepository;
@@ -86,6 +89,75 @@ class CourseStructureServiceTest {
 
         assertThatThrownBy(() -> structureService.reorderModules(course.getId(), req, OTHER_MODERATOR))
             .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ---- createLesson / updateLesson: allowDownload and uploadFileId wiring ----
+    // Regression coverage for a real bug found during manual verification: allowDownload was
+    // added to the request DTOs but the service methods never actually copied it onto the
+    // entity, so PATCHing a lesson's allowDownload silently did nothing.
+
+    @Test
+    void createLesson_setsUploadFileIdAndAllowDownloadFromRequest() {
+        Course course = ownedCourse();
+        CourseModule module = module(course.getId(), 0);
+        UUID uploadFileId = UUID.randomUUID();
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(moduleRepository.findById(module.getId())).thenReturn(Optional.of(module));
+        when(lessonRepository.findByModuleIdOrderByPositionAsc(module.getId())).thenReturn(List.of());
+        when(lessonRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateLessonRequest request = new CreateLessonRequest();
+        request.setTitle("Cheat Sheet");
+        request.setType("resource");
+        request.setUploadFileId(uploadFileId);
+        request.setAllowDownload(true);
+
+        Lesson created = structureService.createLesson(course.getId(), module.getId(), request, OWNER);
+
+        assertThat(created.getUploadFileId()).isEqualTo(uploadFileId);
+        assertThat(created.isAllowDownload()).isTrue();
+    }
+
+    @Test
+    void updateLesson_setsAllowDownloadWhenRequestSpecifiesIt() {
+        Course course = ownedCourse();
+        CourseModule module = module(course.getId(), 0);
+        Lesson lesson = new Lesson();
+        lesson.setId(UUID.randomUUID());
+        lesson.setModuleId(module.getId());
+        lesson.setAllowDownload(false);
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(moduleRepository.findById(module.getId())).thenReturn(Optional.of(module));
+        when(lessonRepository.findById(lesson.getId())).thenReturn(Optional.of(lesson));
+        when(lessonRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateLessonRequest request = new UpdateLessonRequest();
+        request.setAllowDownload(true);
+
+        Lesson updated = structureService.updateLesson(course.getId(), module.getId(), lesson.getId(), request, OWNER);
+
+        assertThat(updated.isAllowDownload()).isTrue();
+    }
+
+    @Test
+    void updateLesson_leavesAllowDownloadUnchangedWhenNotInRequest() {
+        Course course = ownedCourse();
+        CourseModule module = module(course.getId(), 0);
+        Lesson lesson = new Lesson();
+        lesson.setId(UUID.randomUUID());
+        lesson.setModuleId(module.getId());
+        lesson.setAllowDownload(true);
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(moduleRepository.findById(module.getId())).thenReturn(Optional.of(module));
+        when(lessonRepository.findById(lesson.getId())).thenReturn(Optional.of(lesson));
+        when(lessonRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateLessonRequest request = new UpdateLessonRequest();
+        request.setTitle("Renamed");
+
+        Lesson updated = structureService.updateLesson(course.getId(), module.getId(), lesson.getId(), request, OWNER);
+
+        assertThat(updated.isAllowDownload()).isTrue();
     }
 
     private Course ownedCourse() {

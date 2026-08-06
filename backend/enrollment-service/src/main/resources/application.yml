@@ -31,6 +31,7 @@ spring:
 
 app:
   course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
+  upload-service-url: ${UPLOAD_SERVICE_URL:http://localhost:8087}
   # 20%/14-day at-risk thresholds match implementation-phases.md's Phase 3 note — the only place
   # in the repo's specs a concrete number is given.
   at-risk-completion-threshold-pct: ${AT_RISK_COMPLETION_THRESHOLD_PCT:20}

@@ -45,6 +45,18 @@ public class Lesson {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
+    /** References upload-service's upload_files.id — never a storage path directly.
+     * enrollment-service resolves this to a signed playback/download URL at request time,
+     * after its own real enrollment check. Takes precedence over videoUrl when both are set. */
+    @Column(name = "upload_file_id")
+    private UUID uploadFileId;
+
+    /** View-only by default — the student player renders an attached file inline (video/image/pdf
+     * preview) but only offers an actual download/open-in-new-tab affordance when the instructor
+     * has explicitly opted this lesson into it. */
+    @Column(name = "allow_download", nullable = false)
+    private boolean allowDownload = false;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "video_metadata", columnDefinition = "JSONB")
     private String videoMetadata;

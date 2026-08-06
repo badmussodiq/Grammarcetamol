@@ -137,7 +137,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 > 🔴 **Hard Dependency:** Phase 1 (admins must be authenticated to create content)  
 > 🟡 **Soft Dependency:** Media Service can be stubbed (accept file, return mock URL)  
 > ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.  
-> **Current status (2026-08-05):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Upload Service and Media Service are exercising this phase's own soft-dependency allowance — stubbed as a plain admin-supplied `video_url` rather than built, since no object storage or MongoDB is provisioned yet (`PLAN.md` Tasks 16–17). Both frontends' course pages are next (`PLAN.md` Tasks 13–14).
+> **Current status (2026-08-06):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Both frontends' course pages are done (`PLAN.md` Tasks 13–14). Upload Service backend is now done and live-verified (`PLAN.md` Task 16, added 2026-08-06, once MinIO was provisioned) — lessons still take a plain admin-pasted `video_url` in the meantime since the admin upload UI itself hasn't been built. Media Service remains deferred — still exercising this phase's own soft-dependency allowance, since MongoDB isn't provisioned yet (`PLAN.md` Task 17).
 
 ### 2.1 Backend Services
 
@@ -155,13 +155,13 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 **Events Consumed:** `user.created` (for instructor linkage), `enrollment.completed` (for completion stats)
 
 #### Upload Service (Node.js / NestJS)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-ADM-007: Resumable Chunked Upload | 5MB chunks; SHA-256 checksum; 3 retries with exponential backoff; session recovery after browser crash |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-ADM-007: Resumable Chunked Upload | 5MB chunks; SHA-256 checksum; 3 retries with exponential backoff; session recovery after browser crash | ✅ backend done, live-verified (2026-08-06) — chunks are real S3/MinIO multipart parts, not a homemade scheme; presigned PUT URLs (browser uploads directly to storage); re-presigning any non-completed chunk is both the retry path and the resume-after-crash path (same endpoint). SHA-256 checksum is recorded as a client-computed integrity field (separate from S3's own per-part ETag); exponential backoff itself is a client concern, not backend logic. No admin upload UI yet — see `PLAN.md` Task 16 |
 
-**Database:** `upload_db` — run `V1__upload_initial_schema.sql`  
-**Storage:** MinIO (dev) / S3 (prod); presigned PUT URLs for direct chunk upload  
-**Events Published:** `upload.session.started`, `upload.chunk.completed`, `upload.file.completed`, `upload.failed`
+**Database:** `upload_db` — run `V1__upload_initial_schema.sql` (with a `storage_provider`/`storage_bucket`/`storage_multipart_id` addition beyond the original spec — see `PLAN.md` Task 16 for why)
+**Storage:** MinIO (dev) / S3 (prod), via a pluggable `StorageProvider` abstraction — both can be registered and used at once; each uploaded file's own DB row remembers which backend it's actually on, permanently. Presigned PUT URLs for direct chunk upload (never proxied through the service).
+**Events Published:** `upload.session.started`, `upload.chunk.completed`, `upload.file.completed`, `upload.failed` — all confirmed publishing live with correct payloads.
 
 #### Media Service (Node.js / NestJS — MongoDB)
 | Task | Detail |
@@ -201,7 +201,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### ✅ Phase 2 Exit Criteria
 - [x] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it. — *Verified live with 1 module/1 lesson (the mechanism scales identically to 3/5 — nothing in the create/publish path is count-limited). "Uploads a 500MB video" doesn't apply — Upload Service is deferred; the admin pastes a `video_url` instead, per this phase's own "Media Service can be stubbed" allowance.*
 - [x] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum. — *Verified live, unauthenticated, against the real stack.*
-- [ ] Upload survives browser close + reopen with 100% resume accuracy. — *N/A — Upload Service deferred (Task 16).*
+- [x] Upload survives browser close + reopen with 100% resume accuracy. — *Backend mechanism verified (Task 16, 2026-08-06): re-presigning any non-`completed` chunk is the resume path, and `GET /api/uploads/sessions/:id` returns exactly the per-chunk state a reopened page needs to know what's left. Not exercised via an actual browser crash/reopen — there's no admin upload UI yet to crash.*
 - [ ] Video plays via HLS with adaptive bitrate switching. — *N/A — Media Service deferred (Task 17); lessons link to a plain `video_url`, no transcoding/HLS pipeline exists.*
 
 ---

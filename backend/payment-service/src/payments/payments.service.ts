@@ -229,18 +229,24 @@ export class PaymentsService {
     return updated;
   }
 
-  /** Admin listing for the /transactions page. Every filter is optional. */
+  /** Admin listing for the /transactions page (and the student directory's Transactions tab,
+   * via `userId`). Every filter is optional. */
   async list(filters: {
     status?: string;
     method?: string;
     dateFrom?: string;
     dateTo?: string;
+    userId?: string;
     page: number;
     limit: number;
   }): Promise<{ items: Payment[]; total: number }> {
     const conditions: string[] = [];
     const params: unknown[] = [];
 
+    if (filters.userId) {
+      params.push(filters.userId);
+      conditions.push(`user_id = $${params.length}`);
+    }
     if (filters.status) {
       params.push(filters.status);
       conditions.push(`status = $${params.length}`);

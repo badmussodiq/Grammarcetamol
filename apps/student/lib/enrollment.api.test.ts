@@ -31,7 +31,7 @@ describe('hasEnrollmentFor', () => {
 });
 
 function lesson(id: string, state: LearnLesson['state']): LearnLesson {
-  return { id, title: id, type: 'video', duration: 300, position: 0, videoUrl: 'http://video', state, watchPosition: 0 };
+  return { id, title: id, description: null, type: 'video', duration: 300, position: 0, videoUrl: 'http://video', allowDownload: false, state, watchPosition: 0 };
 }
 
 function learnModule(id: string, lessons: LearnLesson[]): LearnModule {
@@ -40,17 +40,17 @@ function learnModule(id: string, lessons: LearnLesson[]): LearnModule {
 
 describe('findDefaultLesson', () => {
   it('prefers the "current" lesson over anything else', () => {
-    const modules = [learnModule('m1', [lesson('l1', 'completed'), lesson('l2', 'current'), lesson('l3', 'locked')])];
+    const modules = [learnModule('m1', [lesson('l1', 'completed'), lesson('l2', 'current'), lesson('l3', 'unlocked')])];
     expect(findDefaultLesson(modules)?.id).toBe('l2');
   });
 
   it('falls back to the first "unlocked" lesson when nothing is current', () => {
-    const modules = [learnModule('m1', [lesson('l1', 'completed'), lesson('l2', 'unlocked'), lesson('l3', 'locked')])];
+    const modules = [learnModule('m1', [lesson('l1', 'completed'), lesson('l2', 'unlocked'), lesson('l3', 'unlocked')])];
     expect(findDefaultLesson(modules)?.id).toBe('l2');
   });
 
-  it('falls back to the very first lesson when everything is locked', () => {
-    const modules = [learnModule('m1', [lesson('l1', 'locked'), lesson('l2', 'locked')])];
+  it('falls back to the very first lesson when everything is already completed', () => {
+    const modules = [learnModule('m1', [lesson('l1', 'completed'), lesson('l2', 'completed')])];
     expect(findDefaultLesson(modules)?.id).toBe('l1');
   });
 

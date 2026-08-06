@@ -99,6 +99,8 @@ public class CourseStructureService {
         lesson.setType(request.getType() == null || request.getType().isBlank() ? Lesson.TYPE_VIDEO : request.getType());
         lesson.setDuration(request.getDuration());
         lesson.setVideoUrl(request.getVideoUrl());
+        lesson.setUploadFileId(request.getUploadFileId());
+        lesson.setAllowDownload(request.isAllowDownload());
         lesson.setPreview(request.isPreview());
         lesson.setPublished(request.isPublished());
         lesson.setPosition(lessonRepository.findByModuleIdOrderByPositionAsc(module.getId()).size());
@@ -116,6 +118,8 @@ public class CourseStructureService {
         if (request.getType() != null) lesson.setType(request.getType());
         if (request.getDuration() != null) lesson.setDuration(request.getDuration());
         if (request.getVideoUrl() != null) lesson.setVideoUrl(request.getVideoUrl());
+        if (request.getUploadFileId() != null) lesson.setUploadFileId(request.getUploadFileId());
+        if (request.getAllowDownload() != null) lesson.setAllowDownload(request.getAllowDownload());
         if (request.getPreview() != null) lesson.setPreview(request.getPreview());
         if (request.getPublished() != null) lesson.setPublished(request.getPublished());
         return lessonRepository.save(lesson);

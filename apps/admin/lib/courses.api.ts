@@ -60,6 +60,8 @@ export interface Lesson {
   duration: number | null;
   position: number;
   videoUrl: string | null;
+  uploadFileId: string | null;
+  allowDownload: boolean;
   preview: boolean;
   published: boolean;
 }

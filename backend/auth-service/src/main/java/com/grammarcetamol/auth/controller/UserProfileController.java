@@ -52,15 +52,18 @@ public class UserProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(created));
     }
 
-    /** GET /api/users?q=&page=1&limit=20 — SUPER_ADMIN or MODERATOR */
+    /** GET /api/users?q=&role=&status=&page=1&limit=20 — SUPER_ADMIN or MODERATOR.
+     * role/status are optional filters (e.g. role=STUDENT for the admin student directory). */
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'MODERATOR')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAllUsers(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1")  int page,
             @RequestParam(defaultValue = "20") int limit) {
         return ResponseEntity.ok(ApiResponse.success(
-            userProfileService.getAllUsers(q, page, limit)));
+            userProfileService.getAllUsers(q, role, status, page, limit)));
     }
 
     /** GET /api/users/:id — SUPER_ADMIN or MODERATOR */

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button, Input, Badge, useToast, ApiError } from '@grammarcetamol/utilities';
 import { coursesApi, type ModuleResponse, type LessonResponse } from '@/lib/courses.api';
+import { LessonFileUpload } from './LessonFileUpload';
 
 function swap<T>(items: T[], i: number, j: number): T[] {
   const next = [...items];
@@ -178,6 +179,24 @@ function ModuleCard({
     }
   }
 
+  async function attachUploadedFile(lesson: LessonResponse, uploadFileId: string) {
+    try {
+      await coursesApi.updateLesson(courseId, module.id, lesson.id, { uploadFileId });
+      onChanged();
+    } catch (err) {
+      reportError(err, 'File uploaded, but failed to attach it to the lesson');
+    }
+  }
+
+  async function toggleAllowDownload(lesson: LessonResponse) {
+    try {
+      await coursesApi.updateLesson(courseId, module.id, lesson.id, { allowDownload: !lesson.allowDownload });
+      onChanged();
+    } catch (err) {
+      reportError(err, 'Failed to update lesson');
+    }
+  }
+
   return (
     <div className="bg-surface rounded-lg border border-border overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border">
@@ -195,6 +214,7 @@ function ModuleCard({
         {module.lessons.map((lesson, li) => (
           <LessonRow
             key={lesson.id}
+            courseId={courseId}
             lesson={lesson}
             isFirst={li === 0}
             isLast={li === module.lessons.length - 1}
@@ -203,6 +223,8 @@ function ModuleCard({
             onDelete={() => deleteLesson(lesson.id)}
             onTogglePreview={() => togglePreview(lesson)}
             onSaveVideo={(url, duration) => saveLessonVideo(lesson, url, duration)}
+            onFileUploaded={(uploadFileId) => attachUploadedFile(lesson, uploadFileId)}
+            onToggleAllowDownload={() => toggleAllowDownload(lesson)}
           />
         ))}
 
@@ -222,6 +244,7 @@ function ModuleCard({
 }
 
 function LessonRow({
+  courseId,
   lesson,
   isFirst,
   isLast,
@@ -230,7 +253,10 @@ function LessonRow({
   onDelete,
   onTogglePreview,
   onSaveVideo,
+  onFileUploaded,
+  onToggleAllowDownload,
 }: {
+  courseId: string;
   lesson: LessonResponse;
   isFirst: boolean;
   isLast: boolean;
@@ -239,6 +265,8 @@ function LessonRow({
   onDelete: () => void;
   onTogglePreview: () => void;
   onSaveVideo: (videoUrl: string, duration: string) => Promise<void>;
+  onFileUploaded: (uploadFileId: string) => void;
+  onToggleAllowDownload: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [videoUrl, setVideoUrl] = useState(lesson.videoUrl ?? '');
@@ -261,7 +289,10 @@ function LessonRow({
         <div className="flex items-center gap-2">
           <span className="text-[#0F172A]">{lesson.title}</span>
           {lesson.preview && <Badge variant="info" size="sm">Preview</Badge>}
-          {lesson.type === 'video' && !lesson.videoUrl && <Badge variant="warning" size="sm">Missing video URL</Badge>}
+          {lesson.uploadFileId && <Badge variant="success" size="sm">File uploaded</Badge>}
+          {!lesson.uploadFileId && !lesson.videoUrl && (
+            <Badge variant="warning" size="sm">{lesson.type === 'video' ? 'Missing video' : 'No file attached'}</Badge>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button type="button" onClick={onMoveUp} disabled={isFirst} className="px-1.5 text-[#64748B] hover:text-[#0F172A] disabled:opacity-30" aria-label="Move lesson up">↑</button>
@@ -272,10 +303,30 @@ function LessonRow({
         </div>
       </div>
       {editing && (
-        <div className="flex gap-2 mt-2 items-end">
-          <Input label="Video URL" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="flex-1" />
-          <Input label="Duration (seconds)" type="number" min="0" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-40" />
-          <Button size="sm" loading={saving} onClick={handleSave}>Save</Button>
+        <div className="flex flex-col gap-3 mt-2">
+          <div className="flex gap-2 items-end">
+            <Input label="Video URL (external link)" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="flex-1" />
+            <Input label="Duration (seconds)" type="number" min="0" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-40" />
+            <Button size="sm" loading={saving} onClick={handleSave}>Save</Button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#64748B] mb-1">
+              Or upload a file (video, image, or PDF) — takes priority over the external link above
+            </label>
+            <LessonFileUpload
+              courseId={courseId}
+              lessonId={lesson.id}
+              accept="video/*,image/*,application/pdf"
+              onUploaded={onFileUploaded}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-[#0F172A] w-fit cursor-pointer">
+            <input type="checkbox" checked={lesson.allowDownload} onChange={onToggleAllowDownload} />
+            Allow students to download/open this file directly
+          </label>
+          <p className="text-xs text-[#64748B] -mt-2">
+            Off by default — students can always view the file inline (video player, image, or PDF preview) either way.
+          </p>
         </div>
       )}
     </div>

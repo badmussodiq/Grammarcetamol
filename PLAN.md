@@ -600,11 +600,19 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 ---
 
-**Task 16: Upload Service — Deferred**
+**Task 16: Upload Service — Done**
 
-> **Status: ⏸️ Deferred.** No object storage is provisioned — `docker/docker-compose.dev.yml` has Postgres/Redis/RabbitMQ only, no MinIO/S3. Chunked resumable upload (US-ADM-007) needs real storage to be worth building; building it against nothing would just be a NestJS app that writes to local disk and calls that "resumable." Revisit once MinIO is added to the compose file (a `docker/` change, not a `course-service` one) — until then, admins provide plain `video_url` values directly on lessons via Task 14's Content tab, per the Phase 2 doc's own "Media Service can be stubbed" allowance.
-
-**When resumed, implementation guidance is unchanged from `implementation-phases.md` §2.1** (5MB chunks, SHA-256 checksum, 3 retries, session recovery) **and `database-schema-and-migrations.md` §3.9** (`upload_db` schema is already fully specified and ready to migrate as-is).
+> **Status: ✅ Done, live-verified end-to-end against the real stack (2026-08-06).** Un-deferred once MinIO was provisioned in `docker/docker-compose.dev.yml`. `backend/upload-service` (the repo's second NestJS service, copying `payment-service`'s conventions — hand-rolled migration runner, header-trust `CurrentUser`, `{success,data,error,timestamp}` envelope, publish-only RabbitMQ) implements resumable chunked upload as real S3/MinIO **multipart uploads** (not a homemade reassembly scheme) — 5MB parts (S3's own multipart minimum), presigned PUT URLs so chunk bytes go directly from the browser to object storage, session/file/chunk state in `upload_db` for resume-after-crash.
+>
+> **Object storage is a pluggable `StorageProvider` abstraction** (mirroring `PaymentProvider`) rather than a hardcoded MinIO client, per an explicit user requirement: support MinIO and real S3 coexisting at once, with already-uploaded files staying correctly addressable on whichever backend they actually live on even after the "current" provider changes. Solved by never storing a resolved URL — each `upload_files` row records its own `storage_provider`/`storage_bucket`/`storage_path` at creation time, permanently; a `StorageProviderRegistry` resolves the right provider instance per-file from that stored value, not from "whatever's active today." `S3CompatibleStorageProvider` is one class (backed by `@aws-sdk/client-s3`) registered twice under different names/config once both backends are wanted — MinIO and AWS S3 both speak the S3 API, so adding real S3 later is a config change (`AWS_ACCESS_KEY_ID` set), not new code.
+>
+> Live-verified with a from-scratch end-to-end script (`e2e/upload-flow.e2e.ts` — no prior e2e harness existed anywhere in the repo to mirror) against the real running stack: real gateway JWT auth, a real `course-service` lookup, a real 2-part multipart upload actually PUT to a real MinIO instance, real ETags round-tripped, multipart completion, and an independent `HeadObjectCommand` check directly against MinIO (bypassing upload-service) confirming the object genuinely exists at the correct size. All 4 spec'd events (`upload.session.started/chunk.completed/file.completed/failed`) confirmed publishing with correct payloads.
+>
+> Also gained during this task: `docker-compose.dev.yml` gained a `minio` service (ports 9002/9003, `restart: always`), every infra container switched from `restart: unless-stopped` to `restart: always`, and the pre-existing standalone `platform-mongo` container (holding an unrelated `notifications` database — not touched) got the same restart policy applied non-destructively via `docker update`.
+>
+> Not built in this task: the admin frontend's upload UI (`/courses/[id]/upload`) — this was scoped and agreed as backend-first, matching every other phase's own "backend before frontend" ordering. Lessons still take a plain admin-pasted `video_url` until that frontend work lands.
+>
+> **Update (2026-08-06, done in Task 30):** the admin upload UI landed — `LessonFileUpload.tsx` in `apps/admin/app/(dashboard)/courses/[id]/` drives the real chunked multipart flow (session → per-chunk presign+PUT → complete) from a plain `<input type="file">`, live-verified via a DataTransfer-simulated file selection (the in-app browser tool has no native file-upload action) against the real running stack. `Lesson` gained `uploadFileId`/`allowDownload` fields end-to-end (migration → entity → DTOs → admin UI); `enrollment-service` resolves a fresh signed playback/download URL server-side via a new `UploadServiceClient` rather than ever trusting a client-supplied or previously-stored URL.
 
 ---
 
@@ -828,6 +836,18 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 30: Phase 3 Integration & Verification**
+
+> **Status: 🟡 In progress (2026-08-06).** The full chain described below is now live-verified end-to-end for the first time: 5 new courses were seeded with real content (15 lessons — video/text+image/pdf, 3 per course — via a from-scratch Node seeding script hitting real APIs, files staged locally under `seed-assets/` at the project root and uploaded through the real admin upload UI, see Task 16's update note above), all 7 courses were re-priced in NGN (the user's explicit decision — see memory: `project_multicurrency_deferred` — not a currency-conversion system, everyone pays the NGN price and card networks handle FX), and a real Paystack test-mode checkout completed successfully: `payment.completed` webhook → `enrollFromPayment` → a real enrollment → real revenue appearing on both `/revenue` and `/transactions`. This is the project's first real (non-seeded, non-mocked) transaction end to end.
+>
+> Two UX fixes landed during this live-testing pass, both from direct user feedback while using the learning interface with real content:
+> - **Removed sequential lesson-locking** in the enrolled learning interface (`apps/student/app/my-courses/[courseId]/page.tsx`) — an enrolled student can open any lesson in any order; `enrollment-service`'s `getLearnState()` no longer computes a `locked` state at all (only `unlocked`/`current`/`completed` remain). The separate, still-fully-active preview/locked gating on the *public* course-detail page (pre-enrollment) is untouched — confirmed as a deliberate distinction, not an oversight, per the user.
+> - **View-only-by-default content policy**: non-video lesson resources (text+image, PDF, etc.) render inline (`<img>`, `<iframe>`) rather than triggering a download; instructors opt a specific lesson into raw download/open-in-new-tab access via a new `allowDownload` checkbox in the same admin upload/edit panel (not a separate settings screen, per explicit user requirement).
+>
+> Two real bugs were found and fixed via manual QA during this pass (not caught by existing automated tests until regression tests were added afterward):
+> 1. `allowDownload` existed on the lesson create/update DTOs but `CourseStructureService` never copied it onto the entity — PATCHing it silently no-opped. Fixed in `createLesson`/`updateLesson`; 3 regression tests added to `CourseStructureServiceTest`.
+> 2. A stale Turbopack-compiled bundle in `apps/student` threw `Uncaught ReferenceError: LockIcon is not defined` after the lesson-locking UI was removed (leftover reference to the deleted component that HMR hadn't reconciled) — fixed by clearing `.next` and restarting the dev server; confirmed independently by the user after their own restart.
+>
+> **Still open:** the final `curl`-based auth-boundary sweep (401/403 checks) and the `PLAN.md`/`implementation-phases.md` per-task status-note pass for Tasks 19–29 haven't been done yet — this status note covers the "full loop + real transaction" half of the objective, not the verification-discipline half.
 
 **Objective:** Confirm the full enrollment → payment → learning → review → moderation loop works end-to-end through the gateway, across both frontends, same verification discipline as Task 15 closed out Phase 2.
 

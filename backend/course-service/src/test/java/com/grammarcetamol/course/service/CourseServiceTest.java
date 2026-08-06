@@ -80,7 +80,7 @@ class CourseServiceTest {
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(moduleRepository.findByCourseIdOrderByPositionAsc(course.getId())).thenReturn(List.of(module));
         when(lessonRepository.countByModuleIdIn(List.of(module.getId()))).thenReturn(0L);
-        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(0L);
+        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(0L);
 
         assertThatThrownBy(() -> courseService.publish(course.getId(), SUPER_ADMIN))
                 .isInstanceOf(CoursePublishValidationException.class)
@@ -95,12 +95,31 @@ class CourseServiceTest {
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(moduleRepository.findByCourseIdOrderByPositionAsc(course.getId())).thenReturn(List.of(module));
         when(lessonRepository.countByModuleIdIn(List.of(module.getId()))).thenReturn(2L);
-        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(1L);
+        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(1L);
 
         assertThatThrownBy(() -> courseService.publish(course.getId(), SUPER_ADMIN))
                 .isInstanceOf(CoursePublishValidationException.class)
                 .satisfies(ex -> assertThat(((CoursePublishValidationException) ex).getErrors())
                         .anyMatch(e -> e.contains("missing a video URL")));
+    }
+
+    @Test
+    void publish_videoLessonSatisfiedByUploadedFile_transitionsToPublished() {
+        // A lesson with uploadFileId set (real content from the chunked upload pipeline) but no
+        // plain videoUrl must satisfy the publish check just as well as an external URL would —
+        // the repository query itself already excludes it from the "missing" count, so from
+        // this test's perspective that's simply a count of 0.
+        Course course = readyCourse();
+        CourseModule module = module(course.getId());
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(moduleRepository.findByCourseIdOrderByPositionAsc(course.getId())).thenReturn(List.of(module));
+        when(lessonRepository.countByModuleIdIn(List.of(module.getId()))).thenReturn(1L);
+        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(0L);
+        when(courseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Course result = courseService.publish(course.getId(), SUPER_ADMIN);
+
+        assertThat(result.getStatus()).isEqualTo(Course.STATUS_PUBLISHED);
     }
 
     @Test
@@ -110,7 +129,7 @@ class CourseServiceTest {
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(moduleRepository.findByCourseIdOrderByPositionAsc(course.getId())).thenReturn(List.of(module));
         when(lessonRepository.countByModuleIdIn(List.of(module.getId()))).thenReturn(1L);
-        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(0L);
+        when(lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(List.of(module.getId()), Lesson.TYPE_VIDEO)).thenReturn(0L);
         when(courseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         Course result = courseService.publish(course.getId(), SUPER_ADMIN);

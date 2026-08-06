@@ -166,6 +166,23 @@ class ReviewServiceTest {
             .isInstanceOf(IllegalArgumentException.class);
     }
 
+    // ---- getMyReview ----
+
+    @Test
+    void getMyReview_existingReview_returnsIt() {
+        Review review = existingReview(Instant.now());
+        when(reviewRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(review));
+
+        assertThat(reviewService.getMyReview(USER_ID, COURSE_ID)).isSameAs(review);
+    }
+
+    @Test
+    void getMyReview_noReviewYet_returnsNullNotException() {
+        when(reviewRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.empty());
+
+        assertThat(reviewService.getMyReview(USER_ID, COURSE_ID)).isNull();
+    }
+
     private Review existingReview(Instant createdAt) {
         Review review = new Review();
         review.setId(UUID.randomUUID());

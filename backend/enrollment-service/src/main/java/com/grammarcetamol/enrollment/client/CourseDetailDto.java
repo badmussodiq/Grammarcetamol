@@ -18,7 +18,7 @@ public record CourseDetailDto(CourseSummary course, List<ModuleSummary> modules)
     public record ModuleSummary(UUID id, String title, int position, List<LessonSummary> lessons) {
     }
 
-    public record LessonSummary(UUID id, String title, String type, Integer duration, int position,
-                                 String videoUrl, boolean preview, boolean published) {
+    public record LessonSummary(UUID id, String title, String description, String type, Integer duration, int position,
+                                 String videoUrl, UUID uploadFileId, boolean allowDownload, boolean preview, boolean published) {
     }
 }

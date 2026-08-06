@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Data
 public class CreateLessonRequest {
 
@@ -18,6 +20,12 @@ public class CreateLessonRequest {
     private Integer duration;
 
     private String videoUrl;
+
+    /** upload-service's upload_files.id, once a file has been uploaded through the chunked
+     * upload pipeline and attached to this lesson. */
+    private UUID uploadFileId;
+
+    private boolean allowDownload = false;
 
     private boolean preview = false;
 
