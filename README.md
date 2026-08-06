@@ -91,15 +91,36 @@ npm --prefix apps/utilities install
 
 ### 4. Integration tests
 
-`backend/integration-tests` is a real Jest suite that hits the running stack through the
-gateway (not mocks) to prove cross-service concerns actually hold — currently the
-auth-boundary sweep (every write/admin-gated endpoint on `enrollment-service`,
-`payment-service`, `review-service` correctly 401s with no token and 403s for the wrong
-role). Needs the full backend up plus a seeded `SUPER_ADMIN` and one `STUDENT` account —
-see its own `README.md`.
+`backend/integration-tests` is a real Jest suite (59 tests, 6 files) that hits the running
+stack through the gateway (not mocks) to prove cross-service concerns actually hold: the
+auth boundary (every write/admin-gated endpoint correctly 401s/403s), full course authoring
+(draft → module → lesson → publish, public-catalog visibility), the enrollment/learning
+loop (idempotent free enrollment, no lesson locking, real completion tracking), real
+Paystack test-mode payment calls, and the review 50%-completion gate + moderation. Needs
+the full backend up plus a seeded `SUPER_ADMIN` account — see its own `README.md`. Runs
+serially (`--runInBand`) deliberately: parallel spec files hitting a shared live stack
+causes real contention, not just slower CI.
 
 ```bash
 cd backend/integration-tests && npm install && npm test
+```
+
+### 5. Frontend component/integration tests
+
+`apps/admin` and `apps/student` each have three layers of frontend test now: pure-logic
+unit tests (`lib/*.api.test.ts`), component tests (`*.test.tsx`, React Testing Library,
+API mocked at the module boundary), and integration tests (`*.integration.test.ts(x)`,
+only `global.fetch` mocked — the real API-client code runs). `apps/utilities` has the same
+layers plus its own component library tests. All three apps share one gotcha worth knowing
+if you add a new component test: `apps/utilities` is a sibling project with its own
+`node_modules` (see its `README.md`), so admin/student's vitest configs need
+`resolve.dedupe: ['react', 'react-dom']` or you'll hit "Invalid hook call" from two React
+copies in the same render tree.
+
+```bash
+npm --prefix apps/admin test
+npm --prefix apps/student test
+npm --prefix apps/utilities test
 ```
 
 ## Known environment gotchas (Windows)

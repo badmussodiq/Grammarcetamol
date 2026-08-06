@@ -1,10 +1,10 @@
 {
   "name": "integration-tests",
   "version": "0.0.1",
-  "description": "Cross-service integration tests — hit the real running stack through the gateway, not mocks. Doesn't belong to any single service, so it's its own sibling project rather than living inside one.",
+  "description": "Cross-service integration tests — hit the real running stack through the gateway, not mocks. Doesn't belong to any single service, so it's its own sibling project rather than living inside one. Runs serially (--runInBand): parallel spec files hitting a shared live stack causes real DB/connection contention and test-data races, not just slower CI.",
   "private": true,
   "scripts": {
-    "test": "jest"
+    "test": "jest --runInBand"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
