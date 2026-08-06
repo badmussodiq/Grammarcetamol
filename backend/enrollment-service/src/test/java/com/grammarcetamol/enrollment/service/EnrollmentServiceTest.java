@@ -5,6 +5,7 @@ import com.grammarcetamol.enrollment.client.CourseDetailDto.CourseSummary;
 import com.grammarcetamol.enrollment.client.CourseDetailDto.LessonSummary;
 import com.grammarcetamol.enrollment.client.CourseDetailDto.ModuleSummary;
 import com.grammarcetamol.enrollment.client.CourseServiceClient;
+import com.grammarcetamol.enrollment.client.UploadServiceClient;
 import com.grammarcetamol.enrollment.config.AppProperties;
 import com.grammarcetamol.enrollment.dto.AtRiskEnrollmentResponse;
 import com.grammarcetamol.enrollment.dto.LearnResponse;
@@ -42,6 +43,8 @@ class EnrollmentServiceTest {
     @Mock
     private CourseServiceClient courseServiceClient;
     @Mock
+    private UploadServiceClient uploadServiceClient;
+    @Mock
     private EnrollmentEventPublisher eventPublisher;
 
     private EnrollmentService enrollmentService;
@@ -55,7 +58,7 @@ class EnrollmentServiceTest {
         appProperties.setAtRiskCompletionThresholdPct(20);
         appProperties.setAtRiskMinDaysSinceEnrollment(14);
         enrollmentService = new EnrollmentService(
-            enrollmentRepository, lessonProgressRepository, courseServiceClient, eventPublisher, appProperties);
+            enrollmentRepository, lessonProgressRepository, courseServiceClient, uploadServiceClient, eventPublisher, appProperties);
     }
 
     // ---- enrollFree ----
@@ -132,10 +135,11 @@ class EnrollmentServiceTest {
         verify(eventPublisher).publishEnrollmentCreated(result);
     }
 
-    // ---- prerequisite gating (getLearnState) ----
+    // ---- no prerequisite gating (getLearnState) — an enrolled student can access any lesson
+    // in any order; only "completed" vs "not yet completed" is tracked. ----
 
     @Test
-    void getLearnState_lockedUntilPreviousLessonCompleted() {
+    void getLearnState_everyLessonAccessibleRegardlessOfPreviousCompletion() {
         UUID lesson1 = UUID.randomUUID();
         UUID lesson2 = UUID.randomUUID();
         UUID lesson3 = UUID.randomUUID();
@@ -144,24 +148,25 @@ class EnrollmentServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(enrollment));
         when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
             new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
-                new LessonSummary(lesson1, "L1", "video", 5, 1, "http://video1", false, true),
-                new LessonSummary(lesson2, "L2", "video", 5, 2, "http://video2", false, true),
-                new LessonSummary(lesson3, "L3", "video", 5, 3, "http://video3", false, true)
+                new LessonSummary(lesson1, "L1", null, "video", 5, 1, "http://video1", null, false, false, true),
+                new LessonSummary(lesson2, "L2", null, "video", 5, 2, "http://video2", null, false, false, true),
+                new LessonSummary(lesson3, "L3", null, "video", 5, 3, "http://video3", null, false, false, true)
             ))
         )));
 
-        LessonProgress lesson1Progress = progress(enrollment.getId(), lesson1, LessonProgress.STATUS_COMPLETED);
-        when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of(lesson1Progress));
+        // Lesson 1 is NOT completed (no progress row at all) — under the old gating this would
+        // have locked lessons 2 and 3. It shouldn't anymore: they're both still fully accessible.
+        when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of());
 
         LearnResponse learnState = enrollmentService.getLearnState(USER_ID, COURSE_ID);
 
         assertThat(learnState.modules()).hasSize(1);
         List<LearnResponse.LearnLesson> lessons = learnState.modules().get(0).lessons();
-        assertThat(lessons.get(0).state()).isEqualTo("completed");
+        assertThat(lessons.get(0).state()).isEqualTo("unlocked");
         assertThat(lessons.get(1).state()).isEqualTo("unlocked");
         assertThat(lessons.get(1).videoUrl()).isEqualTo("http://video2");
-        assertThat(lessons.get(2).state()).isEqualTo("locked");
-        assertThat(lessons.get(2).videoUrl()).isNull();
+        assertThat(lessons.get(2).state()).isEqualTo("unlocked");
+        assertThat(lessons.get(2).videoUrl()).isEqualTo("http://video3");
     }
 
     @Test
@@ -172,7 +177,7 @@ class EnrollmentServiceTest {
         when(enrollmentRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(enrollment));
         when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
             new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
-                new LessonSummary(lesson1, "L1", "video", 5, 1, "http://video1", false, true)
+                new LessonSummary(lesson1, "L1", null, "video", 5, 1, "http://video1", null, false, false, true)
             ))
         )));
         when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of());
@@ -180,6 +185,69 @@ class EnrollmentServiceTest {
         LearnResponse learnState = enrollmentService.getLearnState(USER_ID, COURSE_ID);
 
         assertThat(learnState.modules().get(0).lessons().get(0).state()).isEqualTo("unlocked");
+    }
+
+    @Test
+    void getLearnState_uploadedLesson_resolvesSignedUrlOverPlainVideoUrl() {
+        UUID lesson1 = UUID.randomUUID();
+        UUID uploadFileId = UUID.randomUUID();
+        Enrollment enrollment = enrollment(COURSE_ID, BigDecimal.ZERO);
+
+        when(enrollmentRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(enrollment));
+        when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
+            new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
+                new LessonSummary(lesson1, "L1", null, "video", 5, 1, "http://fallback", uploadFileId, false, false, true)
+            ))
+        )));
+        when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of());
+        when(uploadServiceClient.getDownloadUrl(uploadFileId)).thenReturn("https://minio.local/signed-video-url");
+
+        LearnResponse learnState = enrollmentService.getLearnState(USER_ID, COURSE_ID);
+
+        assertThat(learnState.modules().get(0).lessons().get(0).videoUrl()).isEqualTo("https://minio.local/signed-video-url");
+    }
+
+    @Test
+    void getLearnState_uploadServiceUnreachable_fallsBackToPlainVideoUrl() {
+        UUID lesson1 = UUID.randomUUID();
+        UUID uploadFileId = UUID.randomUUID();
+        Enrollment enrollment = enrollment(COURSE_ID, BigDecimal.ZERO);
+
+        when(enrollmentRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(enrollment));
+        when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
+            new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
+                new LessonSummary(lesson1, "L1", null, "video", 5, 1, "http://fallback", uploadFileId, false, false, true)
+            ))
+        )));
+        when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of());
+        when(uploadServiceClient.getDownloadUrl(uploadFileId)).thenReturn(null);
+
+        LearnResponse learnState = enrollmentService.getLearnState(USER_ID, COURSE_ID);
+
+        assertThat(learnState.modules().get(0).lessons().get(0).videoUrl()).isEqualTo("http://fallback");
+    }
+
+    @Test
+    void getLearnState_secondLessonUploadUrlResolvesEvenIfFirstLessonNotCompleted() {
+        UUID lesson1 = UUID.randomUUID();
+        UUID lesson2 = UUID.randomUUID();
+        UUID uploadFileId = UUID.randomUUID();
+        Enrollment enrollment = enrollment(COURSE_ID, BigDecimal.ZERO);
+
+        when(enrollmentRepository.findByUserIdAndCourseId(USER_ID, COURSE_ID)).thenReturn(Optional.of(enrollment));
+        when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
+            new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
+                new LessonSummary(lesson1, "L1", null, "video", 5, 1, "http://video1", null, false, false, true),
+                new LessonSummary(lesson2, "L2", null, "video", 5, 2, "http://fallback", uploadFileId, false, false, true)
+            ))
+        )));
+        when(lessonProgressRepository.findByEnrollmentId(enrollment.getId())).thenReturn(List.of());
+        when(uploadServiceClient.getDownloadUrl(uploadFileId)).thenReturn("https://minio.local/signed-lesson2-url");
+
+        LearnResponse learnState = enrollmentService.getLearnState(USER_ID, COURSE_ID);
+
+        assertThat(learnState.modules().get(0).lessons().get(1).state()).isEqualTo("unlocked");
+        assertThat(learnState.modules().get(0).lessons().get(1).videoUrl()).isEqualTo("https://minio.local/signed-lesson2-url");
     }
 
     @Test
@@ -202,7 +270,7 @@ class EnrollmentServiceTest {
         when(lessonProgressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(courseServiceClient.getCourse(COURSE_ID)).thenReturn(courseDetail("published", BigDecimal.ZERO, List.of(
             new ModuleSummary(UUID.randomUUID(), "Module 1", 1, List.of(
-                new LessonSummary(lessonId, "L1", "video", 5, 1, "http://video1", false, true)
+                new LessonSummary(lessonId, "L1", null, "video", 5, 1, "http://video1", null, false, false, true)
             ))
         )));
         when(lessonProgressRepository.countByEnrollmentIdAndStatus(enrollment.getId(), LessonProgress.STATUS_COMPLETED)).thenReturn(1L);
@@ -276,7 +344,7 @@ class EnrollmentServiceTest {
     }
 
     private LessonSummary lesson() {
-        return new LessonSummary(UUID.randomUUID(), "L", "video", 5, 1, "http://video", false, true);
+        return new LessonSummary(UUID.randomUUID(), "L", null, "video", 5, 1, "http://video", null, false, false, true);
     }
 
     private CourseDetailDto courseDetail(String status, BigDecimal price, List<ModuleSummary> modules) {

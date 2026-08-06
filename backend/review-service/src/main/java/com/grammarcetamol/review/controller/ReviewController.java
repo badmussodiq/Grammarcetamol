@@ -41,6 +41,14 @@ public class ReviewController {
         return ApiResponse.success(review);
     }
 
+    /** The current student's own review for a course, or null if they haven't reviewed it yet —
+     * lets the student frontend decide between a create form and an edit form. */
+    @GetMapping("/api/reviews/mine")
+    public ApiResponse<Review> mine(@RequestParam UUID courseId, CurrentUser currentUser) {
+        requireAuthenticated(currentUser);
+        return ApiResponse.success(reviewService.getMyReview(currentUser.id(), courseId));
+    }
+
     @GetMapping("/api/courses/{courseId}/reviews")
     public ApiResponse<Map<String, Object>> courseReviews(@PathVariable UUID courseId,
                                                             @RequestParam(defaultValue = "1") int page,
@@ -59,6 +67,12 @@ public class ReviewController {
         requireAdminOrModerator(currentUser);
         Page<Review> result = reviewService.adminSearch(status, courseId, rating, page, limit);
         return ApiResponse.success(pageBody(result));
+    }
+
+    @GetMapping("/api/reviews/{id}")
+    public ApiResponse<Review> getById(@PathVariable UUID id, CurrentUser currentUser) {
+        requireAdminOrModerator(currentUser);
+        return ApiResponse.success(reviewService.getById(id));
     }
 
     @PatchMapping("/api/reviews/{id}/moderate")

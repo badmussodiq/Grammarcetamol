@@ -16,12 +16,21 @@ export interface Enrollment {
 export interface LearnLesson {
   id: string;
   title: string;
+  description: string | null;
   type: 'video' | 'text' | 'quiz' | 'resource';
   duration: number | null;
   position: number;
+  /** For a 'video' lesson, the video URL. For 'text'/'resource' lessons with an attached upload,
+   * the attached file's URL (an image or a PDF) — never proxied, always a signed object-storage
+   * URL once resolved via upload-service. */
   videoUrl: string | null;
-  /** locked | unlocked | current | completed */
-  state: 'locked' | 'unlocked' | 'current' | 'completed';
+  /** Whether the student gets an actual download/open-in-new-tab link for the attached file.
+   * False by default — content still renders inline (video/img/iframe) either way; this only
+   * controls the explicit "take a copy" affordance, which the instructor opts into per lesson. */
+  allowDownload: boolean;
+  /** unlocked | current | completed — no "locked" state. Once a student is enrolled in a
+   * course, every lesson in it is freely accessible in any order; only completion is tracked. */
+  state: 'unlocked' | 'current' | 'completed';
   watchPosition: number;
 }
 

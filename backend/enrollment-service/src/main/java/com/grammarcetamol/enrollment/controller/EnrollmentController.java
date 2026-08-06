@@ -40,6 +40,16 @@ public class EnrollmentController {
         return ApiResponse.success(enrollmentService.getMyEnrollments(currentUser.id()));
     }
 
+    /** Admin/moderator lookup of another student's enrollments — the admin student directory's
+     * Enrollments tab. */
+    @GetMapping("/api/enrollments/user/{userId}")
+    public ApiResponse<List<Enrollment>> forUser(@PathVariable UUID userId, CurrentUser currentUser) {
+        if (!currentUser.isAdminOrModerator()) {
+            throw new ForbiddenException("Only super admins or moderators can view another user's enrollments");
+        }
+        return ApiResponse.success(enrollmentService.getMyEnrollments(userId));
+    }
+
     @GetMapping("/api/enrollments/course/{courseId}/learn")
     public ApiResponse<LearnResponse> learn(@PathVariable UUID courseId, CurrentUser currentUser) {
         requireAuthenticated(currentUser);

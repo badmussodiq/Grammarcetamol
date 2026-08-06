@@ -18,6 +18,8 @@ public class LessonResponse {
     private Integer duration;
     private int position;
     private String videoUrl;
+    private UUID uploadFileId;
+    private boolean allowDownload;
     private boolean preview;
     private boolean published;
 
@@ -30,6 +32,11 @@ public class LessonResponse {
         dto.setDuration(lesson.getDuration());
         dto.setPosition(lesson.getPosition());
         dto.setVideoUrl(includeVideoUrl ? lesson.getVideoUrl() : null);
+        // Same gating as videoUrl — an unresolved file reference is just as much "the actual
+        // lesson content" as a plain video_url would be, for a non-preview lesson viewed by a
+        // non-owner/non-admin.
+        dto.setUploadFileId(includeVideoUrl ? lesson.getUploadFileId() : null);
+        dto.setAllowDownload(lesson.isAllowDownload());
         dto.setPreview(lesson.isPreview());
         dto.setPublished(lesson.isPublished());
         return dto;

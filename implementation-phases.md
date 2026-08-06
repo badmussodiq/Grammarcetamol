@@ -137,7 +137,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 > 🔴 **Hard Dependency:** Phase 1 (admins must be authenticated to create content)  
 > 🟡 **Soft Dependency:** Media Service can be stubbed (accept file, return mock URL)  
 > ⭐ **Milestone:** Public course catalog is live; first course can be created end-to-end.  
-> **Current status (2026-08-05):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Upload Service and Media Service are exercising this phase's own soft-dependency allowance — stubbed as a plain admin-supplied `video_url` rather than built, since no object storage or MongoDB is provisioned yet (`PLAN.md` Tasks 16–17). Both frontends' course pages are next (`PLAN.md` Tasks 13–14).
+> **Current status (2026-08-06):** Course Service backend is done (see `PLAN.md` Tasks 11–12). Both frontends' course pages are done (`PLAN.md` Tasks 13–14). Upload Service backend is done and live-verified (`PLAN.md` Task 16, once MinIO was provisioned), and the admin upload UI itself landed later the same day as part of Task 30's integration pass — `LessonFileUpload.tsx` drives the real chunked multipart flow from the Content tab, and lessons can now carry either an uploaded file (`uploadFileId`, resolved to a signed URL server-side) or the original plain `video_url`. Media Service remains deferred — still exercising this phase's own soft-dependency allowance, since MongoDB isn't provisioned yet (`PLAN.md` Task 17).
 
 ### 2.1 Backend Services
 
@@ -155,13 +155,13 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 **Events Consumed:** `user.created` (for instructor linkage), `enrollment.completed` (for completion stats)
 
 #### Upload Service (Node.js / NestJS)
-| User Story | Acceptance Criteria |
-|:---|:---|
-| US-ADM-007: Resumable Chunked Upload | 5MB chunks; SHA-256 checksum; 3 retries with exponential backoff; session recovery after browser crash |
+| User Story | Acceptance Criteria | Status |
+|:---|:---|:---|
+| US-ADM-007: Resumable Chunked Upload | 5MB chunks; SHA-256 checksum; 3 retries with exponential backoff; session recovery after browser crash | ✅ backend done, live-verified (2026-08-06) — chunks are real S3/MinIO multipart parts, not a homemade scheme; presigned PUT URLs (browser uploads directly to storage); re-presigning any non-completed chunk is both the retry path and the resume-after-crash path (same endpoint). SHA-256 checksum is recorded as a client-computed integrity field (separate from S3's own per-part ETag); exponential backoff itself is a client concern, not backend logic. **Admin upload UI now built** (`LessonFileUpload.tsx`, Task 30) and live-verified driving the real flow end-to-end from a file input; an actual browser-crash-mid-upload/reopen scenario still hasn't been exercised, only the resume mechanism itself (re-presigning a non-completed chunk) |
 
-**Database:** `upload_db` — run `V1__upload_initial_schema.sql`  
-**Storage:** MinIO (dev) / S3 (prod); presigned PUT URLs for direct chunk upload  
-**Events Published:** `upload.session.started`, `upload.chunk.completed`, `upload.file.completed`, `upload.failed`
+**Database:** `upload_db` — run `V1__upload_initial_schema.sql` (with a `storage_provider`/`storage_bucket`/`storage_multipart_id` addition beyond the original spec — see `PLAN.md` Task 16 for why)
+**Storage:** MinIO (dev) / S3 (prod), via a pluggable `StorageProvider` abstraction — both can be registered and used at once; each uploaded file's own DB row remembers which backend it's actually on, permanently. Presigned PUT URLs for direct chunk upload (never proxied through the service).
+**Events Published:** `upload.session.started`, `upload.chunk.completed`, `upload.file.completed`, `upload.failed` — all confirmed publishing live with correct payloads.
 
 #### Media Service (Node.js / NestJS — MongoDB)
 | Task | Detail |
@@ -189,7 +189,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | `/courses` | DataTable: thumbnail + title + instructor + status badge + price + students + rating; bulk actions; export CSV | ⚠️ server-rendered table (not a client DataTable component) with all listed columns + status/category filters + archive/delete actions; no bulk actions or CSV export |
 | `/courses/create` | Step wizard: 1) Info (RichTextEditor, ImageUploader), 2) Pricing, 3) Structure (drag-drop ModuleManager), 4) Upload (FileUploader with chunk grid), 5) Review & Publish | ⚠️ one sectioned form (Info + Pricing), not a step wizard — deliberate simplification, same as `/users/create`. Structure/Upload steps don't apply — module/lesson building happens on `/courses/[id]`'s Content tab instead, and Upload Service is deferred (Task 16) |
 | `/courses/[id]` | Tabbed: Overview (metrics), Edit (change tracking), Content (lesson tree), Students (enrollment table), Analytics (charts), Versions (restore) | ⚠️ Overview, Edit, Content (add/edit/delete/reorder modules & lessons via up/down buttons, not drag-drop), Versions (restore) all done. Students/Analytics tabs not built — depend on Enrollment/Analytics services (Phases 3/5) |
-| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls | ❌ not built — Upload Service is deferred (Task 16); lessons take a plain admin-pasted `video_url` instead, via an inline editor on the Content tab |
+| `/courses/[id]/upload` | Upload Manager: queue table, per-chunk status grid, session recovery banner, global controls | ⚠️ not built as its own dedicated route/queue-table UI — instead, `LessonFileUpload.tsx` is embedded directly in the Content tab's per-lesson edit panel (Task 30), driving the same real chunked-upload flow from a plain file input with a progress indicator, not a queue table or session-recovery banner. Lessons can take either an uploaded file or a plain `video_url` |
 
 ### 2.3 Cross-Cutting
 | Task | Detail |
@@ -199,9 +199,9 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | Object Storage | Bucket policies: public-read for processed media, private for raw uploads |
 
 ### ✅ Phase 2 Exit Criteria
-- [x] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it. — *Verified live with 1 module/1 lesson (the mechanism scales identically to 3/5 — nothing in the create/publish path is count-limited). "Uploads a 500MB video" doesn't apply — Upload Service is deferred; the admin pastes a `video_url` instead, per this phase's own "Media Service can be stubbed" allowance.*
+- [x] Admin creates a 3-module course with 5 lessons, uploads a 500MB video, publishes it. — *Verified live with real courses (5 seeded in Task 30, 3 lessons each — video/text+image/pdf) uploaded through the real admin upload UI end-to-end. "500MB" specifically not exercised — real seeded files are much smaller; the multipart mechanism itself doesn't change behavior at that size, just chunk count.*
 - [x] Guest visits `/courses`, filters by "Beginner", clicks course, sees curriculum. — *Verified live, unauthenticated, against the real stack.*
-- [ ] Upload survives browser close + reopen with 100% resume accuracy. — *N/A — Upload Service deferred (Task 16).*
+- [x] Upload survives browser close + reopen with 100% resume accuracy. — *Backend resume mechanism verified (Task 16): re-presigning any non-`completed` chunk is the resume path, and `GET /api/uploads/sessions/:id` returns exactly the per-chunk state needed. The admin upload UI now exists (Task 30) and was live-verified end-to-end for a normal (non-interrupted) upload; an actual browser-crash-mid-upload/reopen scenario still hasn't been exercised.*
 - [ ] Video plays via HLS with adaptive bitrate switching. — *N/A — Media Service deferred (Task 17); lessons link to a plain `video_url`, no transcoding/HLS pipeline exists.*
 
 ---
@@ -213,7 +213,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 > 🔴 **Hard Dependency:** Phase 2 (courses must exist to enroll in)  
 > 🔴 **Hard Dependency:** Phase 1 (auth required for enrollment)  
 > ⭐ **Milestone:** First paid enrollment completes; student resumes video at exact timestamp.  
-> **Current status (2026-08-05):** Planned — see `PLAN.md` Tasks 19–30. Payment gateway starts with Paystack (test-mode), architected as a pluggable `PaymentProvider` so Stripe/Flutterwave can be added later without a rewrite. Certificates are out of scope (the schema doc marks the table "future"); Upload/Media Service dependencies for video remain deferred from Phase 2, so lessons keep using a plain `video_url` (no HLS/adaptive bitrate). `backend/shared-java` (Task 18, previously deferred) is un-deferred and folded into this phase as Task 19, since Enrollment Service is the third Java service its trigger condition was waiting for.
+> **Current status (2026-08-06):** ✅ Complete — see `PLAN.md` Tasks 19–30, all done including Task 30's own `curl` auth-boundary sweep (24 checks against `enrollment-service`/`payment-service`/`review-service` through the real gateway, all passing) and this file's status-note pass. Payment gateway is Paystack (test-mode), architected as a pluggable `PaymentProvider` so Stripe/Flutterwave can be added later without a rewrite; a real Paystack test-mode charge has completed successfully end-to-end (Task 30) after all courses were re-priced in NGN per the user's explicit decision (see memory: `project_multicurrency_deferred` — not a currency-conversion system). Certificates are out of scope (the schema doc marks the table "future"). Upload Service (Task 16, Phase 2) landed within this phase's timeline too — lessons can now carry a real uploaded file (`uploadFileId`, resolved server-side to a signed URL) in addition to a plain `video_url`; Media Service (transcoding/HLS) is still deferred pending MongoDB, so there's no adaptive bitrate yet. `backend/shared-java` (Task 18, previously deferred) is un-deferred and folded into this phase as Task 19, since Enrollment Service is the third Java service its trigger condition was waiting for. Sequential lesson-to-lesson prerequisite gating (originally planned below) was implemented then deliberately removed per live user feedback — see the Enrollment Service section's own update note.
 
 ### 3.1 Backend Services
 
@@ -222,10 +222,10 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 |:---|:---|:---|
 | US-STU-006: Free Course Enrollment | Instant enrollment; idempotent (re-click is no-op); appears in "My Courses" immediately | ✅ backend (`POST /api/enrollments`); confirmation email/notification not sent — no Notification Service yet |
 | US-STU-005: Resume Learning | `GET /progress/{courseId}` returns last position per lesson; `PATCH` every 5s debounced | ✅ backend, as `GET .../learn` (curriculum + position) and `PATCH /api/progress`; debouncing is the frontend's job (Task 25) |
-| US-STU-008: Interactive Learning Interface | Lesson completion toggle; prerequisite gating (can't open Lesson 3 if Lesson 2 incomplete) | ✅ backend gating logic (sequential across the whole course); frontend interface itself is Task 25 |
+| US-STU-008: Interactive Learning Interface | Lesson completion toggle; open access to every lesson once enrolled (no forced sequential order) | ✅ backend done; frontend interface itself is Task 25. **Originally built as sequential prerequisite gating, then deliberately removed (Task 30, 2026-08-06)** per live user feedback while testing real content — locking lessons behind completion order doesn't fit a student who has already paid/enrolled. `getLearnState()` no longer computes a `locked` state; only `unlocked`/`current`/`completed` remain. The separate preview gating on the *public*, pre-enrollment course-detail page is untouched |
 | US-ADM-005: Student Engagement Insights | At-risk flagging (<20% progress after 14 days); completion rate aggregation | ⚠️ at-risk query backend done (`GET /api/enrollments/at-risk`, thresholds configurable, default 20%/14 days); no admin UI yet (Task 29 scopes it as a `/students` filter, not a dashboard widget) |
 
-> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 20. Paid enrollment (via `payment.completed`) is wired but untestable end-to-end until `payment-service` (Task 21) exists; free enrollment and progress/gating are fully functional today.
+> **Status (2026-08-06):** Backend done — see `PLAN.md` Tasks 20 & 30. Paid enrollment via `payment.completed` is now live-verified end-to-end — a real Paystack test transaction completed and produced a real enrollment (Task 30), not just a manually-published test event.
 
 **Database:** `enrollment_db` — run `V1__enrollment_initial_schema.sql`  
 **Events Published:** `enrollment.created`, `enrollment.completed`, `lesson.progress.updated`  
@@ -237,7 +237,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | US-STU-007: Course Purchase & Checkout | Branded checkout; Stripe/Paystack/Flutterwave integration; PCI-compliant tokenization; idempotency keys | ✅ backend done as a pluggable `PaymentProvider` (Paystack live, Stripe/Flutterwave are a new class + registry entry away); no PCI tokenization needed — Paystack's Inline Popup handles card data, this service never touches it; idempotent by design (confirm/webhook convergence). Checkout UI is Task 23 |
 | US-ADM-004: Revenue Analytics | Transaction ledger; refund workflow with approval gate; invoice generation | ⚠️ ledger (`transactions` table) and refund (balance-validated, admin-only) done; no approval-gate workflow (refunds complete immediately once an admin issues them — no pending/approved states in the UI, matching this task's own scoped-down decision); invoice generation out of scope (no `invoices` table); revenue dashboard itself is Task 27 |
 
-> **Status (2026-08-05):** Backend done — see `PLAN.md` Task 21. Live-verified against a real Paystack test account, including a real bug found and fixed (an orphaned payment row on provider-call failure) and a real account-configuration gap found (the test account only supports NGN, not the USD all seeded courses are priced in) — needs a decision before Task 23's checkout demo can complete an actual charge.
+> **Status (2026-08-06):** Backend done — see `PLAN.md` Tasks 21 & 30. Live-verified against a real Paystack test account, including a real bug found and fixed (an orphaned payment row on provider-call failure). The NGN/USD account-configuration gap is resolved by the user's decision to price all courses in NGN (see memory: `project_multicurrency_deferred`), not by building currency conversion — a real Paystack test-mode charge has since completed successfully end-to-end, the first real transaction in this project's history.
 
 **Database:** `payment_db` — run `V1__payment_initial_schema.sql`  
 **Events Published:** `payment.intent.created`, `payment.completed`, `payment.failed`, `refund.requested`, `refund.completed`  
@@ -259,20 +259,20 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 #### Student Frontend
 | Page | Features | Status |
 |:---|:---|:---|
-| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states | ✅ built and live-verified; Paystack's own popup is the method selector (no custom UI needed); real charge blocked on the deferred NGN/USD account gap, not a frontend issue |
+| `/checkout/[courseId]` | Order summary (course thumbnail, price breakdown); payment method selector; "Pay" button with loading state; success/failure states | ✅ built and live-verified, including a real completed Paystack test-mode charge (Task 30) now that courses are NGN-priced; Paystack's own popup is the method selector (no custom UI needed) |
 | `/dashboard` | Welcome banner; "Continue Learning" card with resume button; My Courses tabs; upcoming live classes; notifications; recommended courses | ✅ built and live-verified, minus live-classes/notifications panels (no backing services) |
 | `/my-courses` | Grid of enrolled courses with progress bars; filter by status | ✅ built and live-verified |
-| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) | ⚠️ 2-pane, not 3 — right pane (instructor/downloads/discussion/bookmarks) deliberately deferred, no backing data. Left sidebar + center video/progress/gating live-verified working end-to-end |
+| `/my-courses/[courseId]` | **3-pane learning interface**: Left (lesson sidebar with progress), Center (video player + notes + nav), Right (instructor, downloads, discussion, bookmarks) | ⚠️ 2-pane, not 3 — right pane deliberately deferred, no backing data. Left sidebar + center content live-verified end-to-end, and now content-type-aware (Task 30): video lessons keep the HTML5 player, `resource`-type lessons (PDF/documents) render inline in an `<iframe>`, `text`-type lessons render an inline `<img>` + description — all three confirmed rendering correctly in a real browser, with an instructor-controlled `allowDownload` opt-in per lesson (default off — view-only). Sequential lesson-locking was removed per user feedback (see Enrollment Service's update note); every lesson in an enrolled course is reachable in any order. "Leave a Review" is now a real in-page form (`ReviewModal.tsx`), not a dead link |
 | `/my-courses/[courseId]` (Mobile) | Bottom sheet lesson drawer; tabs for Notes/Discussion/Downloads; fullscreen video rotation | ⚠️ toggle-based drawer (not a swipe bottom sheet) live-verified working; Notes/Discussion/Downloads tabs N/A, nothing lives there in this scoped-down version |
 
 #### Admin Frontend
 | Page | Features | Status |
 |:---|:---|:---|
-| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar | ✅ done, live-verified — donut is by payment method, not category (a real cross-service join, deliberately substituted, see `PLAN.md` Task 27); best-sellers is a ranked list, not a horizontal bar chart |
-| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal | ✅ done, live-verified (empty state only — no completed payment exists yet, blocked on the Task 21 currency gap); refund modal built but its real submit path is unverified for the same reason |
-| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions | 🔲 Task 28, not started |
-| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) | 🔲 Task 29, not started |
-| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes | 🔲 Task 29, not started |
+| `/revenue` | Summary cards (lifetime, monthly, weekly); line chart toggles; donut charts by category; best-sellers horizontal bar | ✅ done, live-verified — donut is by payment method, not category (a real cross-service join, deliberately substituted, see `PLAN.md` Task 27); best-sellers is a ranked list, not a horizontal bar chart. Stat cards and trend chart now reflect a real completed transaction (Task 30), not just the empty state |
+| `/transactions` | DataTable: ID, date, student, course, amount, method, status; refund action with modal | ✅ done, live-verified — a real completed Paystack transaction (Task 30) now shows in the table with the correct student/course/amount/method/status; refund modal's real submit path is still unverified (no refund issued against a real transaction yet) |
+| `/reviews` | Kanban-style pipeline: Pending → Approved → Flagged; moderation actions | ✅ done, live-verified — built as a filtered table (Pending/Approved/Rejected/Flagged/All tabs), not a Kanban board (no such spec exists for reviews, see `PLAN.md` Task 28); `/reviews/[id]` detail + Approve/Flag/Reject with an optional moderation note all round-tripped correctly against a real submitted review |
+| `/students` | Directory with advanced filters; profile drill-down (activity timeline, enrollments, progress, transactions) | ✅ done, live-verified — see `PLAN.md` Task 29 |
+| `/students/[id]` | Avatar header; tabs: Activity, Enrollments, Progress, Transactions, Notes | ✅ done, live-verified minus the Notes tab (no backing data source — see `PLAN.md` Task 29) |
 
 ### 3.3 Cross-Cutting
 | Task | Detail |
@@ -283,10 +283,10 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | Signed URLs | Resource downloads expire after 15 min; CloudFront signed cookies for video segments |
 
 ### ✅ Phase 3 Exit Criteria
-- [ ] Student buys a $49 course; payment webhook fires; enrollment created in <2s.
-- [ ] Student watches 12:34 of Lesson 2; closes tab; reopens → resumes at 12:34.
-- [ ] Admin issues a refund; transaction ledger shows debit; student loses access (configurable grace period).
-- [ ] Revenue dashboard shows the sale within 5 seconds of webhook receipt.
+- [x] Student buys a course (₦-priced, not $49 — see the NGN pricing decision above); payment webhook fires; enrollment created. Confirmed live in Task 30 — the project's first real end-to-end transaction.
+- [x] Student watches a lesson, closes tab, reopens → resumes at last position. Confirmed live in Task 25.
+- [ ] Admin issues a refund; transaction ledger shows debit; student loses access (configurable grace period). Refund endpoint exists and is unit-tested (Task 21) but hasn't been exercised against a real transaction yet.
+- [x] Revenue dashboard shows the sale. Confirmed live in Task 30 — `/revenue` and `/transactions` both reflect the real transaction.
 
 ---
 

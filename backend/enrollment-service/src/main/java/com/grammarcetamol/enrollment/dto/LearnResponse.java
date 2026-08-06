@@ -8,8 +8,8 @@ public record LearnResponse(UUID courseId, String courseTitle, int completionPct
     public record LearnModule(UUID id, String title, int position, List<LearnLesson> lessons) {
     }
 
-    /** state is one of: locked | unlocked | current | completed */
-    public record LearnLesson(UUID id, String title, String type, Integer duration, int position,
-                               String videoUrl, String state, int watchPosition) {
+    /** state is one of: unlocked | current | completed */
+    public record LearnLesson(UUID id, String title, String description, String type, Integer duration, int position,
+                               String videoUrl, boolean allowDownload, String state, int watchPosition) {
     }
 }

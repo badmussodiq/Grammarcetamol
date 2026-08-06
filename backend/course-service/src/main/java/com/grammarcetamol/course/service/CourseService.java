@@ -244,9 +244,11 @@ public class CourseService {
         if (lessonCount == 0) {
             errors.add("At least one lesson is required");
         }
-        long missingVideoUrls = lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNull(moduleIds, Lesson.TYPE_VIDEO);
+        // A video lesson satisfies this either with an admin-pasted external videoUrl, or with a
+        // real file uploaded through upload-service (uploadFileId) — either is real content.
+        long missingVideoUrls = lessonRepository.countByModuleIdInAndTypeAndVideoUrlIsNullAndUploadFileIdIsNull(moduleIds, Lesson.TYPE_VIDEO);
         if (missingVideoUrls > 0) {
-            errors.add(missingVideoUrls + " video lesson(s) are missing a video URL");
+            errors.add(missingVideoUrls + " video lesson(s) are missing a video URL or uploaded file");
         }
         return errors;
     }

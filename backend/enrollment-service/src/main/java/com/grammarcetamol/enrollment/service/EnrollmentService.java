@@ -4,6 +4,7 @@ import com.grammarcetamol.enrollment.client.CourseDetailDto;
 import com.grammarcetamol.enrollment.client.CourseDetailDto.LessonSummary;
 import com.grammarcetamol.enrollment.client.CourseDetailDto.ModuleSummary;
 import com.grammarcetamol.enrollment.client.CourseServiceClient;
+import com.grammarcetamol.enrollment.client.UploadServiceClient;
 import com.grammarcetamol.enrollment.config.AppProperties;
 import com.grammarcetamol.enrollment.dto.AtRiskEnrollmentResponse;
 import com.grammarcetamol.enrollment.dto.CompletionResponse;
@@ -39,6 +40,7 @@ public class EnrollmentService {
     private final EnrollmentRepository enrollmentRepository;
     private final LessonProgressRepository lessonProgressRepository;
     private final CourseServiceClient courseServiceClient;
+    private final UploadServiceClient uploadServiceClient;
     private final EnrollmentEventPublisher eventPublisher;
     private final AppProperties appProperties;
 
@@ -102,7 +104,6 @@ public class EnrollmentService {
             .toList();
 
         List<LearnModule> learnModules = new ArrayList<>();
-        boolean previousCompleted = true; // the first lesson in the course is always unlocked
         int totalLessons = 0;
         int completedCount = 0;
 
@@ -112,6 +113,11 @@ public class EnrollmentService {
                 .toList();
             List<LearnLesson> learnLessons = new ArrayList<>();
 
+            // No prerequisite gating — once a student has paid for (or freely enrolled in) a
+            // course, every lesson in it is immediately accessible in any order. An earlier
+            // version locked lessons behind completing the previous one; that hurt the actual
+            // learning experience (can't skip ahead to the lesson you need) for no real benefit,
+            // since access is already gated at the course level by enrollment itself.
             for (LessonSummary lesson : sortedLessons) {
                 totalLessons++;
                 LessonProgress progress = progressByLesson.get(lesson.id());
@@ -123,8 +129,6 @@ public class EnrollmentService {
                 String state;
                 if (completed) {
                     state = "completed";
-                } else if (!previousCompleted) {
-                    state = "locked";
                 } else if (progress != null && LessonProgress.STATUS_IN_PROGRESS.equals(progress.getStatus())) {
                     state = "current";
                 } else {
@@ -132,13 +136,12 @@ public class EnrollmentService {
                 }
 
                 learnLessons.add(new LearnLesson(
-                    lesson.id(), lesson.title(), lesson.type(), lesson.duration(), lesson.position(),
-                    "locked".equals(state) ? null : lesson.videoUrl(),
+                    lesson.id(), lesson.title(), lesson.description(), lesson.type(), lesson.duration(), lesson.position(),
+                    resolveContentUrl(lesson),
+                    lesson.allowDownload(),
                     state,
                     progress != null ? progress.getWatchPosition() : 0
                 ));
-
-                previousCompleted = completed;
             }
 
             learnModules.add(new LearnModule(module.id(), module.title(), module.position(), learnLessons));
@@ -241,6 +244,19 @@ public class EnrollmentService {
             }
         }
         return result;
+    }
+
+    /** A lesson uploaded through upload-service (uploadFileId set) always wins over a plain
+     * admin-pasted videoUrl — the signed URL is resolved fresh on every call, right here, right
+     * after this method has already confirmed real enrollment and the lesson's unlock state. */
+    private String resolveContentUrl(LessonSummary lesson) {
+        if (lesson.uploadFileId() != null) {
+            String signedUrl = uploadServiceClient.getDownloadUrl(lesson.uploadFileId());
+            if (signedUrl != null) {
+                return signedUrl;
+            }
+        }
+        return lesson.videoUrl();
     }
 
     private int totalLessonCount(CourseDetailDto course) {

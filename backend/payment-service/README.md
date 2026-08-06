@@ -102,9 +102,12 @@ See `.env.example` for the full list. Notable: `PAYMENT_GATEWAY` (which provider
 
 ## Tests
 
-`npm test` (Jest) — 13 tests: `PaystackProvider`'s webhook signature verification (valid/wrong-secret/
-tampered-body/missing-header), `PaymentsService`'s idempotent confirm/webhook convergence (already-completed
-short-circuits before calling the provider at all; a DB-level race-guard miss re-fetches instead of
-double-publishing), refund balance validation, and the free/unpublished-course rejections. No
-integration test against a real Postgres/Paystack — covered instead by this task's own live
+`npm test` (Jest) — 16 unit tests in `test/` (mirroring `src/`, not co-located with it — see the
+root `README.md`'s "Running everything locally"): `PaystackProvider`'s webhook signature
+verification (valid/wrong-secret/tampered-body/missing-header), `PaymentsService`'s idempotent
+confirm/webhook convergence (already-completed short-circuits before calling the provider at all;
+a DB-level race-guard miss re-fetches instead of double-publishing), refund balance validation,
+the free/unpublished-course rejections, and `RevenueService`'s bucket-label formatting. No unit
+test hits a real Postgres/Paystack — that's covered instead by `backend/integration-tests`'
+`payment-flow.integration.spec.ts` (real Paystack test-mode calls) plus this service's own live
 verification pass (documented above and in `PLAN.md`'s Task 21 status note).

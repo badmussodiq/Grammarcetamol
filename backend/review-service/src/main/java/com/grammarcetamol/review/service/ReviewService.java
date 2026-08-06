@@ -105,6 +105,17 @@ public class ReviewService {
         return reviewRepository.search(status, courseId, rating, pageable);
     }
 
+    public Review getById(UUID reviewId) {
+        return reviewRepository.findById(reviewId)
+            .orElseThrow(() -> new EntityNotFoundException("Review not found: " + reviewId));
+    }
+
+    /** Null when the student hasn't reviewed this course yet — not an error, the frontend uses
+     * this to decide between showing a create form and an edit form. */
+    public Review getMyReview(UUID userId, UUID courseId) {
+        return reviewRepository.findByUserIdAndCourseId(userId, courseId).orElse(null);
+    }
+
     @Transactional
     public Review moderate(UUID reviewId, UUID moderatorId, String status, String note) {
         if (!VALID_STATUSES.contains(status)) {

@@ -770,6 +770,8 @@ END $$;
 
 ### 3.9 Upload Service — `upload_db`
 
+> **Implementation status (2026-08-06): built, diverges from the spec below.** `CREATE TYPE upload_status AS (...)` / `CREATE TYPE chunk_status AS (...)` here is invalid Postgres (composite-type syntax, not enum syntax) — the actual migration uses `VARCHAR(20) CHECK (...)` instead, the same fix already applied to every other service's migration for the same spec-authoring mistake. `upload_files.status` also can't default to `'waiting'` as written below (not a value in the status list) — the real migration defaults it to `'preparing'`, matching `upload_sessions`. Additionally, `upload_files` gained three columns not shown here — `storage_provider`, `storage_bucket`, `storage_multipart_id` — needed to support more than one object-storage backend (MinIO, S3) coexisting at once without ever losing track of which one an already-uploaded file actually lives on; see `backend/upload-service/README.md`'s storage-provider-abstraction section and `PLAN.md` Task 16. The actual migration file, `backend/upload-service/db/migration/V1__upload_initial_schema.sql`, is the source of truth, not this document.
+
 ```sql
 -- ============================================================
 -- Migration: V1__upload_initial_schema.sql

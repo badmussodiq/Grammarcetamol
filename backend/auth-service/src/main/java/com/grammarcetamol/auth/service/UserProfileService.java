@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,15 +76,33 @@ public class UserProfileService {
     // -----------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getAllUsers(String query, int page, int limit) {
+    public Map<String, Object> getAllUsers(String query, String roleStr, String statusStr, int page, int limit) {
         PageRequest pageRequest = PageRequest.of(page - 1, limit);
-        // A null query bound inside CONCAT() (as well as compared with IS NULL) gives
-        // Hibernate an ambiguous type to infer for the parameter, and it has been
-        // observed resolving it to bytea instead of varchar. Branch instead of relying
-        // on the :query IS NULL clause in the JPQL.
-        Page<User> result = (query == null || query.isBlank())
-            ? userRepository.findAll(pageRequest)
-            : userRepository.search(query, pageRequest);
+        RoleName role = parseRoleOrNull(roleStr);
+        User.Status status = parseStatusOrNull(statusStr);
+
+        // Built with Specification rather than a static JPQL "(:x IS NULL OR field = :x)" clause —
+        // that pattern requires binding a null parameter for whichever filter is absent, and for
+        // `status` (a native Postgres enum, @JdbcTypeCode(SqlTypes.NAMED_ENUM)) that null bind
+        // fails outright rather than just risking the bytea-inference issue the README warns about
+        // for CONCAT(). A Specification just omits the predicate entirely when a filter is absent,
+        // so no null is ever bound for the enum column.
+        Specification<User> spec = Specification.where(null);
+        if (query != null && !query.isBlank()) {
+            String pattern = "%" + query.toLowerCase() + "%";
+            spec = spec.and((root, cq, cb) -> cb.or(
+                cb.like(cb.lower(root.get("fullName")), pattern),
+                cb.like(cb.lower(root.get("email")), pattern)
+            ));
+        }
+        if (role != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("role"), role));
+        }
+        if (status != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("status"), status));
+        }
+
+        Page<User> result = userRepository.findAll(spec, pageRequest);
         return Map.of(
             "data",  result.getContent(),
             "total", result.getTotalElements(),
@@ -120,6 +139,26 @@ public class UserProfileService {
         } catch (IllegalArgumentException e) {
             log.warn("Unknown role '{}', defaulting to STUDENT", roleName);
             return RoleName.STUDENT;
+        }
+    }
+
+    /** Unlike {@link #parseRole}, a filter with an unrecognized value is treated as "no filter"
+     * rather than defaulted — an admin's typo'd query param shouldn't silently narrow results. */
+    private RoleName parseRoleOrNull(String roleName) {
+        if (roleName == null || roleName.isBlank()) return null;
+        try {
+            return RoleName.valueOf(roleName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private User.Status parseStatusOrNull(String statusName) {
+        if (statusName == null || statusName.isBlank()) return null;
+        try {
+            return User.Status.valueOf(statusName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
         }
     }
 }

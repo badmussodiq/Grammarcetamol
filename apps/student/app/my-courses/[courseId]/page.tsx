@@ -6,14 +6,8 @@ import Link from 'next/link';
 import { useFetch, useToast, Skeleton, Button, cn, ApiError } from '@grammarcetamol/utilities';
 import { enrollmentApi, findDefaultLesson } from '@/lib/enrollment.api';
 import type { LearnLesson, LearnModule, LearnResponse } from '@/lib/enrollment.api';
-
-const LockIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </svg>
-);
+import { isWithinEditWindow, type Review } from '@/lib/reviews.api';
+import { ReviewModal } from './ReviewModal';
 
 const PlayIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -41,9 +35,11 @@ export default function LearningInterfacePage() {
   const params = useParams<{ courseId: string }>();
   const { addToast } = useToast();
   const { data, loading, error, refetch } = useFetch<LearnResponse>(`/api/enrollments/course/${params.courseId}/learn`);
+  const { data: myReview, refetch: refetchReview } = useFetch<Review | null>(`/api/reviews/mine?courseId=${params.courseId}`);
 
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastSyncedAtRef = useRef(0);
 
@@ -58,7 +54,7 @@ export default function LearningInterfacePage() {
   const selectedIndex = allLessons.findIndex((l) => l.id === selectedLessonId);
   const prevLesson = selectedIndex > 0 ? allLessons[selectedIndex - 1] : null;
   const nextLesson = selectedIndex >= 0 && selectedIndex < allLessons.length - 1 ? allLessons[selectedIndex + 1] : null;
-  const canOpenNext = nextLesson != null && nextLesson.state !== 'locked';
+  const canOpenNext = nextLesson != null;
 
   useEffect(() => {
     lastSyncedAtRef.current = 0;
@@ -98,10 +94,6 @@ export default function LearningInterfacePage() {
   }
 
   function openLesson(lesson: LearnLesson) {
-    if (lesson.state === 'locked') {
-      addToast({ type: 'info', message: 'Complete the previous lesson to unlock this one' });
-      return;
-    }
     setSelectedLessonId(lesson.id);
     setSidebarOpen(false);
   }
@@ -157,15 +149,13 @@ export default function LearningInterfacePage() {
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
                         isSelected ? 'bg-primary/10 border-l-4 border-primary' : 'border-l-4 border-transparent hover:bg-background',
-                        lesson.state === 'locked' && 'text-text-muted',
                       )}
                     >
                       <span className={cn(
                         lesson.state === 'completed' && 'text-success',
                         lesson.state === 'current' && 'text-primary',
-                        lesson.state === 'locked' && 'text-text-muted',
                       )}>
-                        {lesson.state === 'completed' ? <CheckIcon /> : lesson.state === 'locked' ? <LockIcon /> : <PlayIcon />}
+                        {lesson.state === 'completed' ? <CheckIcon /> : <PlayIcon />}
                       </span>
                       <span className={cn('flex-1', isSelected && 'font-medium text-text-primary')}>{lesson.title}</span>
                     </button>
@@ -180,23 +170,68 @@ export default function LearningInterfacePage() {
       <div className="flex-1 flex flex-col gap-6 px-4 md:px-8 py-6 max-w-4xl">
         {selectedLesson ? (
           <>
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              {selectedLesson.videoUrl ? (
-                <video
-                  ref={videoRef}
-                  key={selectedLesson.id}
-                  src={selectedLesson.videoUrl}
-                  controls
-                  className="w-full h-full"
-                  onTimeUpdate={handleTimeUpdate}
-                  onEnded={handleEnded}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
-                  No video for this lesson yet
-                </div>
-              )}
-            </div>
+            {selectedLesson.type === 'video' ? (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                {selectedLesson.videoUrl ? (
+                  <video
+                    ref={videoRef}
+                    key={selectedLesson.id}
+                    src={selectedLesson.videoUrl}
+                    controls
+                    className="w-full h-full"
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={handleEnded}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
+                    No video for this lesson yet
+                  </div>
+                )}
+              </div>
+            ) : selectedLesson.type === 'resource' ? (
+              <div className="rounded-lg border border-border bg-surface p-4 flex flex-col gap-4">
+                {selectedLesson.description && (
+                  <p className="text-text-secondary whitespace-pre-line">{selectedLesson.description}</p>
+                )}
+                {selectedLesson.videoUrl ? (
+                  <>
+                    <iframe
+                      key={selectedLesson.id}
+                      src={selectedLesson.videoUrl}
+                      title={selectedLesson.title}
+                      className="w-full rounded-md border border-border"
+                      style={{ height: '70vh' }}
+                    />
+                    {selectedLesson.allowDownload && (
+                      <a
+                        href={selectedLesson.videoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-primary hover:underline w-fit"
+                      >
+                        Open in a new tab ↗
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-text-muted text-sm">No file attached to this lesson yet.</p>
+                )}
+              </div>
+            ) : (
+              // 'text' (and any other non-video, non-resource type) — description plus an
+              // optional attached image, both driven by the same uploadFileId mechanism as video.
+              <div className="rounded-lg border border-border bg-surface p-6 flex flex-col gap-4">
+                {selectedLesson.videoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={selectedLesson.videoUrl} alt={selectedLesson.title} className="w-full rounded-md" />
+                )}
+                {selectedLesson.description ? (
+                  <p className="text-text-secondary whitespace-pre-line">{selectedLesson.description}</p>
+                ) : (
+                  !selectedLesson.videoUrl && <p className="text-text-muted text-sm">No content for this lesson yet.</p>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
@@ -210,10 +245,14 @@ export default function LearningInterfacePage() {
                 </Button>
               </div>
 
-              {data.completionPct >= 50 && (
-                <Link href={`/courses`} className="text-sm text-primary hover:underline w-fit">
-                  Leave a Review
-                </Link>
+              {data.completionPct >= 50 && (myReview === null || isWithinEditWindow(myReview)) && (
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOpen(true)}
+                  className="text-sm text-primary hover:underline w-fit"
+                >
+                  {myReview ? 'Edit Your Review' : 'Leave a Review'}
+                </button>
               )}
 
               <div className="flex items-center justify-between pt-4 border-t border-border">
@@ -226,7 +265,7 @@ export default function LearningInterfacePage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  disabled={!nextLesson || !canOpenNext}
+                  disabled={!canOpenNext}
                   onClick={() => nextLesson && openLesson(nextLesson)}
                 >
                   Next Lesson →
@@ -238,6 +277,14 @@ export default function LearningInterfacePage() {
           <p className="text-text-secondary">This course doesn&apos;t have any lessons yet.</p>
         )}
       </div>
+
+      <ReviewModal
+        open={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        courseId={data.courseId}
+        existingReview={myReview ?? null}
+        onSaved={refetchReview}
+      />
     </main>
   );
 }

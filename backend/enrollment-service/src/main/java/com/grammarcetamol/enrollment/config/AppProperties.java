@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
     private String courseServiceUrl;
+    private String uploadServiceUrl;
     private int atRiskCompletionThresholdPct = 20;
     private int atRiskMinDaysSinceEnrollment = 14;
 }

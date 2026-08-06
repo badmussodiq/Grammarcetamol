@@ -42,6 +42,7 @@ export class PaymentsController {
     @Query('method') method?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('userId') userId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -54,6 +55,7 @@ export class PaymentsController {
       method,
       dateFrom,
       dateTo,
+      userId,
       page: Math.max(Number(page) || 1, 1),
       limit: Math.min(Math.max(Number(limit) || 20, 1), 100),
     });
