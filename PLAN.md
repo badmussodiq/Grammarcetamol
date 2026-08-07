@@ -866,4 +866,131 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Tests:** The integration/unit tests specified in Tasks 19–29, run together against a single running stack.
 
+---
+
+### PHASE 4 — Live Classes & Notifications
+
+> **Current status (2026-08-07):** Planned — see Tasks 31–37 below. Mirrors how Phase 3 looked before Task 19 started: `implementation-phases.md` had a phase-level sketch, no task-level breakdown existed yet. Three scope decisions were resolved with the user before writing these tasks (see each task's own guidance for where they land): (1) email is a pluggable `EmailProvider` abstraction with a log-only default, not a real SendGrid/SES/SMTP integration yet; (2) the admin live-class scheduler builds the real calendar view (month/week/day, drag-to-reschedule, conflict detection), not a simplified list-only page, despite that being bigger than this project's usual "simplify the aspirational spec" pattern; (3) video conferencing embeds Jitsi Meet's free public server (`meet.jit.si`) via their IFrame API, with the room identifier only ever revealed to a verified registered student within the join window — not a self-hosted Jitsi + JWT auth server (presented as the more correct but much larger-scope alternative, explicitly declined for now).
+
+---
+
+**Task 31: Live Class Service — Bootstrap, Scheduling, Booking & Join-Room**
+
+**Objective:** Stand up `backend/live-class-service/` (NestJS, the repo's first MongoDB consumer) so admins/moderators can schedule live classes without double-booking an instructor, students can register (free instantly, paid via the existing payment flow) and see a real "Join Class" state machine, and reminders fire automatically as events for the Notification Service (Task 32) to actually deliver.
+
+**Implementation guidance:**
+- New NestJS project at `backend/live-class-service/`, port `8088`. First Mongo-backed service in the repo — no Mongoose/`mongodb`-driver precedent exists anywhere; use the official `mongodb` driver directly (no ORM), mirroring the "no ORM, thin DatabaseModule" choice already made twice for Postgres in `payment-service`/`upload-service`. No migration runner needed — Mongo is schemaless; define index creation as an idempotent `onModuleInit` step (`createIndex` calls, safe to re-run).
+- **Database provisioning**: add a `mongo` service to `docker/docker-compose.dev.yml` (image `mongo:7`, a *new* container/port mapping — do not touch the existing standalone `platform-mongo` container on `27017`, which holds an unrelated pre-existing `notifications` database, same "found it, left it alone" precedent as Task 16's MinIO provisioning).
+- **Collections** (adapted from `database-schema-and-migrations.md` §4.2 — Mongo, so no enum→VARCHAR+CHECK conversion, just application-layer string validation): `live_classes` (title, description, instructorId, startTime, endTime, timezone, capacity, enrolledCount default 0, price, currency, `roomId` — **never included in any list/detail response projection**, platform, coverImageUrl, status `scheduled|live|completed|cancelled`, recordingUrl, settings, createdBy, timestamps; indexes `{instructorId,startTime}`, `{status,startTime}`, `{startTime}`) and `class_bookings` (classId, userId, status `registered|attended|no_show|cancelled`, paymentId, joinedAt, leftAt, feedback `{rating,comment}`, timestamps; unique index `{classId,userId}`, index `{userId,createdAt desc}`).
+- **`LiveClassesController`**: `POST /api/live-classes` (SUPER_ADMIN/MODERATOR; validates `startTime < endTime`; conflict check — any other non-cancelled class for the same `instructorId` whose time range overlaps, 409 with the conflicting class's detail if found), `PATCH /api/live-classes/{id}` (same conflict re-check excluding itself; `notifyEnrolledStudents` boolean triggers a `liveclass.updated` publish), `GET /api/live-classes` (Upcoming/Past + date-range/instructor/search filters; **`roomId` excluded from the projection**), `GET /api/live-classes/{id}` (same exclusion), `DELETE /api/live-classes/{id}` (sets `status='cancelled'`, publishes `liveclass.cancelled`), `POST /api/live-classes/{id}/register` (authenticated student; free classes create a `registered` booking immediately, idempotent on `(classId,userId)`, atomic `$inc` on `enrolledCount`, 409 at capacity; paid classes go through a `PaymentEventListener` consuming `payment.completed` keyed by a new `itemType`/`itemId` pair added to `payment-service`'s initialize DTO — same free-vs-paid split as Task 20/21's course enrollment), `GET /api/live-classes/{id}/room` (**the only endpoint that ever returns `roomId`** — verifies a real `registered`/`attended` booking for the caller and that `now()` is within `[startTime - 15min, endTime]`, else 403 distinguishing too-early / not-registered / ended — this is what the student join page's countdown/disabled-button state machine reads), `GET /api/live-classes/{id}/ics` (hand-rolled `VCALENDAR`/`VEVENT` text, no external library, registered-only), `GET /api/live-classes/mine`, `GET /api/live-classes/instructor-availability` (backs the admin create/edit form's real-time conflict check).
+- **Reminders — no Kubernetes CronJobs** (this project has an established "no k8s/heavy infra work" constraint, the same reason Media Service remains deferred): use `@nestjs/schedule`'s in-process `@Cron()` (e.g. every minute) querying classes starting in the ~24h/~1h/~15min windows that haven't already had that tier sent — track sent tiers as an array field on the document so a restart mid-run can't double-fire. Publishes one `liveclass.reminder` event per registered booking. This service only emits the event; it never sends an actual notification/email itself — that's entirely Task 32's job.
+- **RabbitMQ**: `LiveClassEventPublisher` (raw `amqplib`, same `TopicExchange`/`persistent:true`/try-catch-log-never-throw shape as `payment-event-publisher.ts`) publishes `liveclass.created`, `liveclass.updated`, `liveclass.cancelled`, `liveclass.registered`, `liveclass.reminder`. A `PaymentEventListener` (NestJS's first RabbitMQ *consumer*, built in lockstep with Task 32's — don't invent two different consumer shapes) consumes `payment.completed` off `payment.exchange`.
+- **Gateway wiring**: `liveClassServiceUrl` in `AppGatewayProperties`/`application.yml`; `.route("live-class-service", r -> r.path("/api/live-classes/**").uri(...))`. `GET /api/live-classes` and `GET /api/live-classes/{id}` go in `OPTIONALLY_AUTHENTICATED_ROUTES`; everything else (including `.../room` and `.../register`) stays fully authenticated.
+
+**Tests:** Jest unit tests — instructor double-booking conflict detection (overlapping / adjacent-non-overlapping / different-day), capacity boundary, the room-authorization three-way logic (too-early/not-registered/ended vs. success), idempotent free registration, the reminder cron's "already-sent-this-tier" guard.
+
+**Demo:** `npm run start:dev` boots on `:8088`, Mongo indexes create cleanly against the new compose `mongo` service. Scheduling two overlapping classes for the same instructor → second `POST` returns 409. A registered student calling `GET .../room` more than 15 minutes early gets 403 "too early"; inside the window gets the real `roomId`. Manually publishing `payment.completed` (with a `liveClassId`) via the RabbitMQ management UI creates a `registered` booking.
+
+---
+
+**Task 32: Notification Service — Bootstrap, Cross-Service Consumption, Notifications & Announcements**
+
+**Objective:** Stand up `backend/notification-service/` (NestJS + Postgres) as the repo's first NestJS RabbitMQ *consumer*, giving every user a real notification center backed by real events from Course/Enrollment/Payment/Review (Java) and Live Class (Task 31, NestJS) services, plus an admin announcement system with audience targeting and email-on-high-priority.
+
+**Implementation guidance:**
+- Bootstrap identical to `payment-service`'s Task 21 pattern: no ORM, raw `pg.Pool` + the same hand-rolled migration runner (`db/migration/V1__notification_initial_schema.sql`). Port `8089`, datasource `notification_db`.
+- **Migration** — same enum→`VARCHAR(20) CHECK(...)` convention used everywhere else in this project (the schema doc's `CREATE TYPE ... AS (...)` is invalid Postgres syntax, same bug already worked around for every other service). Only `in_app`/`email` channels — the spec marks SMS "(future)". Tables: `notification_templates`, `notifications`, `user_notification_preferences` (all adapted from `database-schema-and-migrations.md` §3.7), plus a **new `announcements` table** the schema doc doesn't have (`id`, `title`, `body`, `target_type` `all|courses|segments`, `target_ids JSONB`, `priority` `low|normal|high|critical`, `status` `draft|scheduled|published|expired`, `publish_at`, `expires_at`, `created_by`, timestamps) — at publish time this fans out into individual `notifications` rows per matched user, rather than overloading the `notifications` table itself for admin-side querying/editing of the announcement. "Segments" targeting is a documented no-op for now — no real user-segment concept exists anywhere in this codebase; don't invent one just to fill the field.
+- **New pattern — NestJS RabbitMQ consumer, no existing template.** Every NestJS service so far only publishes. On module init, for each source exchange (`user`/`course`/`enrollment`/`payment`/`review` from the Java services, `liveclass` from Task 31), idempotently `assertExchange(name, 'topic', {durable:true})` — same idempotent-redeclare approach `PaymentEventListener.java` already uses on the Java side — declare one durable queue per binding pattern needed, `channel.consume(queue, handler, {noAck:false})`. Handler: `JSON.parse` the message body (Jackson2JsonMessageConverter's INFERRED-type output already round-trips as plain JSON to a NestJS/amqplib consumer — confirmed by the existing Java-publishes/nothing-consumes-yet asymmetry, this is the first time it's exercised in the other direction), map routing key → `notification_templates` lookup + variable substitution → insert a `notifications` row, `ack` on success, `nack(msg, false, false)` (no requeue, matching this repo's "log and move on" philosophy) on parse/handler failure.
+- **`NotificationsController`**: `GET /api/notifications` (own, paginated, filterable by type/status), `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`, `DELETE /api/notifications/{id}`, `GET /api/notifications/unread-count`, `GET /api/notifications/stream` (**Server-Sent Events** — an in-process `EventEmitter`/RxJS `Subject` the consumer handler also writes to when it inserts a row; no separate pub/sub broker needed since one process handles both ingestion and serving), `GET`/`PUT /api/notification-preferences`.
+- **`AnnouncementsController`** (SUPER_ADMIN/MODERATOR only): `POST /api/announcements` (draft/schedule/publish-now per body), `PATCH /api/announcements/{id}`, `GET /api/announcements`, `GET /api/announcements/{id}`, `DELETE /api/announcements/{id}`, `POST /api/announcements/{id}/publish` (manual publish for a draft/scheduled one), `POST /api/announcements/{id}/send-test` (emails the calling admin via `EmailProvider`, never touches `notifications`), `GET /api/announcements/{id}/recipient-count` (dry-run audience resolution, used by the admin UI's publish-confirmation modal). A `@Cron()` sweep publishes anything `status='scheduled' AND publish_at <= now()`.
+- **`EmailProvider` abstraction** (per the resolved scope decision) — mirrors `PaymentProvider`/`StorageProvider` exactly: `send(to, subject, html, text?): Promise<{success, messageId?, raw?}>`. `LogEmailProvider` (default) just logs what would be sent. `EmailProviderRegistry` (`Map<string, EmailProvider>`) selects via an `EMAIL_PROVIDER` env var — adding a real `SendGridProvider`/`SesProvider` later is a new class + registry entry, zero call-site changes. High/critical-priority announcements call the active provider per matched recipient at publish time, in addition to the in-app row.
+- **Gateway wiring**: `notificationServiceUrl` + `.route("notification-service", r -> r.path("/api/notifications/**")...)` + `.route("announcement-service", r -> r.path("/api/announcements/**")...)` + `.route("notification-preferences", r -> r.path("/api/notification-preferences")...)`. **Flag as a real risk to verify, not silently assume works**: `GET /api/notifications/stream` needs to be confirmed live with `curl -N` to actually stream through Spring Cloud Gateway's Netty-based reactive proxy without being buffered by the existing `JwtAuthFilter`/rate-limit `GlobalFilter`s — record the real outcome in this task's status note. Fallback if it doesn't stream cleanly: client-side polling of `unread-count` instead of true SSE (Task 34 builds this fallback into the frontend client regardless).
+
+**Tests:** Jest unit tests — the consumer's routing-key→template mapping and ack/nack behavior, announcement audience resolution per `target_type`, recipient-count dry-run matching a real publish's fan-out, the scheduled-publish cron's "already published" guard, high-priority triggering `EmailProvider.send` while normal/low don't.
+
+**Demo:** `npm run start:dev` boots on `:8089`, migration runner applies `V1`. Publishing a manual `enrollment.created` message via the RabbitMQ management UI produces a real row in `GET /api/notifications` for that user. Admin creates a `high`-priority "all" announcement → `LogEmailProvider` logs a simulated send per matched user and it shows up for a test student. `curl -N` against `/api/notifications/stream` through the gateway (authenticated) receives a live event while the connection is open.
+
+---
+
+**Task 33: Student Frontend — Live Classes & Join Flow**
+
+**Objective:** Let students browse upcoming/past live classes, register (free instantly, paid via checkout), and join through an embedded Jitsi call that only becomes accessible in the real join window — never exposing a raw external meeting link.
+
+**Implementation guidance:**
+- `lib/liveclasses.api.ts` — `listLiveClasses(filters)`, `getLiveClass(id)`, `registerForClass(id)`, `getJoinRoom(id)`, `getMyClasses()`. Paid-class checkout: extend `/checkout/[courseId]` with an `itemType` param or build a thin live-class-specific variant — decide based on how much actually differs once both exist, same open-call shape as Task 29's `/students`-vs-`/users` reuse decision.
+- `/live-classes` (student-frontend.md §5.7) — Upcoming | Past tabs, filters (date range/instructor/search), card grid: banner, title, date/time in the viewer's local timezone, duration, instructor, price/Free badge, capacity indicator ("12/30 spots left"), Register/Buy/Join button per the class's actual state.
+- `/live-classes/[id]/join` (§5.7) — state machine driven by `startTime`/`endTime` plus the real `GET .../room` authorization: **pre-join** (>15 min out) shows countdown + class details; **waiting** (inside 15 min) fetches and caches the real `roomId`, shows "Waiting for host…"; **active** mounts Jitsi's IFrame API (`https://meet.jit.si/external_api.js`, `new JitsiMeetExternalAPI(domain, {roomName, parentNode, ...})`) — the only place the room identifier is ever used, never rendered as a link/URL anywhere in the DOM; **post-class** shows a recording notice (if `recordingUrl` set) + a feedback/rating prompt writing to `class_bookings.feedback`.
+- Dashboard widget (extends Task 24's explicitly-deferred live-classes panel): horizontal card list, sharing the join-window state-machine logic with the join page as one hook rather than duplicating it.
+- No custom timezone picker beyond browser auto-detect + a display override, no payment-method selector (Paystack's own popup still handles that) — same scoping precedent as Task 23.
+
+**Tests:** Logic tests for timezone/duration formatting, the capacity-indicator text, and the join-window state-machine's transition function (pre-join/waiting/active/ended).
+
+**Demo:** Logged-in student registers for a free live class, sees it on the dashboard with a live countdown, and — within the join window of a real test class — `/live-classes/[id]/join` transitions to a real embedded Jitsi call with no bare room link ever visible in the DOM or network tab.
+
+---
+
+**Task 34: Student Frontend — Notification Center & Preferences**
+
+**Objective:** Give students the bell-icon notification center (student-frontend.md §4.2/§5.4) and a preferences tab wired to `user_notification_preferences`, closing the loop on every event type Tasks 31/32 now emit.
+
+**Implementation guidance:**
+- `lib/notifications.api.ts` — `listNotifications`, `markRead`, `markAllRead`, `deleteNotification`, `getUnreadCount`, `getPreferences`/`updatePreferences`, and `subscribeToStream(onMessage)` wrapping the browser `EventSource` pointed at `/api/notifications/stream` — falls back to polling `unread-count` after repeated stream errors, the concrete mitigation for Task 32's own flagged gateway-streaming risk.
+- `NotificationItem` component in `apps/utilities` (§4.2) — icon colored by type (Course blue, Payment green, Live Class purple, Announcement orange, System gray), title + message preview + relative timestamp + unread dot, actions mark-read/delete/click-to-navigate (built from the notification's `data` JSONB deep-link payload). RTL test covering the type→color/icon mapping and the route-builder helper.
+- Bell icon + dropdown panel in the student nav (latest 5, "View All" link, inline mark-read, unread badge sourced from `getUnreadCount()`/the live stream).
+- `/notifications` page — no dedicated design spec exists for this route (only referenced in the IA, never detailed in §5); design it from the `NotificationItem` spec plus implementation-phases.md's "grouped by category filters; unread dot; infinite scroll; mark-all-read." Category filter tabs, unread-only toggle, infinite scroll, "Mark all read."
+- Dashboard "Notifications Panel" (§5.4, extends Task 24): latest 5 + "View All" + inline mark-read, reusing `NotificationItem`.
+- Profile → Notifications tab (§5.8): toggle list per notification type × delivery preference (in-app only / email / both), reading and writing Task 32's preferences endpoint.
+
+**Tests:** `NotificationItem`'s type→color/icon mapping and route-builder as logic tests; any pure grouping/filter helper for `/notifications`.
+
+**Demo:** A live event (enrollment/payment/live-class reminder) appears in the bell dropdown within seconds via SSE (or the polling fallback) with the correct icon/color; clicking it navigates correctly and marks it read; `/notifications` shows full history with working filters. Explicitly confirm whether Task 32's consumer actually checks `user_notification_preferences` before delivering — if it doesn't, that's a Task 32 gap to flag back, not something to paper over with a UI toggle that quietly does nothing.
+
+---
+
+**Task 35: Admin Frontend — Live Class Scheduler**
+
+**Objective:** Give admins the real calendar-based live-class scheduling workflow from admin-frontend.md §6.6 — month/week/day views with drag-to-reschedule and conflict detection, per the resolved scope decision to build the real calendar rather than simplify it to a list.
+
+**Implementation guidance:**
+- `lib/liveclasses.api.ts` (admin variant — needs internal fields like scheduling/conflict data the student-facing client deliberately omits, so this is likely a separate thin client over overlapping-but-not-identical endpoints rather than a shared one).
+- **New `Calendar` component** in `apps/utilities/src/components/Calendar/` — no calendar component exists anywhere in this codebase yet; hand-roll it per the established "no external chart/calendar libraries" convention already set by `BarChart`/`LineChart`/`DonutChart` (Task 26). Month grid + week/day views, event blocks color-coded by status, click → detail sidebar, drag-and-drop reschedule that calls `PATCH` on drop and surfaces a 409 conflict inline (revert the drag + toast) rather than committing optimistically. RTL tests cover the pure date-grid-layout math only — drag-and-drop interaction itself is out of scope for RTL, same precedent as Task 23 skipping RTL for complex client interaction.
+- `/live-classes` (admin, §6.6) — Calendar/List view toggle sharing one filter bar (date range/instructor/status/capacity); List is a `DataTable` (title/date&time/duration/instructor/capacity/price/status/actions); "+ Schedule Class" quick-create modal with the essential fields, linking out to the full create page for everything else.
+- `/live-classes/create`/edit — one sectioned form (per the established wizard→sectioned-form precedent from course creation, not a multi-step wizard): title\*, description (reuse the existing rich-text component if course authoring has one), instructor\* (dropdown filtered by real-time availability), date\*/start\*/end\* time, timezone (auto-detected, editable), capacity\* (default 30), pricing (free toggle | price), meeting platform selector (defaults to `jitsi`; `zoom`/`google_meet` shown but disabled since nothing backs them yet — never accept a config that silently does nothing), cover image (reuse the existing upload component), real-time conflict banner (calls `instructor-availability`, blocks submit on overlap), and on edit a "notify enrolled students of changes" checkbox wired to Task 31's `notifyEnrolledStudents` flag.
+
+**Tests:** The `Calendar` component's pure date-grid-math helpers, the conflict-banner's debounce/comparison logic, `DataTable` column formatters.
+
+**Demo:** Admin schedules a class; it renders correctly positioned and color-coded on the month calendar. Dragging it into conflict with another of that instructor's classes shows the conflict inline and reverts; dragging to a genuinely free slot persists across a reload. List view shows the same data with working filters.
+
+---
+
+**Task 36: Admin Frontend — Announcement Manager**
+
+**Objective:** Give admins the announcement creation/targeting/publishing workflow from admin-frontend.md §6.11, closing the loop with Task 32's audience fan-out and email-on-high-priority.
+
+**Implementation guidance:**
+- `lib/announcements.api.ts` against Task 32's `AnnouncementsController`.
+- `/announcements` (§6.11) — `DataTable` (title, target-audience summary, priority badge, status badge, publish date, author), status/date/author/target filters, bulk delete (plain select-rows→Delete Selected, no floating action bar — same scope-down as Task 26), duplicate action (pre-fills the create form, submits as a new draft).
+- `/announcements/create`/edit — title\*, body\* (reuse Task 35's rich-text component if built), target audience (radio: All | Specific Courses [multi-select] | Specific Segments [rendered but disabled with a tooltip explaining it's not backed yet — same "don't accept a config that silently does nothing" principle as Task 35's platform selector]), priority (with a visible "high/critical will also send email" note), scheduling (Publish Now | Schedule for later | Save as Draft), expiry (optional), "Send Test" button (calls Task 32's `send-test`, toast confirms), publish confirmation modal showing the real estimated recipient count from `recipient-count` before the final, irreversible publish.
+
+**Tests:** The target-audience-summary formatter, priority-badge mapping, and status-transition guard (e.g. a published announcement's targeting can't be edited) as logic tests.
+
+**Demo:** Admin creates a `high`-priority "All" announcement, sees an accurate recipient-count estimate, publishes it — appears in a real test student's notification center within seconds, and a simulated email log line appears in Notification Service's console. A scheduled-for-later announcement flips from `scheduled` to `published` automatically once `publish_at` passes, with no manual action.
+
+---
+
+**Task 37: Phase 4 Integration & Verification**
+
+**Objective:** Confirm the full schedule → register → join → reminder → notification-received loop works end-to-end through the gateway across both frontends, and the announcement fan-out reaches real users, same verification discipline as Task 30 closed out Phase 3.
+
+**Implementation guidance:**
+- Full chain: admin schedules a live class (including a deliberately overlapping second class first, to prove the conflict check actually fires) → a student registers free → sees it on the dashboard widget and `/live-classes` → a sped-up reminder (short-window test class) fires `liveclass.reminder` → Notification Service's consumer creates a real `notifications` row → the student sees it via the bell/SSE stream in near-real-time → within the join window, `/live-classes/[id]/join` authorizes and embeds a live Jitsi room → post-class feedback submission persists.
+- Second chain: admin publishes a `high`-priority "All" announcement → the recipient-count estimate matches the actual fan-out count → a real student receives the notification and a simulated email log line appears.
+- Auth-boundary checks via `backend/integration-tests`: add `liveclass-notification-flow.integration.spec.ts` covering 401/403 on every write/admin-gated endpoint across both new services, plus real assertions on the room-reveal endpoint's three-way authorization (too-early / not-registered / success).
+- Re-verify Task 32's flagged SSE-through-gateway risk for real now that the full stack is up — record the actual outcome (true SSE vs. polling fallback) in this task's own status note, the same way Phase 2's gateway-whitelist bug got recorded in its own integration task rather than silently patched.
+- Update `PLAN.md`/`implementation-phases.md` status notes for Tasks 31–36 and the Phase 4 header as each is actually verified, same convention as every prior phase's own integration task.
+
+**Tests:** The integration/unit tests specified in Tasks 31–36, run together against a single running stack, plus the new `liveclass-notification-flow.integration.spec.ts`.
+
+**Demo:** Same shape as Task 30's own exit criteria — a real, unscripted end-to-end pass through both new services and both frontends, with any real deviations found during integration recorded rather than silently patched over.
+
 **Demo:** Same as Phase 3's exit criteria in `implementation-phases.md`.

@@ -296,7 +296,8 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 > 🔴 **Hard Dependency:** Phase 1 (auth), Phase 3 (enrollment concept for class registration)  
 > 🟡 **Soft Dependency:** Video conferencing can be external link (Zoom) initially, embedded SDK later  
-> ⭐ **Milestone:** First live class is scheduled, students register, and join via portal.
+> ⭐ **Milestone:** First live class is scheduled, students register, and join via portal.  
+> **Current status (2026-08-07):** Planned — see `PLAN.md` Tasks 31–37. Phase 1–3 are fully complete and this phase's hard dependencies are satisfied. Video conferencing embeds Jitsi Meet's free public server via their IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a middle path resolved with the user: real embedded in-page video with room-identifier access control, no new self-hosted infrastructure). Live Class Service is this project's first MongoDB-backed service; a new `mongo` container is added to `docker/docker-compose.dev.yml` for it, separate from the pre-existing standalone `platform-mongo` container. Notification Service is the first NestJS service to consume RabbitMQ events (every NestJS service so far only publishes) and ships with a log-only `EmailProvider` — real SendGrid/SES/SMTP credentials aren't available yet, same "pluggable, swap later" pattern already used for `PaymentProvider`/`StorageProvider`.
 
 ### 4.1 Backend Services
 

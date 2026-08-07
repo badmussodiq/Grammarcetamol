@@ -4,7 +4,7 @@ Quick-scan status. For full detail, decisions, and verification notes on any ite
 (task-by-task) and `implementation-phases.md` (phase-level). This file exists just to answer "what's
 done, what's next, what's on hold" at a glance — update it as work lands rather than re-deriving it.
 
-**Last updated:** 2026-08-06 (night)
+**Last updated:** 2026-08-07
 
 ---
 
@@ -50,7 +50,17 @@ All of the above is live-verified in the browser (and now via `curl`, for the au
 
 ## 🔲 Pending (not started)
 
-Phase 3 is fully complete. Nothing is planned yet past it — Phase 4 (live classes, notifications) and Phase 5 (service requests, support, business ops) aren't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
+### Phase 4 — Live Classes & Notifications (planned, not started)
+Tasks 31–37 written into `PLAN.md` (2026-08-06) — same task-by-task treatment Phases 1–3 got before implementation began. Three scope decisions resolved with the user up front: **email** is a pluggable `EmailProvider` with a log-only default (no real SendGrid/SES/SMTP creds yet); **admin live-class scheduler** builds the real calendar (month/week/day, drag-to-reschedule, conflict detection), not a simplified list; **video conferencing** embeds Jitsi Meet's free public server via their IFrame API, with the room identifier only ever revealed to a verified registered student inside the join window — not a self-hosted Jitsi+JWT server (bigger, explicitly declined for now).
+- **Task 31** — Live Class Service (NestJS, first MongoDB-backed service in the repo): scheduling with instructor-conflict detection, free/paid registration, the room-reveal endpoint, in-process `@nestjs/schedule` reminders (no Kubernetes CronJobs), RabbitMQ publish.
+- **Task 32** — Notification Service (NestJS + Postgres, first NestJS RabbitMQ *consumer* in the repo — every NestJS service so far only publishes): notification CRUD + SSE stream, a new `announcements` table (not in the original schema spec) with audience fan-out, the `EmailProvider` abstraction.
+- **Task 33** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
+- **Task 34** — Student notification center (bell + `/notifications` page) + profile preferences tab.
+- **Task 35** — Admin live-class scheduler (new hand-rolled `Calendar` component — none exists yet — + list + create/edit form).
+- **Task 36** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
+- **Task 37** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
+
+Past Phase 4, Phase 5 (service requests, support, business ops) isn't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
 
 ---
 
