@@ -56,7 +56,7 @@ Tasks 31–37 written into `PLAN.md` (2026-08-06) — same task-by-task treatmen
 - **Task 32** — Notification Service (NestJS + Postgres, first NestJS RabbitMQ *consumer* in the repo — every NestJS service so far only publishes): notification CRUD + SSE stream, a new `announcements` table (not in the original schema spec) with audience fan-out, the `EmailProvider` abstraction.
 - **Task 33** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
 - **Task 34** — Student notification center (bell + `/notifications` page) + profile preferences tab.
-- **Task 35** — Admin live-class scheduler (new hand-rolled `Calendar` component — none exists yet — + list + create/edit form).
+- **Task 35** — Admin live-class scheduler (calendar view via **FullCalendar** — the first external UI library in this codebase, a deliberate exception to the "hand-roll everything visual" convention, since a hand-rolled month/week/day + drag-and-drop + conflict UI was judged too large/bug-prone versus a well-maintained library that already covers this exact feature set — + list + create/edit form).
 - **Task 36** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
 - **Task 37** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
 
