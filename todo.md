@@ -4,7 +4,7 @@ Quick-scan status. For full detail, decisions, and verification notes on any ite
 (task-by-task) and `implementation-phases.md` (phase-level). This file exists just to answer "what's
 done, what's next, what's on hold" at a glance — update it as work lands rather than re-deriving it.
 
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
 
 ---
 
@@ -50,15 +50,25 @@ All of the above is live-verified in the browser (and now via `curl`, for the au
 
 ## 🔲 Pending (not started)
 
-### Phase 4 — Live Classes & Notifications (planned, not started)
-Tasks 31–37 written into `PLAN.md` (2026-08-06) — same task-by-task treatment Phases 1–3 got before implementation began. Three scope decisions resolved with the user up front: **email** is a pluggable `EmailProvider` with a log-only default (no real SendGrid/SES/SMTP creds yet); **admin live-class scheduler** builds the real calendar (month/week/day, drag-to-reschedule, conflict detection), not a simplified list; **video conferencing** embeds Jitsi Meet's free public server via their IFrame API, with the room identifier only ever revealed to a verified registered student inside the join window — not a self-hosted Jitsi+JWT server (bigger, explicitly declined for now).
-- **Task 31** — Live Class Service (NestJS, first MongoDB-backed service in the repo): scheduling with instructor-conflict detection, free/paid registration, the room-reveal endpoint, in-process `@nestjs/schedule` reminders (no Kubernetes CronJobs), RabbitMQ publish.
-- **Task 32** — Notification Service (NestJS + Postgres, first NestJS RabbitMQ *consumer* in the repo — every NestJS service so far only publishes): notification CRUD + SSE stream, a new `announcements` table (not in the original schema spec) with audience fan-out, the `EmailProvider` abstraction.
-- **Task 33** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
-- **Task 34** — Student notification center (bell + `/notifications` page) + profile preferences tab.
-- **Task 35** — Admin live-class scheduler (calendar view via **FullCalendar** — the first external UI library in this codebase, a deliberate exception to the "hand-roll everything visual" convention, since a hand-rolled month/week/day + drag-and-drop + conflict UI was judged too large/bug-prone versus a well-maintained library that already covers this exact feature set — + list + create/edit form).
-- **Task 36** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
-- **Task 37** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
+### Phase 3.5 — MVP Completion (in progress, started 2026-08-09)
+Inserted between Phase 3 and Phase 4 on explicit user direction — a real production MVP ships *before* live classes, not after. Phase 4's old Tasks 31–37 got renumbered to 38–44 to make room (see below). Resolved decisions: "services" for MVP = courses only, no Phase 5 Service Request Catalog pulled forward; OTP covers email verification + password reset only, login 2FA deferred; account auto-lockout was found **already built** in `AuthService.login()` (5 failed attempts → 15min lock, publishes `user.locked`) — just needed an email wired to it; `EmailProvider` is pluggable/log-only for now; support/enquiry is a thin two-state (`open`→`closed`) ticket flow — **admin replies via their own email client (Gmail etc.), never through the platform**; every service publishes `{service, templateName, to, toName, variables}` to its own existing exchange; every email attempt gets exactly one row in an **immutable, insert-only `notification_logs`** collection; brand color becomes `#F44336` (Material Red 500) with Material's own adjacent `-light`/`-dark` shades.
+- **Task 31** — Notification Service (`backend/notification-service`, NestJS + **MongoDB** — pivoted mid-build from the originally-planned Postgres, per explicit user direction, reusing the dedicated `grammarcetamol-mongo` instance on port `9015` already provisioned for Live Class Service): `email_templates`, immutable `notification_logs`, the first NestJS RabbitMQ *consumer* in the repo, `EmailProvider`/`LogEmailProvider`, and the lightweight Support ticket module (create/list/detail/close, no in-platform reply). **In progress** — scaffold underway.
+- **Task 32** — Auth Service: switch email verification + password reset from silent UUID tokens (verified live: nothing was ever actually sent — `forgotPassword()` had a literal `// In production, send email here` comment) to real 6-digit OTP codes, published as events for Task 31 to email.
+- **Task 33** — Enrich `payment.completed`/`enrollment.created` event payloads with recipient email/name so Notification Service never needs its own lookup.
+- **Task 34** — Student frontend: OTP-based verify/reset UI, new `/support` enquiry form.
+- **Task 35** — Admin frontend: `/support` ticket list/detail/close, and a real `/dashboard` (today: verified live as a static 4-box skeleton stub with zero data fetching) with real student/course/revenue/open-ticket numbers.
+- **Task 36** — Brand color rollout to `#F44336` across both apps' `@theme` blocks, `Button.tsx`'s two hardcoded hex classes, and cleanup of the orphaned/drifted `apps/utilities/src/tokens/tokens.ts`/`tokens.css`.
+- **Task 37** — MVP integration & verification, same discipline as Task 30 closed out Phase 3, extending `backend/integration-tests`.
+
+### Phase 4 — Live Classes & Notifications (planned, renumbered to Tasks 38–44)
+Same content as before, renumbered to follow Phase 3.5. Task 39 ("Notification Service") is now an *extension* task, not a bootstrap — Phase 3.5's Task 31 already builds the service; Phase 4 only adds the in-app notification center, SSE stream, and Announcements to it.
+- **Task 38** — Live Class Service (NestJS, second MongoDB-backed service — reuses Task 31's `DatabaseModule` shape): scheduling with instructor-conflict detection, free/paid registration, the room-reveal endpoint, in-process `@nestjs/schedule` reminders (no Kubernetes CronJobs), RabbitMQ publish.
+- **Task 39** — Notification Service extension: in-app notification center + SSE stream + `user_notification_preferences` + a new `announcements` collection with audience fan-out.
+- **Task 40** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
+- **Task 41** — Student notification center (bell + `/notifications` page) + profile preferences tab.
+- **Task 42** — Admin live-class scheduler (calendar view via **FullCalendar** — the first external UI library in this codebase, a deliberate exception to the "hand-roll everything visual" convention, since a hand-rolled month/week/day + drag-and-drop + conflict UI was judged too large/bug-prone versus a well-maintained library that already covers this exact feature set — + list + create/edit form).
+- **Task 43** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
+- **Task 44** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
 
 Past Phase 4, Phase 5 (service requests, support, business ops) isn't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
 

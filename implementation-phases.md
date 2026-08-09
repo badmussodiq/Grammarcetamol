@@ -290,14 +290,22 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 ---
 
+## Phase 3.5: MVP Completion (inserted 2026-08-09, before Live Classes)
+
+**Goal:** Ship a real production MVP — guest/student flows for pre-recorded courses (browse → free-enroll or real-pay → learn → review) and admin flows (login → upload → publish → see students/payments/support/analytics) — before Live Classes, on explicit user direction. See `PLAN.md` Tasks 31–37.
+
+> **Current status (2026-08-09): in progress.** Closing the real gap to "MVP" turned out to be smaller than Phase 4, but real: a centralized Notification Service for outbound email (verified live: 100% absent before this — `spring-boot-starter-mail` was an unused dependency, `forgotPassword()` had a literal `// In production, send email here via mail service` comment), OTP-based email verification/password reset (replacing silent UUID tokens), wiring the **already-built** account-lockout logic (`AuthService.login()`'s `MAX_FAILED_ATTEMPTS=5`/`LOCK_DURATION_MINUTES=15`, already publishing `user.locked`) to an email, a lightweight support/enquiry ticket flow (admin replies via their own email client, never through the platform), a real admin analytics dashboard (replacing the current static-skeleton `/dashboard` stub), and a brand color rollout to `#F44336`. Notification Service pivoted mid-build from Postgres to **MongoDB** (per explicit user direction), reusing the dedicated `grammarcetamol-mongo` instance already provisioned for Live Class Service's future work — `notification_db` is a second database on that same instance. This pulls the Notification Service forward from Phase 4 (scoped down: email + support only, no in-app center/SSE/Announcements yet — those stay Phase 4's job, now an *extension* task instead of a bootstrap).
+
+---
+
 ## Phase 4: Live Classes & Notifications (Sprints 15–17)
 
 **Goal:** Students see upcoming live classes, join on time, and receive timely notifications.
 
-> 🔴 **Hard Dependency:** Phase 1 (auth), Phase 3 (enrollment concept for class registration)  
+> 🔴 **Hard Dependency:** Phase 1 (auth), Phase 3 (enrollment concept for class registration), Phase 3.5 (Notification Service must already exist)  
 > 🟡 **Soft Dependency:** Video conferencing can be external link (Zoom) initially, embedded SDK later  
 > ⭐ **Milestone:** First live class is scheduled, students register, and join via portal.  
-> **Current status (2026-08-07):** Planned — see `PLAN.md` Tasks 31–37. Phase 1–3 are fully complete and this phase's hard dependencies are satisfied. Video conferencing embeds Jitsi Meet's free public server via their IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a middle path resolved with the user: real embedded in-page video with room-identifier access control, no new self-hosted infrastructure). Live Class Service is this project's first MongoDB-backed service; a new `mongo` container is added to `docker/docker-compose.dev.yml` for it, separate from the pre-existing standalone `platform-mongo` container. Notification Service is the first NestJS service to consume RabbitMQ events (every NestJS service so far only publishes) and ships with a log-only `EmailProvider` — real SendGrid/SES/SMTP credentials aren't available yet, same "pluggable, swap later" pattern already used for `PaymentProvider`/`StorageProvider`.
+> **Current status (2026-08-09):** Planned — see `PLAN.md` Tasks 38–44 (renumbered from 31–37 to make room for Phase 3.5, which now ships first). Video conferencing embeds Jitsi Meet's free public server via their IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a middle path resolved with the user: real embedded in-page video with room-identifier access control, no new self-hosted infrastructure). Live Class Service is this project's **second** MongoDB-backed service (Notification Service, Phase 3.5, was the first) — reuses its `DatabaseModule` shape directly. Task 39 ("Notification Service") is now an extension task, not a bootstrap — it already exists by the time Phase 4 starts; this phase only adds the in-app notification center, SSE stream, and Announcements to it.
 
 ### 4.1 Backend Services
 
