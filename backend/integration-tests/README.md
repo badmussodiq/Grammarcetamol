@@ -71,7 +71,7 @@ Override the target stack or accounts via env vars if your local setup differs f
 defaults:
 
 ```bash
-GATEWAY_URL=http://localhost:8080 \
+GATEWAY_URL=http://localhost:9000 \
 ADMIN_EMAIL=admin@grammarcetamol.com ADMIN_PASSWORD=ChangeMe123! \
 STUDENT_EMAIL=checkout.tester@example.com STUDENT_PASSWORD=TestPass123! \
 npm test

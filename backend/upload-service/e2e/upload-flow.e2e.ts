@@ -11,7 +11,7 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createHash, randomBytes } from 'crypto';
 
-const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:8080';
+const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:9000';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@grammarcetamol.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'ChangeMe123!';
 // "Everyday Conversation Skills" — the free seeded course already used by this project's other
@@ -133,7 +133,7 @@ async function main() {
   // does.
   const s3 = new S3Client({
     region: 'us-east-1',
-    endpoint: process.env.MINIO_ENDPOINT ?? 'http://localhost:9002',
+    endpoint: process.env.MINIO_ENDPOINT ?? 'http://localhost:9013',
     forcePathStyle: true,
     credentials: {
       accessKeyId: process.env.MINIO_ACCESS_KEY ?? 'platform',

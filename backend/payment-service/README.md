@@ -2,7 +2,7 @@
 
 Node.js / NestJS (the first NestJS service in this repo). Phase 3 (`PLAN.md` Task 21). Owns checkout,
 payment-provider integration, and refunds. Reachable through the gateway at `/api/payments/**`, or
-directly on `:8086` in dev.
+directly on `:9005` in dev.
 
 ## Conventions established here (first NestJS service, no precedent to copy)
 

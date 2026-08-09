@@ -10,7 +10,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const port = process.env.PORT ? Number(process.env.PORT) : 8086;
+  const port = process.env.PORT ? Number(process.env.PORT) : 9005;
   await app.listen(port);
 }
 

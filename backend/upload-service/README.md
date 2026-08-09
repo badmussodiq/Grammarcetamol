@@ -4,7 +4,7 @@ Node.js / NestJS. Resumable chunked upload sessions for course video/resource fi
 presigned direct-to-storage uploads (never proxied through this service) and a pluggable
 object-storage backend (MinIO today, real S3 later, both at once if you want).
 
-Reachable via the gateway at `/api/uploads/**`, or directly on `:8087` in dev.
+Reachable via the gateway at `/api/uploads/**`, or directly on `:9006` in dev.
 
 ## Conventions copied from payment-service
 
@@ -76,7 +76,7 @@ against MinIO) passed clean on first live run, see `e2e/upload-flow.e2e.ts`.
 ## How to run locally
 
 1. Start infra: `docker compose -f ../../docker/docker-compose.dev.yml up -d` (this brings up
-   MinIO too — S3 API on `:9002`, console on `:9003`, creds `platform`/`platform12345`).
+   MinIO too — S3 API on `:9013`, console on `:9014`, creds `platform`/`platform12345`).
 2. `upload_db` must exist:
    ```bash
    docker exec grammarcetamol-postgres psql -U platform -d auth_db -c "CREATE DATABASE upload_db;"

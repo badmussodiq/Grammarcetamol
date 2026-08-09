@@ -47,15 +47,17 @@ See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date s
 
 ## Running everything locally
 
-### 1. Infrastructure (Postgres, Redis, RabbitMQ, MinIO)
+### 1. Infrastructure (Postgres, Redis, RabbitMQ, MinIO, MongoDB)
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
-This exposes Postgres on `5433`, Redis on `6380`, RabbitMQ on `5673` (management UI on `15673`), and MinIO on `9002` (S3 API) / `9003` (console) — nonstandard ports, chosen to avoid colliding with anything you might already have running locally. Default credentials: Postgres `platform`/`platform` (db `auth_db`), RabbitMQ `guest`/`guest`, MinIO `platform`/`platform12345`, Redis has no auth. These are local-only dev defaults — see the compose file before using them anywhere else. All services run with `restart: always`.
+**Every Grammarcetamol container — app services and infra alike — lives in one dedicated `9000`-series port block**, gateway first at `9000`, so nothing here can collide with some other project's own Postgres/Redis/RabbitMQ/MinIO/Mongo running on the same machine on their own nonstandard ports. Infra: Postgres on `9009`, Redis on `9010`, RabbitMQ on `9011` (management UI on `9012`), MinIO on `9013` (S3 API) / `9014` (console), and a dedicated MongoDB on `9015` (for Live Class Service, `liveclass_db` — see `PLAN.md` Task 31). Default credentials: Postgres `platform`/`platform` (db `auth_db`), RabbitMQ `guest`/`guest`, MinIO `platform`/`platform12345`, Mongo `platform`/`platform12345`, Redis has no auth. These are local-only dev defaults — see the compose file before using them anywhere else. All services run with `restart: always`.
 
-Note: MongoDB (needed for `media_db` once Media Service is un-deferred) isn't in this compose file yet — a standalone `mongo:7` container (`platform-mongo`, started outside compose, holding an unrelated pre-existing `notifications` database) may already be running on `27017` in some environments; bringing it into this compose file is future work, not done as part of provisioning MinIO.
+Note: the dedicated `mongo` service above (container `grammarcetamol-mongo`, port `9015`) is deliberately **separate** from a pre-existing standalone `mongo:7` container (`platform-mongo`, started outside this compose file, holding an unrelated pre-existing `notifications` database) that may already be running on the default `27017` in some environments — nothing in this project connects to that one; it's left untouched.
+
+**App service ports** (each service's own `application.yml`/`.env` — see §2 below): gateway `9000`, auth `9001`, course `9002`, enrollment `9003`, review `9004`, payment `9005`, upload `9006`. (Live Class Service and Notification Service, once built per `PLAN.md` Tasks 31-32, will take `9007`/`9008`.) auth-service's internal gRPC port (used only by the gateway's token-validation client) stays at `9091`, outside this block — it's an implementation detail, not a port anything external ever hits directly.
 
 > **Windows + WSL2 note:** if you're running Docker inside WSL2, the VM can idle-shut-down between commands and take the containers with it, which shows up as intermittent `Connection refused` errors from the backend. Keep a long-lived process attached to the WSL distro (e.g. `wsl -d <distro> -- sleep infinity` in a background terminal) to keep it resident.
 

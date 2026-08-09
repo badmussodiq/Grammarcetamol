@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9000';
 
 export async function toggleUserStatus(formData: FormData) {
   const id = formData.get('id') as string;

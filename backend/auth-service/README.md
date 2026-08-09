@@ -30,7 +30,7 @@ Place `private.pem` and `public.pem` in `src/main/resources/keys/`. **Never comm
 
 ## Endpoints
 
-REST, via the gateway at `/api/auth/**` and `/api/users/**` (or directly on `:8081` in dev):
+REST, via the gateway at `/api/auth/**` and `/api/users/**` (or directly on `:9001` in dev):
 
 | Method & path | Auth | Notes |
 |---|---|---|
@@ -62,5 +62,5 @@ Relatedly: if a JPQL query reuses the same named parameter both in an `IS NULL` 
 
 ## Ports
 
-- REST: `8081`
+- REST: `9001`
 - gRPC: `9091`

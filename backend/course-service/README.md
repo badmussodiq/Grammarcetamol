@@ -2,7 +2,7 @@
 
 Spring Boot 3 / Java 21. Phase 2 (`PLAN.md` Tasks 11–12). Owns course authoring (categories, courses,
 modules, lessons) and the public course catalog. Reachable through the gateway at `/api/courses/**` and
-`/api/categories/**`, or directly on `:8083` in dev.
+`/api/categories/**`, or directly on `:9002` in dev.
 
 **No JWT parsing here.** The gateway's `JwtAuthFilter` already validated the token and injects
 `X-User-Id` / `X-User-Role` before forwarding — this service just reads those headers
@@ -46,7 +46,7 @@ initialize fine before Tomcat's connector hits it.
 
 ## Endpoints
 
-REST, via the gateway or directly on `:8083`:
+REST, via the gateway or directly on `:9002`:
 
 | Method & path | Auth | Notes |
 |---|---|---|
@@ -87,8 +87,8 @@ unauthenticated `GET .../versions` resolves to `CurrentUser.ANONYMOUS` and gets 
 
 | Property | Default | |
 |---|---|---|
-| `server.port` | `8083` | |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5433/course_db` | |
+| `server.port` | `9002` | |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:9009/course_db` | |
 
 `/actuator/health` and `/actuator/info` are exposed.
 

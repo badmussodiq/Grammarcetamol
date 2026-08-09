@@ -1,11 +1,11 @@
 server:
-  port: 8085
+  port: 9004
 
 spring:
   application:
     name: review-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/review_db
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:9009}/review_db
     username: ${DB_USERNAME:platform}
     password: ${DB_PASSWORD:platform}
     driver-class-name: org.postgresql.Driver
@@ -25,12 +25,12 @@ spring:
     baseline-on-migrate: true
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5673}
+    port: ${RABBITMQ_PORT:9011}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
 app:
-  enrollment-service-url: ${ENROLLMENT_SERVICE_URL:http://localhost:8084}
+  enrollment-service-url: ${ENROLLMENT_SERVICE_URL:http://localhost:9003}
   # US-STU-012's stated threshold — a student must have completed at least this much of a course
   # before they can leave a review.
   review-completion-threshold-pct: ${REVIEW_COMPLETION_THRESHOLD_PCT:50}
