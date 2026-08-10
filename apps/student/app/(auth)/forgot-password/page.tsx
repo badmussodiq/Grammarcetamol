@@ -1,22 +1,16 @@
 ﻿'use client';
 
-import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, useFormState, useGenericState, useToast, ApiError } from '@grammarcetamol/utilities';
+import { Button, Input, useFormState, useToast, ApiError } from '@grammarcetamol/utilities';
 import { authApi } from '../../../lib/auth.api';
 import type { ChangeEvent, FormEvent } from 'react';
 
 export default function ForgotPasswordPage() {
-  const [{ sent, cooldown }, updateFlow] = useGenericState({ sent: false, cooldown: 0 });
+  const router = useRouter();
   const { addToast } = useToast();
   const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
     useFormState({ email: '' });
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => updateFlow('cooldown', (c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown, updateFlow]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,8 +18,10 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     try {
       await authApi.forgotPassword(values.email);
-      updateFlow('sent', true);
-      updateFlow('cooldown', 60);
+      // A 6-digit code, not a clickable link, so there's no email to "click through" — take
+      // the student straight to the code-entry form instead of a static "check your inbox"
+      // dead end, pre-filling the email they just typed.
+      router.push(`/reset-password?email=${encodeURIComponent(values.email)}`);
     } catch (err) {
       addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Request failed' });
     } finally {
@@ -33,31 +29,15 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  if (sent) return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#E0E7FF] flex items-center justify-center">
-        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#3730A3" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      </div>
-      <h2 className="text-xl font-semibold text-[#0F172A]">Check your inbox</h2>
-      <p className="text-[#64748B] text-sm">If that email exists, we sent a reset link. Check your spam folder too.</p>
-      <Button variant="ghost" disabled={cooldown > 0} onClick={() => updateFlow('sent', false)} className="mt-2">
-        {cooldown > 0 ? `Try again in ${cooldown}s` : 'Try a different email'}
-      </Button>
-      <Link href="/login" className="text-sm text-primary hover:underline">Back to login</Link>
-    </div>
-  );
-
   return (
     <>
       <h2 className="text-xl font-semibold text-[#0F172A] mb-2">Forgot your password?</h2>
-      <p className="text-[#64748B] text-sm mb-6">Enter your email and we&apos;ll send you a reset link.</p>
+      <p className="text-[#64748B] text-sm mb-6">Enter your email and we&apos;ll send you a 6-digit reset code.</p>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input label="Email" type="email" placeholder="you@example.com"
           value={values.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setValue('email', e.target.value)}
           error={errors.email} autoComplete="email" />
-        <Button type="submit" loading={isSubmitting} className="w-full">Send Reset Link</Button>
+        <Button type="submit" loading={isSubmitting} className="w-full">Send Reset Code</Button>
       </form>
       <p className="text-center text-sm text-[#64748B] mt-6">
         <Link href="/login" className="text-primary hover:underline">Back to login</Link>

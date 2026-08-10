@@ -24,15 +24,10 @@ in the meantime. See `PLAN.md` Tasks 16–17.
 
 ## How to run locally
 
-1. Start Postgres: `docker compose -f ../../docker/docker-compose.dev.yml up -d`.
-2. `course_db` must exist before Flyway can connect. On a **fresh** `postgres-data` volume the
-   `docker/postgres-init/01-create-databases.sh` init script creates it automatically. On an
-   **existing** volume (e.g. you already had `auth_db` running before this service existed), the init
-   script won't retroactively run — create it once yourself:
-   ```bash
-   docker exec -it grammarcetamol-postgres psql -U platform -d auth_db -c "CREATE DATABASE course_db;"
-   ```
-3. `mvn spring-boot:run`
+1. Start Postgres: `docker compose -f ../../docker/docker-compose.dev.yml up -d`. `course_db` (and
+   every other per-service database) is created automatically on every container start by
+   `docker/scripts/ensure-postgres-databases.sh` — no manual step needed, even on an existing volume.
+2. `mvn spring-boot:run`
 
 Flyway migrations run automatically on startup (`V1__course_initial_schema.sql`) — no separate migration
 step, and it seeds five default categories so the catalog isn't empty on first boot.

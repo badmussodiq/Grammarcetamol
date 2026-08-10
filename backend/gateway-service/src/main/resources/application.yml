@@ -34,6 +34,7 @@ gateway:
   payment-service-url: ${PAYMENT_SERVICE_URL:http://localhost:9005}
   review-service-url: ${REVIEW_SERVICE_URL:http://localhost:9004}
   upload-service-url: ${UPLOAD_SERVICE_URL:http://localhost:9006}
+  notification-service-url: ${NOTIFICATION_SERVICE_URL:http://localhost:9008}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 
 grpc:

@@ -38,8 +38,11 @@ export const authApi = {
     return apiFetch<ApiResponse<string>>('/api/auth/refresh', { method: 'POST' });
   },
 
-  verifyEmail(token: string) {
-    return apiFetch<ApiResponse<string>>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+  verifyEmail(email: string, otp: string) {
+    return apiFetch<ApiResponse<string>>('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
   },
 
   resendVerification(email: string) {
@@ -56,10 +59,10 @@ export const authApi = {
     });
   },
 
-  resetPassword(token: string, newPassword: string) {
+  resetPassword(email: string, otp: string, newPassword: string) {
     return apiFetch<ApiResponse<string>>('/api/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ email, otp, newPassword }),
     });
   },
 };

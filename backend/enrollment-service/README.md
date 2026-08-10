@@ -59,12 +59,8 @@ batched by distinct `course_id` for the course-service lookup, not called once p
    runs inside WSL2, `wsl docker compose -f docker/docker-compose.dev.yml up -d` from the repo root —
    a plain `docker` command from a Windows shell won't see WSL2's Docker at all).
 2. `backend/shared-java` must be `mvn install`ed first (`cd ../shared-java && mvn install`).
-3. `enrollment_db` must exist before Flyway can connect — same situation as `course_db` in
-   `course-service/README.md`. On a fresh `postgres-data` volume,
-   `docker/postgres-init/01-create-databases.sh` creates it automatically; on an existing volume:
-   ```bash
-   docker exec -it grammarcetamol-postgres psql -U platform -d auth_db -c "CREATE DATABASE enrollment_db;"
-   ```
+3. `enrollment_db` is created automatically on every Postgres container start by
+   `docker/scripts/ensure-postgres-databases.sh` — no manual step needed.
 4. `course-service` should be running too (`:9002`) — most endpoints call out to it.
 5. `mvn spring-boot:run`
 

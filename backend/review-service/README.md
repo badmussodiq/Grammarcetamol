@@ -47,9 +47,8 @@ one first. No `JwtAuthFilter` whitelist change was needed — the path already m
 ## How to run locally
 
 Same pattern as `enrollment-service`: infra up, `backend/shared-java` installed, `review_db` created
-(`docker/postgres-init/01-create-databases.sh` handles it on a fresh volume; on an existing volume,
-`CREATE DATABASE review_db;` once), `enrollment-service` and `course-service` reachable, then
-`mvn spring-boot:run`.
+automatically by `docker/scripts/ensure-postgres-databases.sh` on every Postgres container start,
+`enrollment-service` and `course-service` reachable, then `mvn spring-boot:run`.
 
 ## Endpoints
 

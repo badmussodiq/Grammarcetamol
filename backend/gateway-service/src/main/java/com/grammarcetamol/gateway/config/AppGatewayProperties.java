@@ -15,5 +15,6 @@ public class AppGatewayProperties {
     private String paymentServiceUrl;
     private String reviewServiceUrl;
     private String uploadServiceUrl;
+    private String notificationServiceUrl;
     private String internalToken;
 }

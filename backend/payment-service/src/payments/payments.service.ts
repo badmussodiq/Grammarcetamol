@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
 import { PG_POOL } from '../config/database.module';
+import { AuthServiceClient } from '../course-client/auth-service.client';
 import { CourseServiceClient } from '../course-client/course-service.client';
 import { PaymentEventPublisher } from '../messaging/payment-event-publisher';
 import { PaymentProviderRegistry } from '../providers/payment-provider.registry';
@@ -16,6 +17,7 @@ export class PaymentsService {
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly providerRegistry: PaymentProviderRegistry,
     private readonly courseServiceClient: CourseServiceClient,
+    private readonly authServiceClient: AuthServiceClient,
     private readonly eventPublisher: PaymentEventPublisher,
     private readonly config: ConfigService,
   ) {}
@@ -102,12 +104,18 @@ export class PaymentsService {
       throw new ForbiddenException('Invalid webhook signature');
     }
 
-    const event = JSON.parse(rawBody) as { event: string; data?: { reference?: string } };
+    const event = JSON.parse(rawBody) as { event: string; data?: Record<string, unknown> };
+
+    if (event.event === 'refund.processed') {
+      await this.handleReversal(event.data);
+      return;
+    }
+
     if (event.event !== 'charge.success' || !event.data?.reference) {
       return; // other event types (e.g. transfer events) aren't relevant to checkout
     }
 
-    const reference = event.data.reference;
+    const reference = event.data.reference as string;
     const payment = await this.findByReference(reference).catch(() => null);
     if (!payment || payment.status === 'completed') {
       return; // unknown reference, or already handled by the confirm-endpoint path
@@ -120,6 +128,62 @@ export class PaymentsService {
     } else if (verify.status === 'failed') {
       await this.markFailed(payment, 'Payment declined', verify.raw);
     }
+  }
+
+  /**
+   * Handles a reversal Paystack initiated on its own side (dashboard refund, dispute settlement,
+   * etc.) rather than through our own admin-initiated refund() flow. There's no separate "verify
+   * a refund" API to re-confirm against — the HMAC signature check above is this path's
+   * verification — so the webhook is the authoritative source for this event type specifically.
+   */
+  private async handleReversal(data: Record<string, unknown> | undefined): Promise<void> {
+    const transaction = data?.transaction as { reference?: string } | undefined;
+    const reference = (data?.transaction_reference ?? transaction?.reference ?? data?.reference) as string | undefined;
+    if (!reference) return;
+
+    const payment = await this.findByReference(reference).catch(() => null);
+    if (!payment || (payment.status !== 'completed' && payment.status !== 'partially_refunded')) {
+      return; // unknown reference, never completed, or already fully refunded
+    }
+
+    const alreadyRefundedResult = await this.pool.query(
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM refunds WHERE payment_id = $1 AND status = 'completed'`,
+      [payment.id],
+    );
+    const alreadyRefunded = Number(alreadyRefundedResult.rows[0].total);
+    const remaining = Number(payment.amount) - alreadyRefunded;
+    if (remaining <= 0) return;
+
+    const reportedAmount = Number(data?.amount);
+    const amount = Math.min(reportedAmount > 0 ? reportedAmount / 100 : remaining, remaining);
+
+    const insertResult = await this.pool.query(
+      `INSERT INTO refunds (payment_id, amount, currency, reason, status, processed_by)
+       VALUES ($1, $2, $3, $4, 'completed', NULL)
+       RETURNING *`,
+      [payment.id, amount, payment.currency, 'Reversed by payment provider (webhook)'],
+    );
+    const refund = mapRefundRow(insertResult.rows[0]);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const newStatus = alreadyRefunded + amount >= Number(payment.amount) ? 'refunded' : 'partially_refunded';
+      await client.query(`UPDATE payments SET status = $1 WHERE id = $2`, [newStatus, payment.id]);
+      await client.query(
+        `INSERT INTO transactions (payment_id, type, amount, currency, status) VALUES ($1, 'refund', $2, $3, 'success')`,
+        [payment.id, amount, payment.currency],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    this.eventPublisher.publishRefundCompleted({ refundId: refund.id, paymentId: payment.id, amount, currency: payment.currency });
+    this.logger.log(`Payment ${payment.id} reversed via webhook (refund ${refund.id})`);
   }
 
   async refund(paymentId: string, amount: number, reason: string, adminUserId: string): Promise<Refund> {
@@ -204,7 +268,38 @@ export class PaymentsService {
       currency: updated.currency,
     });
     this.logger.log(`Payment ${updated.id} completed for course ${updated.courseId}`);
+    void this.publishPurchaseEmails(updated);
     return updated;
+  }
+
+  /** Best-effort: a course/user lookup failure here must never undo or block a completed
+   * payment, so every failure is caught and logged, not rethrown. Fires two logical sends off
+   * one completed payment — course-purchase-confirmation and payment-receipt — as two separate
+   * notification messages, keeping the consumer's one-template-per-message handling simple. */
+  private async publishPurchaseEmails(payment: Payment): Promise<void> {
+    if (!payment.courseId) return; // service-request payments have no course to confirm
+    try {
+      const [course, user] = await Promise.all([
+        this.courseServiceClient.getCourse(payment.courseId),
+        this.authServiceClient.getUser(payment.userId),
+      ]);
+      const displayName = user.fullName?.trim() ? user.fullName : user.email;
+      const baseVariables = {
+        fullName: displayName,
+        courseTitle: course.title,
+        amount: Number(payment.amount),
+        currency: payment.currency,
+        reference: payment.gatewayRef,
+      };
+
+      this.eventPublisher.publishNotification('course-purchase-confirmation', user.email, displayName, baseVariables);
+      this.eventPublisher.publishNotification('payment-receipt', user.email, displayName, {
+        ...baseVariables,
+        paidAt: payment.paidAt,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to publish purchase-confirmation emails for payment ${payment.id}: ${(err as Error).message}`);
+    }
   }
 
   private async markFailed(payment: Payment, reason: string, gatewayResponse: unknown): Promise<Payment> {

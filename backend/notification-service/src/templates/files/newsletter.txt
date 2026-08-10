@@ -1,0 +1,5 @@
+Hi {{fullName}},
+
+{{content}}
+
+You can manage your email preferences from your account settings.

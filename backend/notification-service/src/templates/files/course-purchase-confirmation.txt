@@ -1,0 +1,8 @@
+Hi {{fullName}},
+
+Thanks for your purchase! You're now enrolled in {{courseTitle}}.
+
+Amount paid: {{currency}} {{amount}}
+Reference: {{reference}}
+
+You can start learning right away from your dashboard.

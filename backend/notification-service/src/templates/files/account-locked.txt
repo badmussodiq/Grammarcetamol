@@ -1,0 +1,5 @@
+Hi {{fullName}},
+
+We locked your Grammarcetamol account after several unsuccessful login attempts. It will automatically unlock in {{lockDurationMinutes}} minutes, or you can reset your password now for immediate access.
+
+If this wasn't you, we recommend resetting your password once your account unlocks.

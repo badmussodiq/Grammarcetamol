@@ -1,0 +1,5 @@
+Hi {{fullName}},
+
+Welcome to Grammarcetamol! Your verification code is: {{otp}}
+
+This code expires in {{expiresInMinutes}} minutes. If you didn't create a Grammarcetamol account, you can safely ignore this email.

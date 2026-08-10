@@ -1,0 +1,5 @@
+Hi {{name}},
+
+Your support ticket regarding "{{ticketSubject}}" (ref: {{ticketId}}) has been marked as resolved.
+
+If you have any further questions, feel free to reach out to us again.

@@ -39,6 +39,21 @@ public class UserEventPublisher {
         publish("user.locked", Map.of("userId", userId.toString()));
     }
 
+    /** Distinct routing key from the audit events above — {@code user.notification} carries
+     * the generic {service, templateName, to, toName, variables} shape Notification Service's
+     * consumer expects (see backend/notification-service/src/config/amqp.constants.ts), not a
+     * domain-shaped payload. No new exchange: still user.exchange, just a key nothing else in
+     * this codebase binds to yet. */
+    public void publishNotification(String templateName, String to, String toName, Map<String, Object> variables) {
+        publish("user.notification", Map.of(
+            "service", "auth-service",
+            "templateName", templateName,
+            "to", to,
+            "toName", toName,
+            "variables", variables
+        ));
+    }
+
     private void publish(String routingKey, Object payload) {
         try {
             rabbitTemplate.convertAndSend(EXCHANGE, routingKey, payload);

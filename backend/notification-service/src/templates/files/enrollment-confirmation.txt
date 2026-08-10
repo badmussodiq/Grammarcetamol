@@ -1,0 +1,3 @@
+Hi {{fullName}},
+
+You're now enrolled in {{courseTitle}}. Head to your dashboard to start your first lesson whenever you're ready.

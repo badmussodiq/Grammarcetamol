@@ -35,6 +35,20 @@ export class PaymentEventPublisher {
     this.publish('refund.completed', payload);
   }
 
+  /** "payment.notification" — the generic {service, templateName, to, toName, variables} shape
+   * notification-service's consumer binds to, same convention as auth-service's
+   * UserEventPublisher.publishNotification. Distinct from payment.completed/payment.failed,
+   * which carry domain-shaped payloads for other consumers (e.g. enrollment-service). */
+  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>): void {
+    this.publish('payment.notification', {
+      service: 'payment-service',
+      templateName,
+      to,
+      toName,
+      variables,
+    });
+  }
+
   private publish(routingKey: string, payload: Record<string, unknown>): void {
     try {
       this.channel.publish(PAYMENT_EXCHANGE, routingKey, Buffer.from(JSON.stringify(payload)), {

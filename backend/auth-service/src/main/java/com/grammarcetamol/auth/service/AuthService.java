@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -48,6 +49,8 @@ public class AuthService {
 
     private static final int MAX_FAILED_ATTEMPTS    = 5;
     private static final int LOCK_DURATION_MINUTES  = 15;
+    private static final int OTP_TTL_MINUTES        = 15;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -60,30 +63,24 @@ public class AuthService {
         user.setStatus(User.Status.PENDING_VERIFICATION);
         user = userRepository.save(user);
 
-        String verifyToken = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(
-            "verify:" + verifyToken,
-            user.getId().toString(),
-            Duration.ofHours(24)
-        );
-
         // Set profile fields on the same user record — no separate table
         userProfileService.initProfile(user.getId(), request.getFullName(), RoleName.STUDENT.name());
+
+        String otp = issueOtp("verify", user.getEmail());
+        eventPublisher.publishNotification("email-verification-otp", user.getEmail(), request.getFullName(),
+            Map.of("fullName", request.getFullName(), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
         log.info("Registered user {}", user.getEmail());
     }
 
     @Transactional
-    public void verifyEmail(String token) {
-        String userId = redisTemplate.opsForValue().get("verify:" + token);
-        if (userId == null) {
-            throw new InvalidTokenException("Verification token is invalid or expired");
-        }
-        User user = userRepository.findById(UUID.fromString(userId))
-            .orElseThrow(() -> new InvalidTokenException("User not found"));
+    public void verifyEmail(String email, String otp) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new InvalidTokenException("Verification code is invalid or expired"));
+        checkOtp("verify", email, otp);
         user.setEmailVerified(true);
         user.setStatus(User.Status.ACTIVE);
         userRepository.save(user);
-        redisTemplate.delete("verify:" + token);
+        redisTemplate.delete("otp:verify:" + email);
         // Profile already exists — no additional action needed on verification
         log.info("Email verified for userId={}", user.getId());
     }
@@ -106,6 +103,8 @@ public class AuthService {
                 user.setLockedUntil(Instant.now().plus(Duration.ofMinutes(LOCK_DURATION_MINUTES)));
                 userRepository.save(user);
                 eventPublisher.publishUserLocked(user.getId());
+                eventPublisher.publishNotification("account-locked", user.getEmail(), displayName(user),
+                    Map.of("fullName", displayName(user), "lockDurationMinutes", String.valueOf(LOCK_DURATION_MINUTES)));
                 throw new AccountLockedException(user.getLockedUntil());
             }
             userRepository.save(user);
@@ -175,28 +174,23 @@ public class AuthService {
     @Transactional
     public void forgotPassword(String email) {
         userRepository.findByEmail(email).ifPresent(user -> {
-            String resetToken = UUID.randomUUID().toString();
-            redisTemplate.opsForValue().set(
-                "fp:" + resetToken, user.getId().toString(), Duration.ofHours(1)
-            );
-            // In production, send email here via mail service
-            log.info("Password reset token created for {}", email);
+            String otp = issueOtp("fp", email);
+            eventPublisher.publishNotification("password-reset-otp", email, displayName(user),
+                Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
+            log.info("Password reset code issued for {}", email);
         });
     }
 
     @Transactional
-    public void resetPassword(String token, String newPassword) {
+    public void resetPassword(String email, String otp, String newPassword) {
         validatePasswordPolicy(newPassword);
-        String userId = redisTemplate.opsForValue().get("fp:" + token);
-        if (userId == null) {
-            throw new InvalidTokenException("Reset token is invalid or expired");
-        }
-        User user = userRepository.findById(UUID.fromString(userId))
-            .orElseThrow(() -> new InvalidTokenException("User not found"));
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new InvalidTokenException("Reset code is invalid or expired"));
+        checkOtp("fp", email, otp);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         refreshTokenRepository.deleteAllByUserId(user.getId());
-        redisTemplate.delete("fp:" + token);
+        redisTemplate.delete("otp:fp:" + email);
     }
 
     /**
@@ -236,16 +230,46 @@ public class AuthService {
 
         userRepository.findByEmail(email).ifPresent(user -> {
             if (!user.isEmailVerified()) {
-                String verifyToken = UUID.randomUUID().toString();
-                redisTemplate.opsForValue().set(
-                    "verify:" + verifyToken, user.getId().toString(), Duration.ofHours(24)
-                );
-                log.info("Resent verification email to {}", email);
+                String otp = issueOtp("verify", email);
+                eventPublisher.publishNotification("email-verification-otp", email, displayName(user),
+                    Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
+                log.info("Resent verification code to {}", email);
             }
         });
     }
 
     // --- Helpers ---
+
+    /** {@code Map.of} throws NullPointerException on any null value, and User.fullName isn't
+     * guaranteed non-null outside the registration path (registerInternal sets it, but nothing
+     * stops a future data-migration or admin-tooling path from leaving it blank) — a null here
+     * would otherwise crash the notification publish and, for the login-lockout call site,
+     * take the account-lockout response down with it. Falls back to email, which is always
+     * present, rather than the empty string, so templates still read naturally. */
+    private String displayName(User user) {
+        return user.getFullName() != null ? user.getFullName() : user.getEmail();
+    }
+
+    /** Generates a 6-digit numeric OTP and stores it keyed by (purpose, email) rather than by
+     * the code itself — the caller already knows which user they're verifying, so there's no
+     * need for the code to double as a lookup key the way the old UUID tokens did. This also
+     * makes resend naturally idempotent: issuing a new code for the same purpose+email just
+     * overwrites the previous one in Redis, so only the latest code is ever valid. */
+    private String issueOtp(String purpose, String email) {
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+        redisTemplate.opsForValue().set("otp:" + purpose + ":" + email, otp, Duration.ofMinutes(OTP_TTL_MINUTES));
+        return otp;
+    }
+
+    /** Same generic error message regardless of whether the key is missing (expired/never
+     * issued) or present-but-wrong — never lets a caller distinguish "no code was ever sent to
+     * this email" from "wrong code", which would otherwise leak whether an email is registered. */
+    private void checkOtp(String purpose, String email, String otp) {
+        String stored = redisTemplate.opsForValue().get("otp:" + purpose + ":" + email);
+        if (stored == null || !stored.equals(otp)) {
+            throw new InvalidTokenException("Verification code is invalid or expired");
+        }
+    }
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile(PasswordPolicy.REGEX);
 

@@ -1,6 +1,3 @@
-// Tokens
-export { colors, shadows, borderRadius, transitions } from './tokens/tokens';
-
 // Utils
 export { cn } from './utils/cn';
 

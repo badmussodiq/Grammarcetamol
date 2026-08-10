@@ -49,8 +49,8 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await authApi.register({ email: values.email, password: values.password, fullName: values.fullName });
-      addToast({ type: 'success', message: 'Account created! Please check your email to verify.' });
-      router.push('/login');
+      addToast({ type: 'success', message: 'Account created! Enter the code we emailed you to verify.' });
+      router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Registration failed';
       addToast({ type: 'error', message: msg });
@@ -88,7 +88,7 @@ export default function RegisterPage() {
           onChange={(e: ChangeEvent<HTMLInputElement>) => setValue('confirmPassword', e.target.value)} error={errors.confirmPassword} autoComplete="new-password" />
         <label className="flex items-start gap-2 text-sm text-[#64748B] cursor-pointer">
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 accent-[#1E3A5F]" />
+            className="mt-0.5 accent-primary" />
           I agree to the <Link href="/terms" className="text-primary hover:underline">Terms &amp; Conditions</Link>
         </label>
         <Button type="submit" loading={isSubmitting} className="w-full mt-2">Create Account</Button>

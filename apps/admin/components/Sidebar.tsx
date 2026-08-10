@@ -42,6 +42,9 @@ const TransactionsIcon = () => (
 const ReviewsIcon = () => (
   <svg {...iconProps()}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
 );
+const SupportIcon = () => (
+  <svg {...iconProps()}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+);
 
 interface NavItem {
   label: string;
@@ -56,8 +59,8 @@ interface NavGroup {
 }
 
 // Only groups/items with a real page behind them — admin-frontend.md's full sketch also has
-// Insights/Communication/System groups, but nothing backs those yet (no analytics/notification
-// services, no settings pages), so they're left out rather than shown empty.
+// a System group, but nothing backs that yet (no settings pages), so it's left out rather than
+// shown empty.
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard', icon: <DashboardIcon /> }] },
   { label: 'Education', items: [{ label: 'Courses', href: '/courses', icon: <CoursesIcon /> }] },
@@ -69,7 +72,10 @@ const NAV_GROUPS: NavGroup[] = [
     { label: 'Revenue', href: '/revenue', icon: <RevenueIcon />, superAdminOnly: true },
     { label: 'Transactions', href: '/transactions', icon: <TransactionsIcon /> },
   ] },
-  { label: 'Feedback', items: [{ label: 'Reviews', href: '/reviews', icon: <ReviewsIcon /> }] },
+  { label: 'Feedback', items: [
+    { label: 'Reviews', href: '/reviews', icon: <ReviewsIcon /> },
+    { label: 'Support', href: '/support', icon: <SupportIcon /> },
+  ] },
 ];
 
 const STORAGE_KEY = 'admin-sidebar-collapsed';

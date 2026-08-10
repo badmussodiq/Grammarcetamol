@@ -4,6 +4,7 @@ import com.grammarcetamol.auth.dto.ApiResponse;
 import com.grammarcetamol.auth.dto.LoginRequest;
 import com.grammarcetamol.auth.dto.RegisterRequest;
 import com.grammarcetamol.auth.dto.ResetPasswordRequest;
+import com.grammarcetamol.auth.dto.VerifyEmailRequest;
 import com.grammarcetamol.auth.service.AuthService;
 import com.grammarcetamol.auth.service.JwtService;
 import jakarta.servlet.http.Cookie;
@@ -41,9 +42,9 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Registration successful. Please verify your email."));
     }
 
-    @GetMapping("/verify-email")
-    public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam String token) {
-        authService.verifyEmail(token);
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<String>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request.getEmail(), request.getOtp());
         return ResponseEntity.ok(ApiResponse.success("Email verified successfully"));
     }
 
@@ -96,7 +97,7 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request.getToken(), request.getNewPassword());
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully"));
     }
 
