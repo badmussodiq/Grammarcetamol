@@ -21,10 +21,10 @@ The **Student Interface** is the public-facing, learner-centric application of t
 - **Performance-critical:** Pages must feel instant; videos must start within 2 seconds.
 
 ### 1.2 Target Users
-| User Type | Access Level | Primary Goal |
-|---|---|---|
-| Guest | Unauthenticated | Discover, evaluate, and register |
-| Registered Student | Authenticated | Learn, track progress, engage |
+| User Type          | Access Level    | Primary Goal                     |
+|--------------------|-----------------|----------------------------------|
+| Guest              | Unauthenticated | Discover, evaluate, and register |
+| Registered Student | Authenticated   | Learn, track progress, engage    |
 
 ---
 
@@ -78,81 +78,81 @@ grammarcetamol-student-interface/
 
 ### 3.1 Color Palette
 
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-primary` | `#1E3A5F` | Primary brand color, headers, key actions |
-| `--color-primary-light` | `#2A5285` | Hover states, secondary emphasis |
-| `--color-accent` | `#F59E0B` | CTAs, progress indicators, highlights |
-| `--color-accent-hover` | `#D97706` | CTA hover states |
-| `--color-success` | `#10B981` | Success states, completion, confirmations |
-| `--color-warning` | `#F59E0B` | Warnings, pending states |
-| `--color-error` | `#EF4444` | Errors, failures, destructive actions |
-| `--color-background` | `#F8FAFC` | Page backgrounds |
-| `--color-surface` | `#FFFFFF` | Cards, modals, elevated surfaces |
-| `--color-surface-elevated` | `#FFFFFF` + shadow | Dropdowns, popovers |
-| `--color-border` | `#E2E8F0` | Dividers, input borders |
-| `--color-text-primary` | `#0F172A` | Headings, primary text |
-| `--color-text-secondary` | `#64748B` | Body text, descriptions |
-| `--color-text-muted` | `#94A3B8` | Placeholders, disabled text |
+| Token                      | Hex                | Usage                                     |
+|----------------------------|--------------------|-------------------------------------------|
+| `--color-primary`          | `#1E3A5F`          | Primary brand color, headers, key actions |
+| `--color-primary-light`    | `#2A5285`          | Hover states, secondary emphasis          |
+| `--color-accent`           | `#F59E0B`          | CTAs, progress indicators, highlights     |
+| `--color-accent-hover`     | `#D97706`          | CTA hover states                          |
+| `--color-success`          | `#10B981`          | Success states, completion, confirmations |
+| `--color-warning`          | `#F59E0B`          | Warnings, pending states                  |
+| `--color-error`            | `#EF4444`          | Errors, failures, destructive actions     |
+| `--color-background`       | `#F8FAFC`          | Page backgrounds                          |
+| `--color-surface`          | `#FFFFFF`          | Cards, modals, elevated surfaces          |
+| `--color-surface-elevated` | `#FFFFFF` + shadow | Dropdowns, popovers                       |
+| `--color-border`           | `#E2E8F0`          | Dividers, input borders                   |
+| `--color-text-primary`     | `#0F172A`          | Headings, primary text                    |
+| `--color-text-secondary`   | `#64748B`          | Body text, descriptions                   |
+| `--color-text-muted`       | `#94A3B8`          | Placeholders, disabled text               |
 
 ### 3.2 Typography
 
-| Element | Font | Weight | Size (Desktop) | Size (Mobile) | Line Height |
-|---|---|---|---|---|---|
-| H1 (Hero) | Inter | 800 | 56px | 36px | 1.1 |
-| H2 (Section) | Inter | 700 | 40px | 28px | 1.2 |
-| H3 (Card Title) | Inter | 600 | 24px | 20px | 1.3 |
-| H4 (Subsection) | Inter | 600 | 20px | 18px | 1.4 |
-| Body | Inter | 400 | 16px | 15px | 1.6 |
-| Body Small | Inter | 400 | 14px | 13px | 1.5 |
-| Caption | Inter | 500 | 12px | 11px | 1.4 |
-| Button | Inter | 600 | 16px | 15px | 1.0 |
-| Nav Link | Inter | 500 | 15px | 14px | 1.0 |
+| Element         | Font  | Weight | Size (Desktop) | Size (Mobile) | Line Height |
+|-----------------|-------|--------|----------------|---------------|-------------|
+| H1 (Hero)       | Inter | 800    | 56px           | 36px          | 1.1         |
+| H2 (Section)    | Inter | 700    | 40px           | 28px          | 1.2         |
+| H3 (Card Title) | Inter | 600    | 24px           | 20px          | 1.3         |
+| H4 (Subsection) | Inter | 600    | 20px           | 18px          | 1.4         |
+| Body            | Inter | 400    | 16px           | 15px          | 1.6         |
+| Body Small      | Inter | 400    | 14px           | 13px          | 1.5         |
+| Caption         | Inter | 500    | 12px           | 11px          | 1.4         |
+| Button          | Inter | 600    | 16px           | 15px          | 1.0         |
+| Nav Link        | Inter | 500    | 15px           | 14px          | 1.0         |
 
 ### 3.3 Spacing Scale
 
 Based on an 8px grid system:
 
-| Token | Value |
-|---|---|
-| `space-1` | 4px |
-| `space-2` | 8px |
-| `space-3` | 12px |
-| `space-4` | 16px |
-| `space-5` | 24px |
-| `space-6` | 32px |
-| `space-7` | 48px |
-| `space-8` | 64px |
-| `space-9` | 96px |
+| Token      | Value |
+|------------|-------|
+| `space-1`  | 4px   |
+| `space-2`  | 8px   |
+| `space-3`  | 12px  |
+| `space-4`  | 16px  |
+| `space-5`  | 24px  |
+| `space-6`  | 32px  |
+| `space-7`  | 48px  |
+| `space-8`  | 64px  |
+| `space-9`  | 96px  |
 | `space-10` | 128px |
 
 ### 3.4 Border Radius
 
-| Token | Value | Usage |
-|---|---|---|
-| `radius-sm` | 4px | Buttons, badges, small elements |
-| `radius-md` | 8px | Inputs, cards, modals |
-| `radius-lg` | 12px | Large cards, feature sections |
-| `radius-xl` | 16px | Hero containers, media players |
+| Token         | Value  | Usage                            |
+|---------------|--------|----------------------------------|
+| `radius-sm`   | 4px    | Buttons, badges, small elements  |
+| `radius-md`   | 8px    | Inputs, cards, modals            |
+| `radius-lg`   | 12px   | Large cards, feature sections    |
+| `radius-xl`   | 16px   | Hero containers, media players   |
 | `radius-full` | 9999px | Pills, avatars, circular buttons |
 
 ### 3.5 Shadows
 
-| Token | Value | Usage |
-|---|---|---|
-| `shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle elevation |
-| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.1)` | Cards, dropdowns |
+| Token       | Value                              | Usage            |
+|-------------|------------------------------------|------------------|
+| `shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)`       | Subtle elevation |
+| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.1)`   | Cards, dropdowns |
 | `shadow-lg` | `0 10px 15px -3px rgba(0,0,0,0.1)` | Modals, popovers |
 | `shadow-xl` | `0 20px 25px -5px rgba(0,0,0,0.1)` | Overlays, toasts |
 
 ### 3.6 Animation Tokens
 
-| Token | Duration | Easing | Usage |
-|---|---|---|---|
-| `transition-fast` | 150ms | `ease-out` | Button hovers, toggles |
-| `transition-base` | 200ms | `ease-in-out` | Card hovers, dropdowns |
-| `transition-slow` | 300ms | `ease-in-out` | Page transitions, modals |
-| `transition-slower` | 500ms | `cubic-bezier(0.4, 0, 0.2, 1)` | Hero animations |
+| Token               | Duration | Easing                         | Usage                    |
+|---------------------|----------|--------------------------------|--------------------------|
+| `transition-fast`   | 150ms    | `ease-out`                     | Button hovers, toggles   |
+| `transition-base`   | 200ms    | `ease-in-out`                  | Card hovers, dropdowns   |
+| `transition-slow`   | 300ms    | `ease-in-out`                  | Page transitions, modals |
+| `transition-slower` | 500ms    | `cubic-bezier(0.4, 0, 0.2, 1)` | Hero animations          |
 
 ---
 
@@ -603,14 +603,14 @@ export const useNotifications = () =>
 
 ## 8. Responsive Breakpoints
 
-| Name | Width | Target |
-|---|---|---|
-| `xs` | < 480px | Small mobile phones |
-| `sm` | 480px – 767px | Large mobile phones |
-| `md` | 768px – 1023px | Tablets |
-| `lg` | 1024px – 1279px | Small laptops |
-| `xl` | 1280px – 1535px | Desktops |
-| `2xl` | ≥ 1536px | Large monitors |
+| Name  | Width           | Target              |
+|-------|-----------------|---------------------|
+| `xs`  | < 480px         | Small mobile phones |
+| `sm`  | 480px – 767px   | Large mobile phones |
+| `md`  | 768px – 1023px  | Tablets             |
+| `lg`  | 1024px – 1279px | Small laptops       |
+| `xl`  | 1280px – 1535px | Desktops            |
+| `2xl` | ≥ 1536px        | Large monitors      |
 
 ### Key Responsive Behaviors
 - **Navbar:** Full links (lg+) → Hamburger (md and below)
@@ -653,15 +653,15 @@ export const useNotifications = () =>
 
 ## 10. Performance Budgets
 
-| Metric | Target | Maximum |
-|---|---|---|
-| First Contentful Paint (FCP) | < 1.0s | 1.5s |
-| Largest Contentful Paint (LCP) | < 2.0s | 2.5s |
-| Time to Interactive (TTI) | < 2.5s | 3.5s |
-| Cumulative Layout Shift (CLS) | < 0.05 | 0.1 |
-| Total Blocking Time (TBT) | < 200ms | 350ms |
-| First Input Delay (FID) | < 50ms | 100ms |
-| Lighthouse Performance Score | ≥ 95 | 90 |
+| Metric                         | Target  | Maximum |
+|--------------------------------|---------|---------|
+| First Contentful Paint (FCP)   | < 1.0s  | 1.5s    |
+| Largest Contentful Paint (LCP) | < 2.0s  | 2.5s    |
+| Time to Interactive (TTI)      | < 2.5s  | 3.5s    |
+| Cumulative Layout Shift (CLS)  | < 0.05  | 0.1     |
+| Total Blocking Time (TBT)      | < 200ms | 350ms   |
+| First Input Delay (FID)        | < 50ms  | 100ms   |
+| Lighthouse Performance Score   | ≥ 95    | 90      |
 
 ### Optimization Strategies
 - **Images:** Next.js `<Image>` with WebP/AVIF, lazy loading, blur placeholder
@@ -687,28 +687,28 @@ export const useNotifications = () =>
 - **Timeout:** Requests timeout after 10s; show "Taking longer than expected…"
 
 ### 11.3 Empty States
-| Context | Visual | Message | CTA |
-|---|---|---|---|
-| No courses enrolled | Empty folder illustration | "You haven't enrolled in any courses yet." | "Browse Courses" |
-| No search results | Magnifying glass illustration | "No courses match your search." | "Clear Filters" |
-| No notifications | Bell illustration | "You're all caught up!" | — |
-| No live classes | Calendar illustration | "No upcoming live classes." | "View Schedule" |
-| Cart empty | Shopping bag illustration | "Your cart is empty." | "Explore Courses" |
+| Context             | Visual                        | Message                                    | CTA               |
+|---------------------|-------------------------------|--------------------------------------------|-------------------|
+| No courses enrolled | Empty folder illustration     | "You haven't enrolled in any courses yet." | "Browse Courses"  |
+| No search results   | Magnifying glass illustration | "No courses match your search."            | "Clear Filters"   |
+| No notifications    | Bell illustration             | "You're all caught up!"                    | —                 |
+| No live classes     | Calendar illustration         | "No upcoming live classes."                | "View Schedule"   |
+| Cart empty          | Shopping bag illustration     | "Your cart is empty."                      | "Explore Courses" |
 
 ---
 
 ## 12. Third-Party Integrations
 
-| Service | Purpose | Integration Point |
-|---|---|---|
-| **Stripe / Paystack / Flutterwave** | Payment processing | Checkout page, webhook handlers |
-| **Google OAuth 2.0** | Social authentication | Login/Register modal |
-| **Cloudinary / AWS S3** | Media storage & delivery | Video streaming, image optimization |
-| **Jitsi Meet / Zoom SDK** | Live video classrooms | Live class join page |
-| **SendGrid / AWS SES** | Transactional emails | Backend-triggered (welcome, receipts) |
-| **Sentry** | Error monitoring | Global error boundary |
-| **Google Analytics 4** | User behavior analytics | Page views, events, conversions |
-| **Hotjar** | Heatmaps & session recordings | Landing pages, checkout flow |
+| Service                             | Purpose                       | Integration Point                     |
+|-------------------------------------|-------------------------------|---------------------------------------|
+| **Stripe / Paystack / Flutterwave** | Payment processing            | Checkout page, webhook handlers       |
+| **Google OAuth 2.0**                | Social authentication         | Login/Register modal                  |
+| **Cloudinary / AWS S3**             | Media storage & delivery      | Video streaming, image optimization   |
+| **Jitsi Meet / Zoom SDK**           | Live video classrooms         | Live class join page                  |
+| **SendGrid / AWS SES**              | Transactional emails          | Backend-triggered (welcome, receipts) |
+| **Sentry**                          | Error monitoring              | Global error boundary                 |
+| **Google Analytics 4**              | User behavior analytics       | Page views, events, conversions       |
+| **Hotjar**                          | Heatmaps & session recordings | Landing pages, checkout flow          |
 
 ---
 

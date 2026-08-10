@@ -24,10 +24,10 @@ The admin application serves two distinct roles with tiered permissions, ensurin
 
 ### 1.2 Target Users
 
-| Role | Permissions | Primary Responsibilities |
-|---|---|---|
-| **Super Admin** | Unrestricted | Full platform ownership: courses, students, revenue, configuration, security |
-| **Moderator** | Configurable | Content publishing, support responses, class scheduling, review moderation (no financial/settings access) |
+| Role            | Permissions  | Primary Responsibilities                                                                                  |
+|-----------------|--------------|-----------------------------------------------------------------------------------------------------------|
+| **Super Admin** | Unrestricted | Full platform ownership: courses, students, revenue, configuration, security                              |
+| **Moderator**   | Configurable | Content publishing, support responses, class scheduling, review moderation (no financial/settings access) |
 
 ---
 
@@ -126,83 +126,83 @@ grammarcetamol-admin-interface/
 
 The admin interface uses a more subdued, professional palette than the student app, emphasizing information hierarchy and reducing eye strain during long operational sessions.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-primary` | `#1E3A5F` | Primary brand, navigation, key actions |
-| `--color-primary-light` | `#2A5285` | Hover states, secondary buttons |
-| `--color-accent` | `#0EA5E9` | Information highlights, links, active states |
-| `--color-accent-hover` | `#0284C7` | Link hover, active tab underline |
-| `--color-success` | `#10B981` | Success, published, completed, active |
-| `--color-success-light` | `#D1FAE5` | Success background tint |
-| `--color-warning` | `#F59E0B` | Warnings, pending, uploading, needs attention |
-| `--color-warning-light` | `#FEF3C7` | Warning background tint |
-| `--color-error` | `#EF4444` | Errors, failed, rejected, blocked |
-| `--color-error-light` | `#FEE2E2` | Error background tint |
-| `--color-info` | `#6366F1` | Informational badges, neutral highlights |
-| `--color-info-light` | `#E0E7FF` | Info background tint |
-| `--color-background` | `#F1F5F9` | Page backgrounds |
-| `--color-surface` | `#FFFFFF` | Cards, panels, tables, modals |
-| `--color-surface-hover` | `#F8FAFC` | Table row hover, selectable item hover |
-| `--color-border` | `#E2E8F0` | Dividers, table borders, input borders |
-| `--color-border-strong` | `#CBD5E1` | Focused borders, active dividers |
-| `--color-text-primary` | `#0F172A` | Headings, primary text |
-| `--color-text-secondary` | `#475569` | Body text, descriptions |
-| `--color-text-muted` | `#94A3B8` | Placeholders, disabled, timestamps |
-| `--color-sidebar` | `#0F172A` | Sidebar background |
-| `--color-sidebar-text` | `#CBD5E1` | Sidebar text |
-| `--color-sidebar-active` | `#1E3A5F` | Sidebar active item background |
+| Token                    | Hex       | Usage                                         |
+|--------------------------|-----------|-----------------------------------------------|
+| `--color-primary`        | `#1E3A5F` | Primary brand, navigation, key actions        |
+| `--color-primary-light`  | `#2A5285` | Hover states, secondary buttons               |
+| `--color-accent`         | `#0EA5E9` | Information highlights, links, active states  |
+| `--color-accent-hover`   | `#0284C7` | Link hover, active tab underline              |
+| `--color-success`        | `#10B981` | Success, published, completed, active         |
+| `--color-success-light`  | `#D1FAE5` | Success background tint                       |
+| `--color-warning`        | `#F59E0B` | Warnings, pending, uploading, needs attention |
+| `--color-warning-light`  | `#FEF3C7` | Warning background tint                       |
+| `--color-error`          | `#EF4444` | Errors, failed, rejected, blocked             |
+| `--color-error-light`    | `#FEE2E2` | Error background tint                         |
+| `--color-info`           | `#6366F1` | Informational badges, neutral highlights      |
+| `--color-info-light`     | `#E0E7FF` | Info background tint                          |
+| `--color-background`     | `#F1F5F9` | Page backgrounds                              |
+| `--color-surface`        | `#FFFFFF` | Cards, panels, tables, modals                 |
+| `--color-surface-hover`  | `#F8FAFC` | Table row hover, selectable item hover        |
+| `--color-border`         | `#E2E8F0` | Dividers, table borders, input borders        |
+| `--color-border-strong`  | `#CBD5E1` | Focused borders, active dividers              |
+| `--color-text-primary`   | `#0F172A` | Headings, primary text                        |
+| `--color-text-secondary` | `#475569` | Body text, descriptions                       |
+| `--color-text-muted`     | `#94A3B8` | Placeholders, disabled, timestamps            |
+| `--color-sidebar`        | `#0F172A` | Sidebar background                            |
+| `--color-sidebar-text`   | `#CBD5E1` | Sidebar text                                  |
+| `--color-sidebar-active` | `#1E3A5F` | Sidebar active item background                |
 
 ### 3.2 Typography
 
-| Element | Font | Weight | Size | Line Height |
-|---|---|---|---|---|
-| H1 (Page Title) | Inter | 700 | 28px | 1.2 |
-| H2 (Section) | Inter | 600 | 22px | 1.3 |
-| H3 (Card Title) | Inter | 600 | 18px | 1.4 |
-| H4 (Subsection) | Inter | 600 | 16px | 1.4 |
-| Body | Inter | 400 | 14px | 1.5 |
-| Body Small | Inter | 400 | 13px | 1.4 |
-| Caption / Label | Inter | 500 | 12px | 1.3 |
-| Data / Metric | Inter | 700 | 32px | 1.0 |
-| Table Header | Inter | 600 | 12px | 1.3 |
-| Table Cell | Inter | 400 | 13px | 1.4 |
-| Button | Inter | 600 | 14px | 1.0 |
-| Nav Link | Inter | 500 | 14px | 1.0 |
+| Element         | Font  | Weight | Size | Line Height |
+|-----------------|-------|--------|------|-------------|
+| H1 (Page Title) | Inter | 700    | 28px | 1.2         |
+| H2 (Section)    | Inter | 600    | 22px | 1.3         |
+| H3 (Card Title) | Inter | 600    | 18px | 1.4         |
+| H4 (Subsection) | Inter | 600    | 16px | 1.4         |
+| Body            | Inter | 400    | 14px | 1.5         |
+| Body Small      | Inter | 400    | 13px | 1.4         |
+| Caption / Label | Inter | 500    | 12px | 1.3         |
+| Data / Metric   | Inter | 700    | 32px | 1.0         |
+| Table Header    | Inter | 600    | 12px | 1.3         |
+| Table Cell      | Inter | 400    | 13px | 1.4         |
+| Button          | Inter | 600    | 14px | 1.0         |
+| Nav Link        | Inter | 500    | 14px | 1.0         |
 
 ### 3.3 Spacing Scale
 
 Based on a 4px grid (tighter than student app for data density):
 
-| Token | Value |
-|---|---|
-| `space-1` | 4px |
-| `space-2` | 8px |
-| `space-3` | 12px |
-| `space-4` | 16px |
-| `space-5` | 20px |
-| `space-6` | 24px |
-| `space-7` | 32px |
-| `space-8` | 40px |
-| `space-9` | 48px |
-| `space-10` | 64px |
+| Token      | Value |
+|------------|-------|
+| `space-1`  | 4px   |
+| `space-2`  | 8px   |
+| `space-3`  | 12px  |
+| `space-4`  | 16px  |
+| `space-5`  | 20px  |
+| `space-6`  | 24px  |
+| `space-7`  | 32px  |
+| `space-8`  | 40px  |
+| `space-9`  | 48px  |
+| `space-10` | 64px  |
 
 ### 3.4 Border Radius
 
-| Token | Value | Usage |
-|---|---|---|
-| `radius-sm` | 4px | Buttons, badges, inputs |
-| `radius-md` | 6px | Cards, table cells, small panels |
-| `radius-lg` | 8px | Modals, large cards, dropdowns |
-| `radius-xl` | 12px | Feature panels, charts container |
+| Token       | Value | Usage                            |
+|-------------|-------|----------------------------------|
+| `radius-sm` | 4px   | Buttons, badges, inputs          |
+| `radius-md` | 6px   | Cards, table cells, small panels |
+| `radius-lg` | 8px   | Modals, large cards, dropdowns   |
+| `radius-xl` | 12px  | Feature panels, charts container |
 
 ### 3.5 Shadows
 
-| Token | Value | Usage |
-|---|---|---|
-| `shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle elevation, table rows |
-| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.08)` | Cards, dropdowns, popovers |
-| `shadow-lg` | `0 10px 15px -3px rgba(0,0,0,0.08)` | Modals, drawers, toasts |
-| `shadow-xl` | `0 20px 25px -5px rgba(0,0,0,0.1)` | Overlays, confirmation dialogs |
+| Token       | Value                               | Usage                          |
+|-------------|-------------------------------------|--------------------------------|
+| `shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)`        | Subtle elevation, table rows   |
+| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.08)`   | Cards, dropdowns, popovers     |
+| `shadow-lg` | `0 10px 15px -3px rgba(0,0,0,0.08)` | Modals, drawers, toasts        |
+| `shadow-xl` | `0 20px 25px -5px rgba(0,0,0,0.1)`  | Overlays, confirmation dialogs |
 
 ---
 
@@ -1408,13 +1408,13 @@ export const useActivityFeed = (filters: ActivityFilters) =>
 
 ## 9. Responsive Breakpoints
 
-| Name | Width | Layout Changes |
-|---|---|---|
-| `sm` | < 640px | Single column, stacked cards, hamburger nav, bottom sheets |
-| `md` | 640px – 1023px | 2-column grids, collapsible sidebar (icon-only or overlay) |
-| `lg` | 1024px – 1279px | Full sidebar, 3-column metric cards, split-pane tickets |
-| `xl` | 1280px – 1535px | 4-column metric cards, expanded data tables |
-| `2xl` | ≥ 1536px | Maximum content width (1440px centered), spacious layouts |
+| Name  | Width           | Layout Changes                                             |
+|-------|-----------------|------------------------------------------------------------|
+| `sm`  | < 640px         | Single column, stacked cards, hamburger nav, bottom sheets |
+| `md`  | 640px – 1023px  | 2-column grids, collapsible sidebar (icon-only or overlay) |
+| `lg`  | 1024px – 1279px | Full sidebar, 3-column metric cards, split-pane tickets    |
+| `xl`  | 1280px – 1535px | 4-column metric cards, expanded data tables                |
+| `2xl` | ≥ 1536px        | Maximum content width (1440px centered), spacious layouts  |
 
 ### Admin-Specific Responsive Behaviors
 - **DataTables:** Horizontal scroll with sticky first column (student name/course title)
@@ -1502,17 +1502,17 @@ export const useActivityFeed = (filters: ActivityFilters) =>
 
 **Upload Failure Scenarios & Recovery:**
 
-| Failure Type | Detection | Recovery Strategy | User Feedback |
-|---|---|---|---|
-| **Network Interruption** | XMLHttpRequest onerror / timeout | Auto-pause all uploads; queue retry on reconnect; resume from last successful chunk | "Connection lost. Uploads paused. Will resume automatically." |
-| **Chunk Upload Timeout** | Request exceeds 30s | Retry chunk (max 3 attempts, exponential backoff: 1s, 2s, 4s) | "Retrying chunk X… (attempt Y/3)" |
-| **Chunk Checksum Mismatch** | Backend rejects chunk | Re-read chunk from File API, recalculate checksum, retry | "Verifying file integrity…" |
-| **Server Storage Full** | 507 Insufficient Storage | Pause all uploads; notify admin to free space or upgrade | "Server storage full. Contact Super Admin." |
-| **Invalid File Format** | Backend validation (magic numbers) | Reject file immediately; allow replacement | "Invalid format. Please upload MP4, MOV, or MKV." |
-| **Session Expired** | 401/403 on chunk upload | Prompt to re-authenticate; preserve queue state | "Session expired. Please log in again to resume." |
-| **Browser Crash / Close** | `beforeunload` handler + session persistence | On return, detect interrupted session via `GET /api/admin/uploads/sessions?status=interrupted`; prompt to resume | "You have unfinished uploads. Resume where you left off?" |
-| **Concurrent Upload Limit** | Backend returns 429 Too Many Requests | Reduce `maxConcurrent` dynamically; queue excess files | "Slowing uploads to maintain stability…" |
-| **File Corruption (post-assembly)** | Backend checksum mismatch after assembly | Re-queue entire file for re-upload | "File verification failed. Re-uploading…" |
+| Failure Type                        | Detection                                    | Recovery Strategy                                                                                                | User Feedback                                                 |
+|-------------------------------------|----------------------------------------------|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| **Network Interruption**            | XMLHttpRequest onerror / timeout             | Auto-pause all uploads; queue retry on reconnect; resume from last successful chunk                              | "Connection lost. Uploads paused. Will resume automatically." |
+| **Chunk Upload Timeout**            | Request exceeds 30s                          | Retry chunk (max 3 attempts, exponential backoff: 1s, 2s, 4s)                                                    | "Retrying chunk X… (attempt Y/3)"                             |
+| **Chunk Checksum Mismatch**         | Backend rejects chunk                        | Re-read chunk from File API, recalculate checksum, retry                                                         | "Verifying file integrity…"                                   |
+| **Server Storage Full**             | 507 Insufficient Storage                     | Pause all uploads; notify admin to free space or upgrade                                                         | "Server storage full. Contact Super Admin."                   |
+| **Invalid File Format**             | Backend validation (magic numbers)           | Reject file immediately; allow replacement                                                                       | "Invalid format. Please upload MP4, MOV, or MKV."             |
+| **Session Expired**                 | 401/403 on chunk upload                      | Prompt to re-authenticate; preserve queue state                                                                  | "Session expired. Please log in again to resume."             |
+| **Browser Crash / Close**           | `beforeunload` handler + session persistence | On return, detect interrupted session via `GET /api/admin/uploads/sessions?status=interrupted`; prompt to resume | "You have unfinished uploads. Resume where you left off?"     |
+| **Concurrent Upload Limit**         | Backend returns 429 Too Many Requests        | Reduce `maxConcurrent` dynamically; queue excess files                                                           | "Slowing uploads to maintain stability…"                      |
+| **File Corruption (post-assembly)** | Backend checksum mismatch after assembly     | Re-queue entire file for re-upload                                                                               | "File verification failed. Re-uploading…"                     |
 
 **Session Persistence Strategy:**
 - Upload session ID stored in `localStorage` with timestamp
@@ -1529,18 +1529,18 @@ export const useActivityFeed = (filters: ActivityFilters) =>
 
 ## 13. Third-Party Integrations
 
-| Service | Purpose | Integration Point |
-|---|---|---|
-| **Recharts** | Data visualization | Revenue charts, analytics dashboards |
-| **React Table / TanStack Table** | Advanced data tables | All list views (courses, students, transactions) |
-| **React Hook Form + Zod** | Form validation | All forms (course creation, settings, user management) |
-| **React DnD / @dnd-kit** | Drag-and-drop | Course module/lesson reordering, Kanban board |
-| **Date-fns** | Date manipulation | All date displays, scheduling, filtering |
-| **Zustand** | Global state | Auth, UI preferences, course draft |
-| **TanStack Query** | Server state | All API data fetching, caching, synchronization |
-| **Axios** | HTTP client | API communication with interceptors |
-| **Sentry** | Error tracking | Global error boundary, performance monitoring |
-| **FullCalendar / React-Big-Calendar** | Calendar views | Live class scheduling |
+| Service                               | Purpose              | Integration Point                                      |
+|---------------------------------------|----------------------|--------------------------------------------------------|
+| **Recharts**                          | Data visualization   | Revenue charts, analytics dashboards                   |
+| **React Table / TanStack Table**      | Advanced data tables | All list views (courses, students, transactions)       |
+| **React Hook Form + Zod**             | Form validation      | All forms (course creation, settings, user management) |
+| **React DnD / @dnd-kit**              | Drag-and-drop        | Course module/lesson reordering, Kanban board          |
+| **Date-fns**                          | Date manipulation    | All date displays, scheduling, filtering               |
+| **Zustand**                           | Global state         | Auth, UI preferences, course draft                     |
+| **TanStack Query**                    | Server state         | All API data fetching, caching, synchronization        |
+| **Axios**                             | HTTP client          | API communication with interceptors                    |
+| **Sentry**                            | Error tracking       | Global error boundary, performance monitoring          |
+| **FullCalendar / React-Big-Calendar** | Calendar views       | Live class scheduling                                  |
 
 ---
 
