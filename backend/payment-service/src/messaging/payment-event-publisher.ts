@@ -39,13 +39,14 @@ export class PaymentEventPublisher {
    * notification-service's consumer binds to, same convention as auth-service's
    * UserEventPublisher.publishNotification. Distinct from payment.completed/payment.failed,
    * which carry domain-shaped payloads for other consumers (e.g. enrollment-service). */
-  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>): void {
+  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>, userId?: string): void {
     this.publish('payment.notification', {
       service: 'payment-service',
       templateName,
       to,
       toName,
       variables,
+      ...(userId ? { userId } : {}),
     });
   }
 

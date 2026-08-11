@@ -31,4 +31,9 @@ export interface NotificationRequestedEvent {
   to: string;
   toName: string;
   variables: Record<string, unknown>;
+  /** Optional — the user this notification is about, if the publisher has one on hand (every
+   * current publisher does). Used to also write an in-app notification (see
+   * src/notifications/) alongside the email; when absent (e.g. a future publisher that only
+   * knows an email address), only the email send happens, same as before this field existed. */
+  userId?: string;
 }

@@ -85,7 +85,7 @@ class AuthServiceTest {
                 any(UUID.class), eq("Test User"), eq(RoleName.STUDENT.name())
         );
         verify(eventPublisher).publishNotification(
-                eq("email-verification-otp"), eq("test@example.com"), eq("Test User"), anyMap()
+                eq("email-verification-otp"), eq("test@example.com"), eq("Test User"), anyMap(), any(UUID.class)
         );
         verifyNoMoreInteractions(eventPublisher);
     }
@@ -195,7 +195,7 @@ class AuthServiceTest {
         assertThat(user.getLockedUntil()).isNotNull();
         assertThat(user.getLockedUntil()).isAfter(Instant.now());
         verify(eventPublisher).publishUserLocked(user.getId());
-        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), anyString(), anyMap());
+        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
     }
 
     @Test
@@ -216,7 +216,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(AccountLockedException.class);
 
-        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), eq("user@example.com"), anyMap());
+        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), eq("user@example.com"), anyMap(), eq(user.getId()));
     }
 
     @Test
@@ -302,7 +302,7 @@ class AuthServiceTest {
         authService.forgotPassword("user@example.com");
 
         verify(valueOps).set(eq("otp:fp:user@example.com"), anyString(), any());
-        verify(eventPublisher).publishNotification(eq("password-reset-otp"), eq("user@example.com"), anyString(), anyMap());
+        verify(eventPublisher).publishNotification(eq("password-reset-otp"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
     }
 
     @Test
@@ -352,7 +352,7 @@ class AuthServiceTest {
 
         authService.resendVerification("user@example.com");
 
-        verify(eventPublisher).publishNotification(eq("email-verification-otp"), eq("user@example.com"), anyString(), anyMap());
+        verify(eventPublisher).publishNotification(eq("email-verification-otp"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
     }
 
     @Test

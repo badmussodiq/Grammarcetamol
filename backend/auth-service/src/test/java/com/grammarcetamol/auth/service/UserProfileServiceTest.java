@@ -3,6 +3,7 @@ package com.grammarcetamol.auth.service;
 import com.grammarcetamol.auth.dto.UpdateProfileRequest;
 import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
+import com.grammarcetamol.auth.exception.InvalidPasswordException;
 import com.grammarcetamol.auth.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +32,7 @@ import static org.mockito.Mockito.*;
 class UserProfileServiceTest {
 
     @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserProfileService userProfileService;
@@ -138,6 +142,76 @@ class UserProfileServiceTest {
         User result = userProfileService.updateMyProfile(userId, dto);
 
         assertThat(result.getLearningGoals()).containsExactly("Java", "Spring");
+    }
+
+    @Test
+    void updateMyProfile_newFields_areSaved() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId, RoleName.STUDENT);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateProfileRequest dto = new UpdateProfileRequest();
+        dto.setAvatarUrl("https://example.com/avatar.png");
+        dto.setDateOfBirth(LocalDate.of(2000, 1, 1));
+        dto.setPreferences(Map.of("courseUpdates", true));
+
+        User result = userProfileService.updateMyProfile(userId, dto);
+
+        assertThat(result.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
+        assertThat(result.getDateOfBirth()).isEqualTo(LocalDate.of(2000, 1, 1));
+        assertThat(result.getPreferences()).containsEntry("courseUpdates", true);
+    }
+
+    // -----------------------------------------------------------------------
+    // changePassword
+    // -----------------------------------------------------------------------
+
+    @Test
+    void changePassword_correctCurrentPassword_updatesHash() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId, RoleName.STUDENT);
+        user.setPasswordHash("old-hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("oldPass1", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("NewPass1")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        userProfileService.changePassword(userId, "oldPass1", "NewPass1");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getPasswordHash()).isEqualTo("new-hash");
+    }
+
+    @Test
+    void changePassword_wrongCurrentPassword_throwsInvalidPasswordException() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId, RoleName.STUDENT);
+        user.setPasswordHash("old-hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrongPass", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> userProfileService.changePassword(userId, "wrongPass", "NewPass1"))
+            .isInstanceOf(InvalidPasswordException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changePassword_weakNewPassword_throwsInvalidPasswordException() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId, RoleName.STUDENT);
+        user.setPasswordHash("old-hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("oldPass1", "old-hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> userProfileService.changePassword(userId, "oldPass1", "weak"))
+            .isInstanceOf(InvalidPasswordException.class);
+        verify(userRepository, never()).save(any());
     }
 
     // -----------------------------------------------------------------------

@@ -1,5 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CurrentUserPayload } from '../../src/common/current-user.decorator';
 import { AuthServiceClient } from '../../src/course-client/auth-service.client';
 import { CourseServiceClient } from '../../src/course-client/course-service.client';
 import { PaymentEventPublisher } from '../../src/messaging/payment-event-publisher';
@@ -175,12 +176,14 @@ describe('PaymentsService', () => {
         'a@b.com',
         'Jane Doe',
         expect.objectContaining({ fullName: 'Jane Doe', courseTitle: 'English Grammar Fundamentals', amount: 49.99 }),
+        'user-1',
       );
       expect(eventPublisher.publishNotification).toHaveBeenCalledWith(
         'payment-receipt',
         'a@b.com',
         'Jane Doe',
         expect.objectContaining({ courseTitle: 'English Grammar Fundamentals', paidAt: '2026-08-09T22:19:21.848Z' }),
+        'user-1',
       );
     });
 
@@ -274,6 +277,58 @@ describe('PaymentsService', () => {
       expect(eventPublisher.publishRefundCompleted).toHaveBeenCalledTimes(1);
       expect(client.query).toHaveBeenCalledWith('BEGIN');
       expect(client.query).toHaveBeenCalledWith('COMMIT');
+    });
+  });
+
+  describe('listMine', () => {
+    it('forces the userId filter server-side regardless of what is passed in', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [paymentRow()], rowCount: 1 }) // SELECT items
+        .mockResolvedValueOnce({ rows: [{ total: '1' }], rowCount: 1 }); // SELECT count
+
+      const result = await service.listMine('user-1', { page: 1, limit: 20 });
+
+      expect(result.items).toHaveLength(1);
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('user_id = $1'), expect.arrayContaining(['user-1']));
+    });
+  });
+
+  describe('getById', () => {
+    function user(id: string | null, roles: string[] = []): CurrentUserPayload {
+      return { id, roles, isAuthenticated: () => id !== null, isAdminOrModerator: () => roles.some((r) => ['SUPER_ADMIN', 'MODERATOR'].includes(r)) };
+    }
+
+    it('returns the payment enriched with course info for the owner', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [paymentRow({ user_id: 'user-1' })], rowCount: 1 }); // findById
+      courseServiceClient.getCourse.mockResolvedValue({ id: 'course-1', title: 'English Grammar Fundamentals', slug: 'english-grammar' });
+
+      const result = await service.getById('payment-1', user('user-1'));
+
+      expect(result.course).toEqual(expect.objectContaining({ title: 'English Grammar Fundamentals' }));
+    });
+
+    it('rejects a non-owner, non-admin caller', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [paymentRow({ user_id: 'user-1' })], rowCount: 1 });
+
+      await expect(service.getById('payment-1', user('user-2'))).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows an admin to view any transaction', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [paymentRow({ user_id: 'user-1' })], rowCount: 1 });
+      courseServiceClient.getCourse.mockResolvedValue({ id: 'course-1', title: 'Course' });
+
+      const result = await service.getById('payment-1', user('admin-1', ['SUPER_ADMIN']));
+
+      expect(result.userId).toBe('user-1');
+    });
+
+    it('degrades to course: null when course-service is unreachable, without failing the request', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [paymentRow({ user_id: 'user-1' })], rowCount: 1 });
+      courseServiceClient.getCourse.mockRejectedValue(new Error('course-service unreachable'));
+
+      const result = await service.getById('payment-1', user('user-1'));
+
+      expect(result.course).toBeNull();
     });
   });
 

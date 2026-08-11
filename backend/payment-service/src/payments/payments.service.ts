@@ -3,8 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
 import { PG_POOL } from '../config/database.module';
+import { CurrentUserPayload } from '../common/current-user.decorator';
 import { AuthServiceClient } from '../course-client/auth-service.client';
-import { CourseServiceClient } from '../course-client/course-service.client';
+import { CourseServiceClient, CourseSummary } from '../course-client/course-service.client';
 import { PaymentEventPublisher } from '../messaging/payment-event-publisher';
 import { PaymentProviderRegistry } from '../providers/payment-provider.registry';
 import { mapPaymentRow, mapRefundRow, Payment, Refund } from './payment.types';
@@ -292,11 +293,11 @@ export class PaymentsService {
         reference: payment.gatewayRef,
       };
 
-      this.eventPublisher.publishNotification('course-purchase-confirmation', user.email, displayName, baseVariables);
+      this.eventPublisher.publishNotification('course-purchase-confirmation', user.email, displayName, baseVariables, user.id);
       this.eventPublisher.publishNotification('payment-receipt', user.email, displayName, {
         ...baseVariables,
         paidAt: payment.paidAt,
-      });
+      }, user.id);
     } catch (err) {
       this.logger.error(`Failed to publish purchase-confirmation emails for payment ${payment.id}: ${(err as Error).message}`);
     }
@@ -374,6 +375,33 @@ export class PaymentsService {
       items: itemsResult.rows.map(mapPaymentRow),
       total: Number(countResult.rows[0].total),
     };
+  }
+
+  /** Student-scoped listing for /transactions — userId is forced server-side from the
+   * authenticated caller, never accepted from the client, unlike the admin list() above. */
+  async listMine(userId: string, filters: { status?: string; dateFrom?: string; dateTo?: string; page: number; limit: number }): Promise<{ items: Payment[]; total: number }> {
+    return this.list({ ...filters, userId });
+  }
+
+  /** Single-transaction detail. Owner or admin/moderator only — no course enrichment on the
+   * list endpoint (would N+1 fan out on every page load); only the detail view needs it, and
+   * a course-service outage here must degrade to `course: null` rather than 500 the page. */
+  async getById(id: string, user: CurrentUserPayload): Promise<Payment & { course: CourseSummary | null }> {
+    const payment = await this.findById(id);
+    if (payment.userId !== user.id && !user.isAdminOrModerator()) {
+      throw new ForbiddenException('You do not have access to this transaction');
+    }
+
+    let course: CourseSummary | null = null;
+    if (payment.courseId) {
+      try {
+        course = await this.courseServiceClient.getCourse(payment.courseId);
+      } catch (err) {
+        this.logger.warn(`Could not enrich payment ${id} with course info: ${(err as Error).message}`);
+      }
+    }
+
+    return { ...payment, course };
   }
 
   private async findByReference(reference: string): Promise<Payment> {

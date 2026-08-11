@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PROTECTED_PATHS = ['/dashboard', '/my-courses', '/profile', '/checkout', '/notifications'];
+const PROTECTED_PATHS = ['/dashboard', '/my-courses', '/profile', '/checkout', '/notifications', '/settings', '/transactions'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,5 +26,7 @@ export const config = {
     '/profile/:path*',
     '/checkout/:path*',
     '/notifications/:path*',
+    '/settings/:path*',
+    '/transactions/:path*',
   ],
 };

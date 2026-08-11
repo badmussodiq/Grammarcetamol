@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -45,13 +46,24 @@ public class UserEventPublisher {
      * domain-shaped payload. No new exchange: still user.exchange, just a key nothing else in
      * this codebase binds to yet. */
     public void publishNotification(String templateName, String to, String toName, Map<String, Object> variables) {
-        publish("user.notification", Map.of(
-            "service", "auth-service",
-            "templateName", templateName,
-            "to", to,
-            "toName", toName,
-            "variables", variables
-        ));
+        publishNotification(templateName, to, toName, variables, null);
+    }
+
+    /** Overload carrying the user's id, so notification-service can also write an in-app
+     * notification (see backend/notification-service/src/notifications/) alongside the email —
+     * a plain HashMap here, not Map.of, since userId is conditionally present and Map.of throws
+     * on a null value/omitted entry mid-builder-chain. */
+    public void publishNotification(String templateName, String to, String toName, Map<String, Object> variables, UUID userId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("service", "auth-service");
+        payload.put("templateName", templateName);
+        payload.put("to", to);
+        payload.put("toName", toName);
+        payload.put("variables", variables);
+        if (userId != null) {
+            payload.put("userId", userId.toString());
+        }
+        publish("user.notification", payload);
     }
 
     private void publish(String routingKey, Object payload) {

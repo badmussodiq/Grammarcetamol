@@ -3,7 +3,9 @@ package com.grammarcetamol.auth.dto;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class UpdateProfileRequest {
@@ -23,4 +25,11 @@ public class UpdateProfileRequest {
     private String bio;
 
     private List<String> learningGoals;
+
+    @Size(max = 512)
+    private String avatarUrl;
+
+    private LocalDate dateOfBirth;
+
+    private Map<String, Object> preferences;
 }

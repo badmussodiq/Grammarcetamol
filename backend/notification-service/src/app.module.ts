@@ -6,6 +6,7 @@ import { HealthController } from './health.controller';
 import { TemplatesModule } from './templates/templates.module';
 import { ProvidersModule } from './providers/providers.module';
 import { NotificationLogsModule } from './notification-logs/notification-logs.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ConsumerModule } from './consumer/consumer.module';
 import { SupportModule } from './support/support.module';
 
@@ -17,6 +18,7 @@ import { SupportModule } from './support/support.module';
     TemplatesModule,
     ProvidersModule,
     NotificationLogsModule,
+    NotificationsModule,
     ConsumerModule,
     SupportModule,
   ],

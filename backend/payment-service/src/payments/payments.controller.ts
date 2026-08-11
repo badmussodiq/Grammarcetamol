@@ -68,6 +68,37 @@ export class PaymentsController {
     });
   }
 
+  /** GET /api/payments/me — the authenticated student's own transactions. Registered before
+   * the GET ':id' route below so Nest doesn't try to match 'me' as an :id param. */
+  @Get('me')
+  async listMine(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('status') status?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    requireAuthenticated(user);
+    const pageNum = Math.max(Number(page) || 1, 1);
+    const limitNum = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const result = await this.paymentsService.listMine(user.id as string, { status, dateFrom, dateTo, page: pageNum, limit: limitNum });
+    return ApiResponse.success({
+      items: result.items,
+      page: pageNum,
+      limit: limitNum,
+      total: result.total,
+      totalPages: Math.ceil(result.total / limitNum),
+    });
+  }
+
+  @Get(':id')
+  async getOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    requireAuthenticated(user);
+    const payment = await this.paymentsService.getById(id, user);
+    return ApiResponse.success(payment);
+  }
+
   @Post(':id/refund')
   async refund(@Param('id') id: string, @Body() dto: RefundPaymentDto, @CurrentUser() user: CurrentUserPayload) {
     requireAuthenticated(user);

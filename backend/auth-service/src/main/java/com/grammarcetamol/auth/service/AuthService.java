@@ -68,7 +68,8 @@ public class AuthService {
 
         String otp = issueOtp("verify", user.getEmail());
         eventPublisher.publishNotification("email-verification-otp", user.getEmail(), request.getFullName(),
-            Map.of("fullName", request.getFullName(), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
+            Map.of("fullName", request.getFullName(), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)),
+            user.getId());
         log.info("Registered user {}", user.getEmail());
     }
 
@@ -104,7 +105,8 @@ public class AuthService {
                 userRepository.save(user);
                 eventPublisher.publishUserLocked(user.getId());
                 eventPublisher.publishNotification("account-locked", user.getEmail(), displayName(user),
-                    Map.of("fullName", displayName(user), "lockDurationMinutes", String.valueOf(LOCK_DURATION_MINUTES)));
+                    Map.of("fullName", displayName(user), "lockDurationMinutes", String.valueOf(LOCK_DURATION_MINUTES)),
+                    user.getId());
                 throw new AccountLockedException(user.getLockedUntil());
             }
             userRepository.save(user);
@@ -176,7 +178,8 @@ public class AuthService {
         userRepository.findByEmail(email).ifPresent(user -> {
             String otp = issueOtp("fp", email);
             eventPublisher.publishNotification("password-reset-otp", email, displayName(user),
-                Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
+                Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)),
+                user.getId());
             log.info("Password reset code issued for {}", email);
         });
     }
@@ -232,7 +235,8 @@ public class AuthService {
             if (!user.isEmailVerified()) {
                 String otp = issueOtp("verify", email);
                 eventPublisher.publishNotification("email-verification-otp", email, displayName(user),
-                    Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)));
+                    Map.of("fullName", displayName(user), "otp", otp, "expiresInMinutes", String.valueOf(OTP_TTL_MINUTES)),
+                    user.getId());
                 log.info("Resent verification code to {}", email);
             }
         });

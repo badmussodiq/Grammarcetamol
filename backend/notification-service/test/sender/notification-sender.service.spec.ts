@@ -6,6 +6,7 @@ describe('NotificationSenderService', () => {
   let provider: { send: jest.Mock };
   let templates: { findByName: jest.Mock };
   let logs: { append: jest.Mock };
+  let notifications: { create: jest.Mock };
   let service: NotificationSenderService;
 
   const activeTemplate = {
@@ -23,7 +24,8 @@ describe('NotificationSenderService', () => {
     emailProviders = { get: jest.fn().mockReturnValue(provider) };
     templates = { findByName: jest.fn() };
     logs = { append: jest.fn().mockResolvedValue(undefined) };
-    service = new NotificationSenderService(config as any, emailProviders as any, templates as any, logs as any);
+    notifications = { create: jest.fn().mockResolvedValue(undefined) };
+    service = new NotificationSenderService(config as any, emailProviders as any, templates as any, logs as any, notifications as any);
   });
 
   const event = { service: 'auth-service', templateName: 'welcome', to: 'a@b.com', toName: 'Jane', variables: { name: 'Jane' } };
@@ -72,5 +74,31 @@ describe('NotificationSenderService', () => {
     await service.send(event);
 
     expect(logs.append).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', error: 'connection refused' }));
+  });
+
+  it('writes an in-app notification when the event carries a userId', async () => {
+    templates.findByName.mockResolvedValue(activeTemplate);
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+    await service.send({ ...event, userId: 'user-1' });
+
+    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
+  });
+
+  it('does not write an in-app notification when the event has no userId', async () => {
+    templates.findByName.mockResolvedValue(activeTemplate);
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+    await service.send(event);
+
+    expect(notifications.create).not.toHaveBeenCalled();
+  });
+
+  it('writes the in-app notification even when the email template is unknown', async () => {
+    templates.findByName.mockResolvedValue(null);
+
+    await service.send({ ...event, userId: 'user-1' });
+
+    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
   });
 });

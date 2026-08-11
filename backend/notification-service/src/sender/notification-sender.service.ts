@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmailProviderRegistry } from '../providers/email-provider.registry';
 import { NotificationLogsService } from '../notification-logs/notification-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { formatNotification } from '../notifications/notification-formatter';
 import { TemplatesService } from '../templates/templates.service';
 import { renderTemplate } from '../templates/template-renderer';
 import type { NotificationRequestedEvent } from '../config/amqp.constants';
@@ -22,9 +24,18 @@ export class NotificationSenderService {
     private readonly emailProviders: EmailProviderRegistry,
     private readonly templates: TemplatesService,
     private readonly logs: NotificationLogsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async send(event: NotificationRequestedEvent): Promise<void> {
+    // Alongside the email — not instead of it. Independent of whether the template resolves or
+    // the email provider succeeds below: the in-app notification is about the underlying event
+    // (e.g. "your account was locked"), not about email delivery status.
+    if (event.userId) {
+      const { type, title, message } = formatNotification(event.templateName, event.variables);
+      void this.notifications.create({ userId: event.userId, type, title, message, relatedId: null });
+    }
+
     const template = await this.templates.findByName(event.templateName);
 
     if (!template) {
