@@ -12,6 +12,7 @@ backend/**/target/
 backend/**/node_modules/
 backend/**/dist/
 backend/**/.env
+/.env
 
 ### NetBeans ###
 /nbproject/private/

@@ -47,7 +47,45 @@ See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date s
 
 ## Running everything locally
 
-### 1. Infrastructure (Postgres, Redis, RabbitMQ, MinIO, MongoDB)
+### Option A: one command via Docker Compose
+
+```bash
+cp .env.example .env   # fill in PAYSTACK_SECRET_KEY etc. — see comments in the file
+docker compose up -d --build
+docker compose ps       # watch every service flip to "healthy"
+```
+
+This builds and starts the entire stack — infra, all eight backend services, and both
+frontends — from the root `docker-compose.yml`. Startup order is enforced via
+`depends_on: ... condition: service_healthy` chains: infra healthy → backend services
+healthy → gateway healthy → both frontends. Each service has its own `Dockerfile`
+(`backend/<service>/Dockerfile`, `apps/<app>/Dockerfile`); the frontends' Dockerfiles use
+`apps/` as their build context since they need `apps/utilities/src` as a build-time
+sibling. `auth-service`'s Dockerfile generates a throwaway RSA keypair at build time if
+`backend/auth-service/src/main/resources/keys/*.pem` isn't already present — rebuilding
+the image issues a fresh keypair and invalidates existing sessions, which is fine for
+local Docker use but worth knowing.
+
+This is the fastest way to get the whole thing running; the manual per-service steps
+below remain the better option for active development (hot reload, debugger attach, etc).
+
+**Same file, local or cloud — nothing to edit.** `IMAGE_PREFIX`/`IMAGE_TAG`/`IMAGE_PULL_POLICY`
+(see `.env.example`) control where each service's image comes from. Leave them unset
+locally and Compose builds from the Dockerfiles (`pull_policy: build` never attempts a
+registry pull). On a cloud server, set `IMAGE_PREFIX=ghcr.io/<owner>/grammarcetamol-` (or
+your Docker Hub prefix), `IMAGE_TAG=latest`, `IMAGE_PULL_POLICY=missing` in that
+environment's `.env` and run `docker compose up -d` — it pulls the images your CI already
+built and pushed instead of building. The `docker-compose.yml` itself never changes.
+
+**WSL2 note if `docker compose build` looks stuck on "load build context":** it's not
+hung — enumerating a large local `node_modules` (or `target/`) across the WSL↔Windows
+filesystem boundary is slow even when the actual bytes transferred are tiny. Each
+service directory has its own `.dockerignore` to prevent this; if you ever add a new
+service, give it one too (`node_modules`, `dist`/`target`, `.env`).
+
+### Option B: run each service yourself
+
+#### 1. Infrastructure (Postgres, Redis, RabbitMQ, MinIO, MongoDB)
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up -d
@@ -61,7 +99,7 @@ Note: the dedicated `mongo` service above (container `grammarcetamol-mongo`, por
 
 > **Windows + WSL2 note:** if you're running Docker inside WSL2, the VM can idle-shut-down between commands and take the containers with it, which shows up as intermittent `Connection refused` errors from the backend. Keep a long-lived process attached to the WSL distro (e.g. `wsl -d <distro> -- sleep infinity` in a background terminal) to keep it resident.
 
-### 2. Backend
+#### 2. Backend
 
 `auth-service` needs an RSA keypair for JWT signing before it'll start — see `backend/auth-service/README.md`. `course-service` and `enrollment-service` (and every Phase 3+ header-trust service) need `backend/shared-java` installed to the local Maven repo first, and their own database to exist — see each service's README if you're on a Postgres volume that predates it. Then, in order (gateway depends on auth-service's gRPC endpoint being reachable; enrollment-service calls out to course-service):
 
@@ -78,7 +116,7 @@ cd backend/gateway-service && mvn spring-boot:run
 
 Auth service seeds a super admin on first boot — check `SuperAdminSeeder.java` / the `app.super-admin-email` and `app.super-admin-password` properties for the default credentials (change them for anything beyond local dev).
 
-### 3. Frontends
+#### 3. Frontends
 
 ```bash
 npm --prefix apps/student install && npm --prefix apps/student run dev   # http://localhost:3000
@@ -91,7 +129,7 @@ npm --prefix apps/admin install && npm --prefix apps/admin run dev      # http:/
 npm --prefix apps/utilities install
 ```
 
-### 4. Integration tests
+#### 4. Integration tests
 
 `backend/integration-tests` is a real Jest suite (59 tests, 6 files) that hits the running
 stack through the gateway (not mocks) to prove cross-service concerns actually hold: the
@@ -107,7 +145,7 @@ causes real contention, not just slower CI.
 cd backend/integration-tests && npm install && npm test
 ```
 
-### 5. Frontend component/integration tests
+#### 5. Frontend component/integration tests
 
 `apps/admin` and `apps/student` each have three layers of frontend test now: pure-logic
 unit tests (`lib/*.api.test.ts`), component tests (`*.test.tsx`, React Testing Library,
@@ -132,6 +170,17 @@ npm --prefix apps/admin test
 npm --prefix apps/student test
 npm --prefix apps/utilities test
 ```
+
+## CI/CD
+
+`.github/workflows/ci-cd.yml` runs on every push/PR: `shared-java` installs first, then every
+Java/Node/frontend project tests in parallel. On a push to `master`, a second phase builds a
+Docker image per service (same Dockerfiles the root `docker-compose.yml` uses) and pushes to
+both GHCR and Docker Hub — this needs `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` added as repo
+secrets first; GHCR auth uses the built-in `GITHUB_TOKEN`. `Jenkinsfile` (repo root) mirrors
+the same two phases for a self-hosted Jenkins instance — point a Jenkins job at this repo and
+configure the `dockerhub-creds`/`ghcr-creds` credentials it references. Neither pipeline
+deploys anywhere yet; both stop once images are built (and, on `master`, pushed).
 
 ## Known environment gotchas (Windows)
 
