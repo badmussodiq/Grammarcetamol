@@ -4,7 +4,10 @@
 // so the compose/docker files are scp'd up fresh each deploy and deploy.sh (also scp'd)
 // pulls + restarts with this build's exact commit SHA as the image tag.
 //
-// Requires on the Jenkins agent: Docker (with daemon access), Maven, Node 20+, OpenSSL, ssh/scp.
+// Requires on the Jenkins agent: Docker (with daemon access), Maven, Node 22+ (jsdom 30.x,
+// used by the frontend vitest suites, requires Node ^22.22.2 || ^24.15.0 || >=26.0.0 — on
+// Node 20 its bundled undici throws "webidl.util.markAsUncloneable is not a function"),
+// OpenSSL, ssh/scp.
 // Requires in Jenkins credentials store:
 //   - "dockerhub-creds"  (username/password) — a Docker Hub access token works as the password
 //   - "ghcr-creds"       (username/password) — GitHub username + a PAT with `write:packages`

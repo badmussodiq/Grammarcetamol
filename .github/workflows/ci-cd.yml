@@ -89,7 +89,7 @@ jobs:
       # lock-file reproducibility across runs, but that's the accepted tradeoff.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       - working-directory: backend/${{ matrix.service }}
         run: npm install
       - working-directory: backend/${{ matrix.service }}
@@ -105,9 +105,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # No cache: npm — same reasoning as test-node-services above.
+      # Node 22, not 20 — jsdom 30.x (used by these apps' vitest suites) requires
+      # Node ^22.22.2 || ^24.15.0 || >=26.0.0; on Node 20 its bundled undici throws
+      # "webidl.util.markAsUncloneable is not a function" before any test can run.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       # apps/utilities is consumed as raw TS source via a tsconfig path alias, not an npm
       # dependency, but it's a SIBLING PROJECT WITH ITS OWN node_modules (see its README) —
       # student/admin's TypeScript still needs utilities' own react/@types/react reachable
