@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18.0-alpine
     container_name: grammarcetamol-postgres
     restart: always
     ports:
@@ -22,7 +22,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:7
+    image: redis:8-alpine
     container_name: grammarcetamol-redis
     restart: always
     ports:
@@ -36,7 +36,7 @@ services:
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:management-alpine
     container_name: grammarcetamol-rabbitmq
     restart: always
     ports:
@@ -81,7 +81,7 @@ services:
   # container that already runs outside this compose file on the default 27017 with an
   # unrelated `notifications` database. Same 9000-series block as everything else here.
   mongo:
-    image: mongo:7
+    image: mongo:latest
     container_name: grammarcetamol-mongo
     restart: always
     ports:
