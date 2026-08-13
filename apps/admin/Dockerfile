@@ -1,5 +1,7 @@
 # Build context: apps/ (admin needs apps/utilities/src as a build-time sibling — its
 # tsconfig `paths` aliases @grammarcetamol/utilities straight to ../utilities/src).
+# npm install, not npm ci — package-lock.json is intentionally not committed (see
+# .gitignore), and npm ci requires one to exist.
 FROM node:20-alpine AS builder
 
 WORKDIR /workspace
@@ -11,10 +13,10 @@ COPY admin/ admin/
 # TypeScript still needs utilities' own react/@types/react etc. reachable via Node's
 # directory-walk module resolution starting from utilities/src, not admin's node_modules.
 WORKDIR /workspace/utilities
-RUN npm ci
+RUN npm install
 
 WORKDIR /workspace/admin
-RUN npm ci
+RUN npm install
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:9000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL

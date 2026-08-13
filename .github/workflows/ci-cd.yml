@@ -83,13 +83,15 @@ jobs:
         service: [payment-service, notification-service, upload-service]
     steps:
       - uses: actions/checkout@v4
+      # No cache: npm here — package-lock.json is intentionally not committed (see
+      # .gitignore), so there's nothing for actions/setup-node's cache to hash against.
+      # npm install (not npm ci) resolves fresh from package.json every run — slower, no
+      # lock-file reproducibility across runs, but that's the accepted tradeoff.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: backend/${{ matrix.service }}/package-lock.json
       - working-directory: backend/${{ matrix.service }}
-        run: npm ci
+        run: npm install
       - working-directory: backend/${{ matrix.service }}
         run: npm run build
       - working-directory: backend/${{ matrix.service }}
@@ -102,16 +104,20 @@ jobs:
         app: [student, admin]
     steps:
       - uses: actions/checkout@v4
+      # No cache: npm — same reasoning as test-node-services above.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
-      # apps/utilities is consumed as raw TS source via a tsconfig path alias, not an
-      # npm dependency — actions/checkout already puts it on disk as a sibling, no
-      # separate install step needed for it.
+      # apps/utilities is consumed as raw TS source via a tsconfig path alias, not an npm
+      # dependency, but it's a SIBLING PROJECT WITH ITS OWN node_modules (see its README) —
+      # student/admin's TypeScript still needs utilities' own react/@types/react reachable
+      # via Node's directory-walk resolution starting from utilities/src. Confirmed this is
+      # required, not optional: the frontend Dockerfiles hit real "Cannot find module
+      # 'react'" build failures without this exact step.
+      - working-directory: apps/utilities
+        run: npm install
       - working-directory: apps/${{ matrix.app }}
-        run: npm ci
+        run: npm install
       - working-directory: apps/${{ matrix.app }}
         run: npm run build
       - working-directory: apps/${{ matrix.app }}

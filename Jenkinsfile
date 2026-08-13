@@ -78,7 +78,9 @@ pipeline {
                 stage('payment-service') {
                     steps {
                         dir('backend/payment-service') {
-                            sh 'npm ci'
+                            // npm install, not npm ci — package-lock.json is intentionally
+                            // not committed (see .gitignore), and npm ci requires one to exist.
+                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm test'
                         }
@@ -87,7 +89,9 @@ pipeline {
                 stage('notification-service') {
                     steps {
                         dir('backend/notification-service') {
-                            sh 'npm ci'
+                            // npm install, not npm ci — package-lock.json is intentionally
+                            // not committed (see .gitignore), and npm ci requires one to exist.
+                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm test'
                         }
@@ -96,7 +100,9 @@ pipeline {
                 stage('upload-service') {
                     steps {
                         dir('backend/upload-service') {
-                            sh 'npm ci'
+                            // npm install, not npm ci — package-lock.json is intentionally
+                            // not committed (see .gitignore), and npm ci requires one to exist.
+                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm test'
                         }
@@ -104,8 +110,14 @@ pipeline {
                 }
                 stage('student-frontend') {
                     steps {
+                        // apps/utilities is a sibling project with its OWN node_modules (see
+                        // its README) — student's TypeScript needs utilities' own
+                        // react/@types/react reachable via Node's directory-walk resolution.
+                        dir('apps/utilities') { sh 'npm install' }
                         dir('apps/student') {
-                            sh 'npm ci'
+                            // npm install, not npm ci — package-lock.json is intentionally
+                            // not committed (see .gitignore), and npm ci requires one to exist.
+                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm run test'
                         }
@@ -113,8 +125,12 @@ pipeline {
                 }
                 stage('admin-frontend') {
                     steps {
+                        // Same reasoning as student-frontend above.
+                        dir('apps/utilities') { sh 'npm install' }
                         dir('apps/admin') {
-                            sh 'npm ci'
+                            // npm install, not npm ci — package-lock.json is intentionally
+                            // not committed (see .gitignore), and npm ci requires one to exist.
+                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm run test'
                         }

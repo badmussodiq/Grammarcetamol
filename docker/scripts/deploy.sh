@@ -18,3 +18,15 @@ export IMAGE_TAG="$TAG"
 
 docker compose -p grammarcetamol pull
 docker compose -p grammarcetamol up -d
+
+# Every deploy pulls a NEW commit-sha-tagged image per service, and the OLD one becomes
+# unused (no container references it anymore) but stays on disk otherwise — with a deploy
+# on every push to master, that's an unbounded, ever-growing pile of old image layers.
+# `docker image prune -af` removes every image with zero containers referencing it, which
+# by construction can never touch what's actually running (the containers `up -d` just
+# (re)started above are still using their images) — so this is safe to run unconditionally
+# right after `up -d`, not just "probably fine." Rolling back to an older commit later just
+# means `deploy.sh <old-sha>` re-pulls it fresh from the registry — that's the accepted
+# tradeoff for not keeping every historical image locally.
+echo "Pruning unused images..."
+docker image prune -af

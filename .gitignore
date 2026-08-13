@@ -31,3 +31,4 @@ build/
 seed-assets/
 C
 nul
+*.log
