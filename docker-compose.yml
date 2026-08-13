@@ -125,9 +125,9 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
-      COURSE_SERVICE_URL: http://course-service:9002
-      UPLOAD_SERVICE_URL: http://upload-service:9006
-      AUTH_SERVICE_URL: http://auth-service:9001
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://upload-service:9006}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
     depends_on:
       postgres:
         condition: service_healthy
@@ -159,7 +159,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
-      ENROLLMENT_SERVICE_URL: http://enrollment-service:9003
+      ENROLLMENT_SERVICE_URL: ${ENROLLMENT_SERVICE_URL:-http://enrollment-service:9003}
     depends_on:
       postgres:
         condition: service_healthy
@@ -191,8 +191,8 @@ services:
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
       PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
       PAYMENT_GATEWAY: paystack
-      AUTH_SERVICE_URL: http://auth-service:9001
-      COURSE_SERVICE_URL: http://course-service:9002
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
@@ -275,7 +275,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
-      COURSE_SERVICE_URL: http://course-service:9002
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
       STORAGE_PROVIDER: minio
       STORAGE_BUCKET: course-content
       MINIO_ENDPOINT: http://minio:9000
@@ -317,16 +317,16 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      AUTH_SERVICE_URL: http://auth-service:9001
-      COURSE_SERVICE_URL: http://course-service:9002
-      ENROLLMENT_SERVICE_URL: http://enrollment-service:9003
-      PAYMENT_SERVICE_URL: http://payment-service:9005
-      REVIEW_SERVICE_URL: http://review-service:9004
-      UPLOAD_SERVICE_URL: http://upload-service:9006
-      NOTIFICATION_SERVICE_URL: http://notification-service:9008
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      ENROLLMENT_SERVICE_URL: ${ENROLLMENT_SERVICE_URL:-http://enrollment-service:9003}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:9005}
+      REVIEW_SERVICE_URL: ${REVIEW_SERVICE_URL:-http://review-service:9004}
+      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://upload-service:9006}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL:-http://notification-service:9008}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-secret-change-in-prod}
-      AUTH_GRPC_HOST: auth-service
-      AUTH_GRPC_PORT: 9091
+      AUTH_GRPC_HOST: ${AUTH_GRPC_HOST:-auth-service}
+      AUTH_GRPC_PORT: ${AUTH_GRPC_PORT:-9091}
     depends_on:
       redis:
         condition: service_healthy
