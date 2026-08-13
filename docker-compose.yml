@@ -4,7 +4,12 @@
 # per-DB provisioning entrypoints) via `include:`, then layers every app service on top.
 #
 # Startup order is enforced via `depends_on: ... condition: service_healthy` chains:
-#   infra (healthy) -> backend services (healthy) -> gateway (healthy) -> both frontends
+#   infra (healthy) -> backend services (each depends only on the infra it needs)
+#   gateway (depends on redis only) -> both frontends (depend on gateway only)
+# Deliberately NOT a strict "every backend service before gateway before frontend" chain
+# — gateway proxies to the other backend services over HTTP at request time rather than
+# needing them at boot, so one crashed/still-starting microservice never blocks the
+# gateway or frontends from coming up; it only breaks that microservice's own routes.
 #
 # Image source is env-var-driven (see .env.example: IMAGE_PREFIX / IMAGE_TAG /
 # IMAGE_PULL_POLICY) so the exact same `image:`+`build:` pair either builds locally
@@ -39,11 +44,15 @@ services:
       dockerfile: auth-service/Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}auth-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-auth-service
     restart: always
-    ports:
-      - "9001:9001"
-      - "9091:9091"
+    # No container_name / host ports: this service is scaled via `--scale auth-service=N`
+    # (container_name forces a unique name per container, which caps you at one replica;
+    # a fixed host port mapping fails outright for N>1 since every replica would fight
+    # over the same host port). Reachable only from inside the Docker network — nothing
+    # external needs it directly, only gateway-service, over its own service-name DNS.
+    expose:
+      - "9001"
+      - "9091"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -78,10 +87,10 @@ services:
       dockerfile: course-service/Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}course-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-course-service
     restart: always
-    ports:
-      - "9002:9002"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9002"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -103,10 +112,10 @@ services:
       dockerfile: enrollment-service/Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}enrollment-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-enrollment-service
     restart: always
-    ports:
-      - "9003:9003"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9003"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -137,10 +146,10 @@ services:
       dockerfile: review-service/Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}review-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-review-service
     restart: always
-    ports:
-      - "9004:9004"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9004"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -173,10 +182,10 @@ services:
       dockerfile: Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}payment-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-payment-service
     restart: always
-    ports:
-      - "9005:9005"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9005"
     environment:
       PORT: 9005
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
@@ -210,10 +219,13 @@ services:
       dockerfile: Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}notification-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-notification-service
     restart: always
-    ports:
-      - "9008:9008"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    # Scaling this one specifically also gets you competing-consumers on its RabbitMQ
+    # queues for free — each replica's consumer.module.ts binds the same queue names, so
+    # RabbitMQ round-robins deliveries across whichever replicas are up.
+    expose:
+      - "9008"
     environment:
       PORT: 9008
       RABBITMQ_HOST: rabbitmq
@@ -249,10 +261,10 @@ services:
       dockerfile: Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}upload-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-upload-service
     restart: always
-    ports:
-      - "9006:9006"
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9006"
     environment:
       PORT: 9006
       DB_HOST: postgres
@@ -284,8 +296,12 @@ services:
       start_period: 20s
 
   # ---------------------------------------------------------------------------
-  # Backend — Gateway (the stack's front door; depends on every other backend
-  # service being healthy, not just infra)
+  # Backend — Gateway (the stack's front door). Deliberately depends on infra
+  # ONLY, not on the other backend services: it proxies to them over HTTP at
+  # request time (and its gRPC channel to auth-service connects lazily, IDLE
+  # until first use), so a single crashed/still-starting microservice degrades
+  # only THAT microservice's routes, never blocks the gateway itself from
+  # coming up or takes the rest of the stack down with it.
   # ---------------------------------------------------------------------------
 
   gateway-service:
@@ -314,20 +330,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      auth-service:
-        condition: service_healthy
-      course-service:
-        condition: service_healthy
-      enrollment-service:
-        condition: service_healthy
-      review-service:
-        condition: service_healthy
-      payment-service:
-        condition: service_healthy
-      upload-service:
-        condition: service_healthy
-      notification-service:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/actuator/health"]
       interval: 10s
@@ -336,8 +338,12 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # Frontends — only start once every backend service (gateway included) is
-  # actually healthy, per the "all backend services up before frontend" requirement.
+  # Frontends — depend on gateway-service ONLY, not on the individual backend
+  # services. Gateway is the single entry point every frontend API call goes
+  # through; if one microservice behind it is down, calls to that specific
+  # microservice fail (a real, visible error), but the frontend itself starts
+  # and stays up rather than being blocked or taken down by an unrelated
+  # service's crash.
   # ---------------------------------------------------------------------------
 
   student-frontend:
@@ -353,20 +359,6 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      auth-service:
-        condition: service_healthy
-      course-service:
-        condition: service_healthy
-      enrollment-service:
-        condition: service_healthy
-      review-service:
-        condition: service_healthy
-      payment-service:
-        condition: service_healthy
-      upload-service:
-        condition: service_healthy
-      notification-service:
-        condition: service_healthy
       gateway-service:
         condition: service_healthy
     healthcheck:
@@ -391,20 +383,6 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      auth-service:
-        condition: service_healthy
-      course-service:
-        condition: service_healthy
-      enrollment-service:
-        condition: service_healthy
-      review-service:
-        condition: service_healthy
-      payment-service:
-        condition: service_healthy
-      upload-service:
-        condition: service_healthy
-      notification-service:
-        condition: service_healthy
       gateway-service:
         condition: service_healthy
     healthcheck:
@@ -415,3 +393,68 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # nginx — the actual public entry point (ports 80/443). Routes by subdomain to
+  # gateway-service (api.$DOMAIN_API) and both frontends (app.$DOMAIN_APP,
+  # admin.$DOMAIN_ADMIN); see docker/nginx/templates/*.conf.template for the
+  # per-domain server blocks. Uses the OFFICIAL nginx image's own envsubst
+  # templating (nginx docker-entrypoint.d processes *.template files in
+  # /etc/nginx/templates -> /etc/nginx/conf.d at every container start) rather
+  # than a third-party nginx+certbot bundle image, so every piece here is a
+  # well-documented, verifiable mechanism.
+  #
+  # No depends_on health-gating on gateway-service/the frontends — same
+  # resilience reasoning as everywhere else in this file: nginx should come up
+  # regardless, and just 502 on a route whose backend isn't ready yet rather
+  # than refuse to start at all.
+  #
+  # TLS bootstrap is a one-time MANUAL step (see README.md's "Deploying to a
+  # cloud server" section) — nginx's HTTPS server blocks reference certificate
+  # files that must already exist in the certbot-certs volume before nginx can
+  # start at all (it validates ssl_certificate paths at startup), so the very
+  # first certificate has to be issued via `certbot certonly --standalone`
+  # BEFORE nginx ever binds port 80/443. After that, nginx owns 80/443
+  # permanently and renewals use the webroot method instead (see
+  # docker/scripts/certbot-renew.sh).
+  #
+  # profiles: ["proxy"] — nginx/TLS/domains only make sense once you have a real
+  # domain pointed at a real server; plain local dev just hits gateway:9000
+  # directly. A bare `docker compose up -d` skips both services entirely; set
+  # `COMPOSE_PROFILES=proxy` in the SERVER's .env (see .env.example) to include
+  # them there — no change to the command itself, matching every other
+  # local-vs-cloud difference in this file living in .env, not in the compose
+  # file or how you invoke it.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: grammarcetamol-nginx
+    restart: always
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN_APP: ${DOMAIN_APP:-app.localhost}
+      DOMAIN_ADMIN: ${DOMAIN_ADMIN:-admin.localhost}
+      DOMAIN_API: ${DOMAIN_API:-api.localhost}
+    volumes:
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+
+  # Not a long-running service — `entrypoint: "true"` makes `docker compose up` treat it
+  # as an immediate no-op if it's ever accidentally started as part of the stack. Real
+  # usage is always ad-hoc: `docker compose run --rm certbot <command>` (see
+  # docker/scripts/certbot-renew.sh and the one-time bootstrap instructions in README.md).
+  certbot:
+    image: certbot/certbot
+    container_name: grammarcetamol-certbot
+    profiles: ["proxy"]
+    entrypoint: "true"
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+
+volumes:
+  certbot-webroot:
+  certbot-certs:

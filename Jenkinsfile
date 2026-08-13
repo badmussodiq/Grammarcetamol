@@ -1,19 +1,27 @@
 // Declarative Jenkins pipeline mirroring .github/workflows/ci-cd.yml: test everything,
-// then (master only) build every image and push to both Docker Hub and GHCR. No deploy
-// stage — this repo has no deploy target configured yet.
+// then (master only) build every image, push to both Docker Hub and GHCR, and deploy to
+// the cloud server via SSH — no git on the server; it only ever runs pre-built images,
+// so the compose/docker files are scp'd up fresh each deploy and deploy.sh (also scp'd)
+// pulls + restarts with this build's exact commit SHA as the image tag.
 //
-// Requires on the Jenkins agent: Docker (with daemon access), Maven, Node 20+, OpenSSL.
+// Requires on the Jenkins agent: Docker (with daemon access), Maven, Node 20+, OpenSSL, ssh/scp.
 // Requires in Jenkins credentials store:
 //   - "dockerhub-creds"  (username/password) — a Docker Hub access token works as the password
 //   - "ghcr-creds"       (username/password) — GitHub username + a PAT with `write:packages`
+//   - "deploy-ssh-key"   (SSH Username with private key) — its public half must be in the
+//                          deploy server's ~/.ssh/authorized_keys; see README.md's
+//                          "Deploying to a cloud server" section for one-time server setup
+// Requires as Jenkins global/job environment variables:
+//   - DEPLOY_HOST — the cloud server's hostname/IP (no default; deploy fails loudly without it)
 
 pipeline {
     agent any
 
     environment {
-        DOCKERHUB_REPO = 'grammarcetamol'
-        GHCR_REPO      = "ghcr.io/${env.GHCR_OWNER ?: 'grammarcetamol'}"
-        IMAGE_TAG      = "${env.GIT_COMMIT ?: 'local'}"
+        DOCKERHUB_REPO   = 'grammarcetamol'
+        GHCR_REPO        = "ghcr.io/${env.GHCR_OWNER ?: 'grammarcetamol'}"
+        IMAGE_TAG        = "${env.GIT_COMMIT ?: 'local'}"
+        DEPLOY_DIR       = '/opt/grammarcetamol'
     }
 
     stages {
@@ -166,6 +174,26 @@ pipeline {
                             """
                         }
                     }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when { branch 'master' }
+            steps {
+                // sshUserPrivateKey exposes both the key file AND the credential's own
+                // username as env vars — cleaner than sshagent here since we need the
+                // username explicitly for the ssh/scp target, not just agent-forwarding.
+                withCredentials([sshUserPrivateKey(credentialsId: 'deploy-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    // StrictHostKeyChecking=no is a simplification for a first-cut pipeline —
+                    // for real production hardening, pre-seed a known_hosts entry for
+                    // DEPLOY_HOST on the agent instead and drop this flag.
+                    sh """
+                        ssh -i "${SSH_KEY}" -o StrictHostKeyChecking=no "${SSH_USER}@${env.DEPLOY_HOST}" 'mkdir -p ${DEPLOY_DIR}'
+                        scp -i "${SSH_KEY}" -o StrictHostKeyChecking=no docker-compose.yml "${SSH_USER}@${env.DEPLOY_HOST}:${DEPLOY_DIR}/"
+                        scp -i "${SSH_KEY}" -o StrictHostKeyChecking=no -r docker "${SSH_USER}@${env.DEPLOY_HOST}:${DEPLOY_DIR}/"
+                        ssh -i "${SSH_KEY}" -o StrictHostKeyChecking=no "${SSH_USER}@${env.DEPLOY_HOST}" 'cd ${DEPLOY_DIR} && bash docker/scripts/deploy.sh ${IMAGE_TAG}'
+                    """
                 }
             }
         }

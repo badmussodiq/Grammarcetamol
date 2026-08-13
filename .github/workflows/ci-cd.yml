@@ -203,3 +203,38 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/grammarcetamol-${{ matrix.name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Deploy — SSH into the cloud server and pull+restart with this exact commit's
+  # images. No git on the server: it only ever runs pre-built images, so each
+  # deploy just refreshes docker-compose.yml + docker/ via scp, then runs the
+  # server-side deploy.sh with the commit SHA as the image tag. Requires repo
+  # secrets DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY (not something this
+  # workflow can create — add them once you have a real server) and a
+  # pre-existing /opt/grammarcetamol/.env on that server (see README.md's
+  # "Deploying to a cloud server" section for one-time setup).
+  # ---------------------------------------------------------------------------
+
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "docker-compose.yml,docker/"
+          target: /opt/grammarcetamol
+
+      - name: Pull + restart on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: cd /opt/grammarcetamol && bash docker/scripts/deploy.sh ${{ github.sha }}

@@ -69,6 +69,7 @@ export default async function CoursesPage({
 
   const [result, categories] = await Promise.all([fetchCourses(status, category, page), fetchCategories()]);
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+  console.log("result", result)
 
   return (
     <div className="min-h-screen bg-background p-8">
