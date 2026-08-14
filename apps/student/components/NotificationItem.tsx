@@ -1,5 +1,5 @@
-import { cn } from '@grammarcetamol/utilities';
-import type { Notification, NotificationType } from '@/lib/notifications.api';
+import {cn} from '@grammarcetamol/utilities';
+import type {Notification, NotificationType} from '@/lib/notifications.api';
 
 const TYPE_STYLES: Record<NotificationType, string> = {
   course: 'bg-[#DBEAFE] text-[#1D4ED8]',

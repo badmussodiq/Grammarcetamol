@@ -1,6 +1,6 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import type { Response } from 'express';
-import { ApiResponse } from './api-response';
+import {ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger} from '@nestjs/common';
+import type {Response} from 'express';
+import {ApiResponse} from './api-response';
 
 /** Wraps every error response in the same {success, data, error, timestamp} envelope the Java
  * services' GlobalExceptionHandler produces. Nest's own HttpException subclasses (NotFoundException,

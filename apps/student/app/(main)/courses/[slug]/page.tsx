@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import {useState} from 'react';
+import {useParams, useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { useFetch, useToast, Skeleton, Button, Badge, cn, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import type { CourseDetailResponse, LessonResponse } from '@/lib/course.api';
-import { enrollmentApi } from '@/lib/enrollment.api';
+import {ApiError, Badge, Button, cn, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import type {CourseDetailResponse, LessonResponse} from '@/lib/course.api';
+import {enrollmentApi} from '@/lib/enrollment.api';
 
 function formatPrice(price: number, currency: string): string {
   if (price === 0) return 'Free';

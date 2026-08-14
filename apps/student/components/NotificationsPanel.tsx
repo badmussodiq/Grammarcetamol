@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useFetch, Skeleton, Mapping } from '@grammarcetamol/utilities';
-import { notificationsApi, type Notification, type Paged } from '@/lib/notifications.api';
-import { NotificationItem } from '@/components/NotificationItem';
+import {useRouter} from 'next/navigation';
+import {Mapping, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import {type Notification, notificationsApi, type Paged} from '@/lib/notifications.api';
+import {NotificationItem} from '@/components/NotificationItem';
 
 export function NotificationsPanel() {
   const router = useRouter();

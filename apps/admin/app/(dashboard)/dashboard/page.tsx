@@ -1,13 +1,13 @@
-'use client';
+﻿'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
-import { Button, useFetch } from '@grammarcetamol/utilities';
-import { useRouter } from 'next/navigation';
-import type { UserListResult } from '@/lib/students.api';
-import type { Paged, Course } from '@/lib/courses.api';
-import type { Paged as SupportPaged, SupportTicket } from '@/lib/support.api';
-import type { RevenueSummary } from '@/lib/revenue.api';
-import { formatCurrency } from '@/lib/dashboard';
+import {useAuth} from '@/contexts/AuthContext';
+import {Button, useFetch} from '@grammarcetamol/utilities';
+import {useRouter} from 'next/navigation';
+import type {UserListResult} from '@/lib/students.api';
+import type {Course, Paged} from '@/lib/courses.api';
+import type {Paged as SupportPaged, SupportTicket} from '@/lib/support.api';
+import type {RevenueSummary} from '@/lib/revenue.api';
+import {formatCurrency} from '@/lib/dashboard';
 
 interface StatCardProps {
   label: string;

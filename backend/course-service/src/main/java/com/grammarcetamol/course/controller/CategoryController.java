@@ -1,10 +1,10 @@
 package com.grammarcetamol.course.controller;
 
-import com.grammarcetamol.shared.config.CurrentUser;
-import com.grammarcetamol.shared.dto.ApiResponse;
 import com.grammarcetamol.course.dto.CreateCategoryRequest;
 import com.grammarcetamol.course.entity.Category;
 import com.grammarcetamol.course.service.CategoryService;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

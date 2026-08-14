@@ -1,6 +1,6 @@
-import { NotFoundException } from '@nestjs/common';
-import { ObjectId } from 'mongodb';
-import { NotificationsService } from '../../src/notifications/notifications.service';
+import {NotFoundException} from '@nestjs/common';
+import {ObjectId} from 'mongodb';
+import {NotificationsService} from '../../src/notifications/notifications.service';
 
 describe('NotificationsService', () => {
   let collection: {

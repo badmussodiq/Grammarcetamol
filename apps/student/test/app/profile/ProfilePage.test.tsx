@@ -4,11 +4,11 @@
  * Focused on the behavior specific to this page: the Save button stays disabled until the
  * form is actually dirty, and the change-password form validates before calling the API.
  */
-import type { ReactElement } from 'react';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ToastProvider } from '@grammarcetamol/utilities';
-import { AuthProvider } from '@/contexts/AuthContext';
+import type {ReactElement} from 'react';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {ToastProvider} from '@grammarcetamol/utilities';
+import {AuthProvider} from '@/contexts/AuthContext';
 import ProfilePage from '../../../app/(main)/profile/page';
 
 function jsonResponse(body: unknown, status = 200): Response {

@@ -1,7 +1,7 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
-import type { InitializeOrder, InitializeResult, PaymentProvider, VerifyResult } from './payment-provider.interface';
+import {Injectable, Logger, ServiceUnavailableException} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {createHmac, timingSafeEqual} from 'crypto';
+import type {InitializeOrder, InitializeResult, PaymentProvider, VerifyResult} from './payment-provider.interface';
 
 const PAYSTACK_API_BASE = 'https://api.paystack.co';
 

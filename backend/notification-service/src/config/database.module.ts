@@ -1,6 +1,6 @@
-import { Global, Module, OnApplicationShutdown } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Db, MongoClient } from 'mongodb';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {Db, MongoClient} from 'mongodb';
 
 export const MONGO_DB = 'MONGO_DB';
 export const MONGO_CLIENT = 'MONGO_CLIENT';

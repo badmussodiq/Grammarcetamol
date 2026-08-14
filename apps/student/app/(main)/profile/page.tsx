@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
-import { Button, Input, Skeleton, Tabs, useFormState, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import { profileApi, parseLearningGoals, type UserProfile } from '@/lib/profile.api';
+import type {ChangeEvent, FormEvent} from 'react';
+import {useEffect, useState} from 'react';
+import {ApiError, Button, Input, Skeleton, Tabs, useFetch, useFormState, useToast} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import {parseLearningGoals, profileApi, type UserProfile} from '@/lib/profile.api';
 
 function ProfileTab() {
   const { refreshUser } = useAuth();

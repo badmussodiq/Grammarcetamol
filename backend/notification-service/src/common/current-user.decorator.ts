@@ -1,5 +1,5 @@
-import { createParamDecorator, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import type { Request } from 'express';
+import {createParamDecorator, ExecutionContext, ForbiddenException} from '@nestjs/common';
+import type {Request} from 'express';
 
 /** Mirrors payment-service's CurrentUser decorator exactly — id is null and roles is empty for
  * anonymous requests, which is a real, expected case here (support-ticket submission is public). */

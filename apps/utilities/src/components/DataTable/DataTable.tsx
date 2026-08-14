@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import type {ReactNode} from 'react';
 import Mapping from '../Mapping/Mapping';
-import { Skeleton } from '../Skeleton/Skeleton';
-import { cn } from '../../utils/cn';
+import {Skeleton} from '../Skeleton/Skeleton';
+import {cn} from '../../utils/cn';
 
 export interface DataTableColumn<T> {
   key: string;

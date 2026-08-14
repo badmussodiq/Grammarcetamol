@@ -1,13 +1,20 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'crypto';
-import type { Pool } from 'pg';
-import { PG_POOL } from '../config/database.module';
-import { CourseServiceClient } from '../course-client/course-service.client';
-import { UploadEventPublisher } from '../messaging/upload-event-publisher';
-import { StorageProviderRegistry } from '../storage/storage-provider.registry';
-import type { CreateSessionFileDto } from './dto/create-session.dto';
-import { mapChunkRow, mapFileRow, mapSessionRow, type SessionDetail, type UploadChunk, type UploadFile } from './uploads.types';
+import {BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {randomUUID} from 'crypto';
+import type {Pool} from 'pg';
+import {PG_POOL} from '../config/database.module';
+import {CourseServiceClient} from '../course-client/course-service.client';
+import {UploadEventPublisher} from '../messaging/upload-event-publisher';
+import {StorageProviderRegistry} from '../storage/storage-provider.registry';
+import type {CreateSessionFileDto} from './dto/create-session.dto';
+import {
+    mapChunkRow,
+    mapFileRow,
+    mapSessionRow,
+    type SessionDetail,
+    type UploadChunk,
+    type UploadFile
+} from './uploads.types';
 
 // Matches implementation-phases.md §3.3's "Signed URLs... expire after 15 min" policy.
 const PRESIGN_EXPIRY_SECONDS = 900;

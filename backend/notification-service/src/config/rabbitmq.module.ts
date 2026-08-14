@@ -1,7 +1,7 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import * as amqp from 'amqplib';
-import { AMQP_CHANNEL, ENROLLMENT_EXCHANGE, PAYMENT_EXCHANGE, USER_EXCHANGE } from './amqp.constants';
+import {AMQP_CHANNEL, ENROLLMENT_EXCHANGE, PAYMENT_EXCHANGE, USER_EXCHANGE} from './amqp.constants';
 
 @Global()
 @Module({

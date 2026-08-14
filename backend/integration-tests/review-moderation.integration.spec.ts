@@ -4,7 +4,15 @@
  * moderation transition, and confirms the public reviews endpoint only ever shows
  * `approved` reviews — a `pending` one must not leak through.
  */
-import { ADMIN_EMAIL, ADMIN_PASSWORD, api, createPublishedCourse, deleteCourse, login, registerAndLogin } from './helpers';
+import {
+    ADMIN_EMAIL,
+    ADMIN_PASSWORD,
+    api,
+    createPublishedCourse,
+    deleteCourse,
+    login,
+    registerAndLogin
+} from './helpers';
 
 describe('Review + moderation — real running stack', () => {
   let adminToken: string;

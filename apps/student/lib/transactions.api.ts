@@ -1,4 +1,4 @@
-import { apiFetch } from '@grammarcetamol/utilities';
+import {apiFetch} from '@grammarcetamol/utilities';
 
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'partially_refunded';
 

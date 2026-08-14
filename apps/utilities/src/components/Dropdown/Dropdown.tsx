@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { cn } from '../../utils/cn';
+import type {ReactNode} from 'react';
+import {useEffect, useRef, useState} from 'react';
+import {cn} from '../../utils/cn';
 
 export interface DropdownItem {
   label: string;

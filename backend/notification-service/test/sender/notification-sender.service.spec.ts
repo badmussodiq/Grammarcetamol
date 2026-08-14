@@ -1,4 +1,4 @@
-import { NotificationSenderService } from '../../src/sender/notification-sender.service';
+import {NotificationSenderService} from '../../src/sender/notification-sender.service';
 
 describe('NotificationSenderService', () => {
   let config: { get: jest.Mock };

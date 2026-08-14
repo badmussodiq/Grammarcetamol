@@ -1,10 +1,10 @@
-import { cookies } from 'next/headers';
+import {cookies} from 'next/headers';
 import Link from 'next/link';
-import { Badge, Button, DataTable } from '@grammarcetamol/utilities';
-import type { DataTableColumn } from '@grammarcetamol/utilities';
-import { toggleStudentStatus } from './actions';
-import type { Student, UserListResult } from '@/lib/students.api';
-import { buildStudentsQuery } from '@/lib/students.api';
+import type {DataTableColumn} from '@grammarcetamol/utilities';
+import {Badge, Button, DataTable} from '@grammarcetamol/utilities';
+import {toggleStudentStatus} from './actions';
+import type {Student, UserListResult} from '@/lib/students.api';
+import {buildStudentsQuery} from '@/lib/students.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 20;

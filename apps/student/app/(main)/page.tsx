@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useFetch, Skeleton, Button } from '@grammarcetamol/utilities';
-import { CourseCard } from '@/components/CourseCard';
-import { FaqAccordion } from '@/components/FaqAccordion';
-import { FAQ_ITEMS } from '@/lib/faqData';
-import type { Course } from '@/lib/course.api';
+import {Button, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import {CourseCard} from '@/components/CourseCard';
+import {FaqAccordion} from '@/components/FaqAccordion';
+import {FAQ_ITEMS} from '@/lib/faqData';
+import type {Course} from '@/lib/course.api';
 
 const SERVICES = [
   { title: 'Grammar Fundamentals', description: 'Build a rock-solid foundation in English grammar, from tenses to sentence structure.' },

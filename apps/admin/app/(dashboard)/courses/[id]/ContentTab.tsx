@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Input, Badge, useToast, ApiError } from '@grammarcetamol/utilities';
-import { coursesApi, type ModuleResponse, type LessonResponse } from '@/lib/courses.api';
-import { LessonFileUpload } from './LessonFileUpload';
+import {useState} from 'react';
+import {ApiError, Badge, Button, Input, useToast} from '@grammarcetamol/utilities';
+import {coursesApi, type LessonResponse, type ModuleResponse} from '@/lib/courses.api';
+import {LessonFileUpload} from './LessonFileUpload';
 
 function swap<T>(items: T[], i: number, j: number): T[] {
   const next = [...items];

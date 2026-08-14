@@ -1,7 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { Pool } from 'pg';
-import { PG_POOL } from '../config/database.module';
-import { BestSeller, RevenueByMethod, RevenuePeriod, RevenueSummary, RevenueTrendPoint, REVENUE_PERIOD_CONFIG } from './revenue.types';
+import {Inject, Injectable} from '@nestjs/common';
+import type {Pool} from 'pg';
+import {PG_POOL} from '../config/database.module';
+import {
+    BestSeller,
+    REVENUE_PERIOD_CONFIG,
+    RevenueByMethod,
+    RevenuePeriod,
+    RevenueSummary,
+    RevenueTrendPoint
+} from './revenue.types';
 
 const EVER_COMPLETED_STATUSES = ['completed', 'refunded', 'partially_refunded'];
 

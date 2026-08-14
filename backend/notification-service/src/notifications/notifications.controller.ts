@@ -1,7 +1,7 @@
-import { Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
-import { CurrentUser, requireAuthenticated, type CurrentUserPayload } from '../common/current-user.decorator';
-import { ApiResponse } from '../common/api-response';
-import { NotificationsService } from './notifications.service';
+import {Controller, Delete, Get, Param, Patch, Query} from '@nestjs/common';
+import {CurrentUser, type CurrentUserPayload, requireAuthenticated} from '../common/current-user.decorator';
+import {ApiResponse} from '../common/api-response';
+import {NotificationsService} from './notifications.service';
 
 /** The in-app notification inbox — always scoped to the authenticated caller's own userId,
  * never a client-supplied one. No SSE stream endpoint here (that's Phase 4/v2 work, see

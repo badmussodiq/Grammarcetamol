@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatMethodLabel } from '../../lib/revenue.api';
+import {describe, expect, it} from 'vitest';
+import {formatMethodLabel} from '../../lib/revenue.api';
 
 describe('formatMethodLabel', () => {
   it('title-cases a single word', () => {

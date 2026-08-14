@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { cn } from '../../utils/cn';
+import type {ReactNode} from 'react';
+import {useEffect} from 'react';
 
 export interface ToastProps {
   id: string;

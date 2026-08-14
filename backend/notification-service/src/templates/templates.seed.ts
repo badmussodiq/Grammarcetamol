@@ -1,6 +1,6 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import type { EmailTemplateSeed } from './template.types';
+import {readFileSync} from 'fs';
+import {join} from 'path';
+import type {EmailTemplateSeed} from './template.types';
 
 /** Metadata only — the actual markup lives in real, individually-editable `.html`/`.txt` files
  * under `templates/files/`, not embedded as TS string literals. `_layout.html` is the one shared

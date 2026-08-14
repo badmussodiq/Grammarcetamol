@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import type {ChangeEvent, FormEvent} from 'react';
+import {Suspense, useEffect} from 'react';
+import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, useFormState, useGenericState, useToast, ApiError } from '@grammarcetamol/utilities';
-import { authApi } from '../../../lib/auth.api';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, useFormState, useGenericState, useToast} from '@grammarcetamol/utilities';
+import {authApi} from '../../../lib/auth.api';
 
 export default function VerifyEmailPage() {
   return (

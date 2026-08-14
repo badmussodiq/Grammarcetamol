@@ -1,9 +1,9 @@
-import { Inject, Injectable, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
-import { ObjectId } from 'mongodb';
-import type { Collection, Db } from 'mongodb';
-import { MONGO_DB } from '../config/database.module';
-import { NotificationSenderService } from '../sender/notification-sender.service';
-import type { SupportTicket } from './support-ticket.types';
+import {Inject, Injectable, NotFoundException, OnApplicationBootstrap} from '@nestjs/common';
+import type {Collection, Db} from 'mongodb';
+import {ObjectId} from 'mongodb';
+import {MONGO_DB} from '../config/database.module';
+import {NotificationSenderService} from '../sender/notification-sender.service';
+import type {SupportTicket} from './support-ticket.types';
 
 export interface CreateTicketInput {
   name: string;

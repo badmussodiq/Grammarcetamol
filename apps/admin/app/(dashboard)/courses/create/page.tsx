@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useToast, ApiError } from '@grammarcetamol/utilities';
-import { CourseForm } from '@/components/CourseForm';
-import { coursesApi, EMPTY_COURSE_FORM, type CourseFormValues } from '@/lib/courses.api';
+import {useRouter} from 'next/navigation';
+import {ApiError, useToast} from '@grammarcetamol/utilities';
+import {CourseForm} from '@/components/CourseForm';
+import {type CourseFormValues, coursesApi, EMPTY_COURSE_FORM} from '@/lib/courses.api';
 
 export default function CreateCoursePage() {
   const router = useRouter();

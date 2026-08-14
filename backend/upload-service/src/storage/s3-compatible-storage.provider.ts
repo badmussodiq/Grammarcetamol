@@ -1,15 +1,15 @@
 import {
-  AbortMultipartUploadCommand,
-  CompleteMultipartUploadCommand,
-  CreateBucketCommand,
-  CreateMultipartUploadCommand,
-  GetObjectCommand,
-  HeadBucketCommand,
-  S3Client,
-  UploadPartCommand,
+    AbortMultipartUploadCommand,
+    CompleteMultipartUploadCommand,
+    CreateBucketCommand,
+    CreateMultipartUploadCommand,
+    GetObjectCommand,
+    HeadBucketCommand,
+    S3Client,
+    UploadPartCommand,
 } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { MultipartUploadHandle, PartInfo, StorageProvider } from './storage-provider.interface';
+import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
+import type {MultipartUploadHandle, PartInfo, StorageProvider} from './storage-provider.interface';
 
 export interface S3CompatibleConfig {
   name: string;

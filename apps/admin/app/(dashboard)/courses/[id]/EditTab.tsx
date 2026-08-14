@@ -1,8 +1,8 @@
 'use client';
 
-import { useToast, ApiError } from '@grammarcetamol/utilities';
-import { CourseForm } from '@/components/CourseForm';
-import { coursesApi, courseToFormValues, type Course, type CourseFormValues } from '@/lib/courses.api';
+import {ApiError, useToast} from '@grammarcetamol/utilities';
+import {CourseForm} from '@/components/CourseForm';
+import {type Course, type CourseFormValues, coursesApi, courseToFormValues} from '@/lib/courses.api';
 
 export function EditTab({ course, onSaved }: { course: Course; onSaved: () => void }) {
   const { addToast } = useToast();

@@ -8,8 +8,8 @@
  * Requires the full local stack up (see root README's "Running everything locally") plus a real
  * admin login and a real published course. Run with `npm run test:e2e`.
  */
-import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { createHash, randomBytes } from 'crypto';
+import {HeadObjectCommand, S3Client} from '@aws-sdk/client-s3';
+import {createHash, randomBytes} from 'crypto';
 
 const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:9000';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@grammarcetamol.com';

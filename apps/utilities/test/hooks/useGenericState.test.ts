@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
-import { useGenericState } from '../../src/hooks/useGenericState';
+import {describe, expect, it} from 'vitest';
+import {act, renderHook} from '@testing-library/react';
+import {useGenericState} from '../../src/hooks/useGenericState';
 
 describe('useGenericState', () => {
   it('patches a single key of object state without touching the rest', () => {

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import {useState} from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useFetch, Dropdown, Button, Badge, cn } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
+import {usePathname, useRouter} from 'next/navigation';
+import {Badge, Button, cn, Dropdown, useFetch} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },

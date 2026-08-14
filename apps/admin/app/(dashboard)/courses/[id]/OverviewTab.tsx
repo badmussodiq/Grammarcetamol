@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Badge, Button, useToast, ApiError } from '@grammarcetamol/utilities';
-import { coursesApi, PublishValidationError, type Course, type ModuleResponse } from '@/lib/courses.api';
+import {useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {ApiError, Badge, Button, useToast} from '@grammarcetamol/utilities';
+import {type Course, coursesApi, type ModuleResponse, PublishValidationError} from '@/lib/courses.api';
 
 const statusVariant: Record<Course['status'], 'success' | 'warning' | 'neutral' | 'info'> = {
   published: 'success',

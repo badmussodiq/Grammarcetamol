@@ -1,7 +1,7 @@
-import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { Collection, Db } from 'mongodb';
-import { MONGO_DB } from '../config/database.module';
-import type { NotificationLog } from './notification-log.types';
+import {Inject, Injectable, Logger, OnApplicationBootstrap} from '@nestjs/common';
+import type {Collection, Db} from 'mongodb';
+import {MONGO_DB} from '../config/database.module';
+import type {NotificationLog} from './notification-log.types';
 
 @Injectable()
 export class NotificationLogsService implements OnApplicationBootstrap {

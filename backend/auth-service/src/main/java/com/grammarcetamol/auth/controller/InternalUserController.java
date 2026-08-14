@@ -4,7 +4,10 @@ import com.grammarcetamol.auth.dto.ApiResponse;
 import com.grammarcetamol.auth.entity.User;
 import com.grammarcetamol.auth.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 

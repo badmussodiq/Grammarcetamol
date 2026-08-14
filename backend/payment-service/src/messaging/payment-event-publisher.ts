@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Channel } from 'amqplib';
-import { AMQP_CHANNEL, PAYMENT_EXCHANGE } from '../config/amqp.constants';
+import {Inject, Injectable, Logger} from '@nestjs/common';
+import type {Channel} from 'amqplib';
+import {AMQP_CHANNEL, PAYMENT_EXCHANGE} from '../config/amqp.constants';
 
 /**
  * Publishes to payment.exchange — same TopicExchange + <domain>.<event> routing-key convention

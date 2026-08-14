@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import { useFetch, useToast, Skeleton, Button, cn, ApiError } from '@grammarcetamol/utilities';
-import { enrollmentApi, findDefaultLesson } from '@/lib/enrollment.api';
-import type { LearnLesson, LearnModule, LearnResponse } from '@/lib/enrollment.api';
-import { isWithinEditWindow, type Review } from '@/lib/reviews.api';
-import { ReviewModal } from './ReviewModal';
+import {ApiError, Button, cn, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import type {LearnLesson, LearnModule, LearnResponse} from '@/lib/enrollment.api';
+import {enrollmentApi, findDefaultLesson} from '@/lib/enrollment.api';
+import {isWithinEditWindow, type Review} from '@/lib/reviews.api';
+import {ReviewModal} from './ReviewModal';
 
 const PlayIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

@@ -1,7 +1,7 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { CurrentUser, requireAdminOrModerator, type CurrentUserPayload } from '../common/current-user.decorator';
-import { ApiResponse } from '../common/api-response';
-import { NotificationLogsService } from './notification-logs.service';
+import {Controller, Get, Query} from '@nestjs/common';
+import {CurrentUser, type CurrentUserPayload, requireAdminOrModerator} from '../common/current-user.decorator';
+import {ApiResponse} from '../common/api-response';
+import {NotificationLogsService} from './notification-logs.service';
 
 @Controller('api/notification-logs')
 export class NotificationLogsController {

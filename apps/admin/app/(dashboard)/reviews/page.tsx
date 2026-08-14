@@ -1,9 +1,9 @@
-import { cookies } from 'next/headers';
+import {cookies} from 'next/headers';
 import Link from 'next/link';
-import { Badge, DataTable } from '@grammarcetamol/utilities';
-import type { DataTableColumn } from '@grammarcetamol/utilities';
-import type { Paged, Review } from '@/lib/reviews.api';
-import { buildReviewsQuery } from '@/lib/reviews.api';
+import type {DataTableColumn} from '@grammarcetamol/utilities';
+import {Badge, DataTable} from '@grammarcetamol/utilities';
+import type {Paged, Review} from '@/lib/reviews.api';
+import {buildReviewsQuery} from '@/lib/reviews.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 20;

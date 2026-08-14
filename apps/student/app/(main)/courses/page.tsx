@@ -1,17 +1,17 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useFetch, Skeleton, Input, Button, cn } from '@grammarcetamol/utilities';
-import { CourseCard } from '@/components/CourseCard';
+import {Suspense, useEffect, useState} from 'react';
+import {useRouter, useSearchParams} from 'next/navigation';
+import {Button, cn, Input, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import {CourseCard} from '@/components/CourseCard';
 import {
-  buildCourseQuery,
-  filtersFromSearchParams,
-  type Category,
-  type Course,
-  type CourseFilters,
-  type Paged,
-  type SortOption,
+    buildCourseQuery,
+    type Category,
+    type Course,
+    type CourseFilters,
+    filtersFromSearchParams,
+    type Paged,
+    type SortOption,
 } from '@/lib/course.api';
 
 const PAGE_SIZE = 12;

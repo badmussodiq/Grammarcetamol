@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import {Controller, Get} from '@nestjs/common';
 
 /** Matches every other service's /actuator/health shape, without pulling in @nestjs/terminus
  * for a single static check. */

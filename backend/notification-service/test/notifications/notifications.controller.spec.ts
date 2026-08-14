@@ -1,6 +1,6 @@
-import { ForbiddenException } from '@nestjs/common';
-import { NotificationsController } from '../../src/notifications/notifications.controller';
-import type { CurrentUserPayload } from '../../src/common/current-user.decorator';
+import {ForbiddenException} from '@nestjs/common';
+import {NotificationsController} from '../../src/notifications/notifications.controller';
+import type {CurrentUserPayload} from '../../src/common/current-user.decorator';
 
 function user(id: string | null, roles: string[] = []): CurrentUserPayload {
   return { id, roles, isAuthenticated: () => id !== null, isAdminOrModerator: () => roles.some((r) => ['SUPER_ADMIN', 'MODERATOR'].includes(r)) };

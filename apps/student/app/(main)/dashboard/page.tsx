@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
+import {useMemo} from 'react';
 import Link from 'next/link';
-import { useFetch, Skeleton, Button, ProgressBar, Mapping } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import { useMyCourses } from '@/hooks/useMyCourses';
-import { EnrolledCourseCard } from '@/components/EnrolledCourseCard';
-import { CourseCard } from '@/components/CourseCard';
-import { NotificationsPanel } from '@/components/NotificationsPanel';
-import { greetingForHour } from '@/lib/dashboard';
-import type { Paged, Course } from '@/lib/course.api';
+import {Button, Mapping, ProgressBar, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import {useMyCourses} from '@/hooks/useMyCourses';
+import {EnrolledCourseCard} from '@/components/EnrolledCourseCard';
+import {CourseCard} from '@/components/CourseCard';
+import {NotificationsPanel} from '@/components/NotificationsPanel';
+import {greetingForHour} from '@/lib/dashboard';
+import type {Course, Paged} from '@/lib/course.api';
 
 export default function DashboardPage() {
   const { user } = useAuth();

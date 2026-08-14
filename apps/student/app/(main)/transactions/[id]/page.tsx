@@ -1,9 +1,9 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import { Badge, Skeleton, useFetch } from '@grammarcetamol/utilities';
-import type { PaymentStatus, TransactionDetail } from '@/lib/transactions.api';
+import {Badge, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import type {PaymentStatus, TransactionDetail} from '@/lib/transactions.api';
 
 const STATUS_BADGE: Record<PaymentStatus, { variant: 'success' | 'warning' | 'error' | 'neutral'; label: string }> = {
   completed: { variant: 'success', label: 'Completed' },

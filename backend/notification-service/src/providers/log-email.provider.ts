@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import type { EmailProvider, SendEmailInput, SendEmailResult } from './email-provider.interface';
+import {Injectable, Logger} from '@nestjs/common';
+import {randomUUID} from 'crypto';
+import type {EmailProvider, SendEmailInput, SendEmailResult} from './email-provider.interface';
 
 /**
  * Default/only provider until real SMTP/SendGrid/SES credentials exist. Logs what would have

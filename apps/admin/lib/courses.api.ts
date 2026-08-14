@@ -1,4 +1,4 @@
-import { apiFetch, ApiError } from '@grammarcetamol/utilities';
+import {ApiError, apiFetch} from '@grammarcetamol/utilities';
 
 export interface Category {
   id: string;

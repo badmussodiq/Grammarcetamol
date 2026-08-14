@@ -1,6 +1,6 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import type { Response } from 'express';
-import { ApiResponse } from './api-response';
+import {ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger} from '@nestjs/common';
+import type {Response} from 'express';
+import {ApiResponse} from './api-response';
 
 /** Wraps every error response in the same {success, data, error, timestamp} envelope every other
  * service in this stack produces — identical to payment-service's AllExceptionsFilter. */

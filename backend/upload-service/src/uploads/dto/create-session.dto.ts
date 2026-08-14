@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { ArrayMinSize, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import {Type} from 'class-transformer';
+import {ArrayMinSize, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min, ValidateNested} from 'class-validator';
 
 export class CreateSessionFileDto {
   @IsUUID()

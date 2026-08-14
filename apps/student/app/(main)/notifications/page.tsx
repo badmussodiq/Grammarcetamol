@@ -1,10 +1,16 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Button, Skeleton, Mapping, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { notificationsApi, buildNotificationsQuery, type Notification, type NotificationType, type Paged } from '@/lib/notifications.api';
-import { NotificationItem } from '@/components/NotificationItem';
+import {useRouter} from 'next/navigation';
+import {useState} from 'react';
+import {ApiError, Button, Mapping, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {
+    buildNotificationsQuery,
+    type Notification,
+    notificationsApi,
+    type NotificationType,
+    type Paged
+} from '@/lib/notifications.api';
+import {NotificationItem} from '@/components/NotificationItem';
 
 const TYPE_FILTERS: { label: string; value: NotificationType | 'all' }[] = [
   { label: 'All', value: 'all' },

@@ -1,4 +1,4 @@
-import { apiFetch } from '@grammarcetamol/utilities';
+import {apiFetch} from '@grammarcetamol/utilities';
 
 export type NotificationType = 'course' | 'payment' | 'live_class' | 'announcement' | 'system';
 

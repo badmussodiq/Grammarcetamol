@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { profileApi } from '../../lib/profile.api';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {profileApi} from '../../lib/profile.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

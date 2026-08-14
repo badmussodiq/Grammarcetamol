@@ -1,8 +1,8 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { join } from 'path';
-import { Pool } from 'pg';
-import { runMigrations } from './migration-runner';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {join} from 'path';
+import {Pool} from 'pg';
+import {runMigrations} from './migration-runner';
 
 export const PG_POOL = 'PG_POOL';
 

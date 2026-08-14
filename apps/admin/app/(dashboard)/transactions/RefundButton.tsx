@@ -1,9 +1,9 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
-import { Modal, Button, Input } from '@grammarcetamol/utilities';
-import { refundPayment } from './actions';
-import type { RefundActionState } from './actions';
+import {useActionState, useEffect, useState} from 'react';
+import {Button, Input, Modal} from '@grammarcetamol/utilities';
+import type {RefundActionState} from './actions';
+import {refundPayment} from './actions';
 
 const INITIAL_STATE: RefundActionState = { error: null };
 

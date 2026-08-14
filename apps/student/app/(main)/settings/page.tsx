@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button, Skeleton, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { profileApi, type UserProfile } from '@/lib/profile.api';
+import {useEffect, useState} from 'react';
+import {ApiError, Button, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {profileApi, type UserProfile} from '@/lib/profile.api';
 
 const PREFERENCE_TOGGLES: { key: string; label: string; description: string }[] = [
   { key: 'courseUpdates', label: 'Course updates', description: 'New lessons and content added to courses you\'re enrolled in.' },

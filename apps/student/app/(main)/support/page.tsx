@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import type {ChangeEvent, FormEvent} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
-import { Button, Input, useFormState, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import { supportApi } from '@/lib/support.api';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, useFormState} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import {supportApi} from '@/lib/support.api';
 
 export default function SupportPage() {
   const { user } = useAuth();

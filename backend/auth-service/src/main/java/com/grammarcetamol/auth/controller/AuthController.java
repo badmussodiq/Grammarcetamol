@@ -1,10 +1,6 @@
 package com.grammarcetamol.auth.controller;
 
-import com.grammarcetamol.auth.dto.ApiResponse;
-import com.grammarcetamol.auth.dto.LoginRequest;
-import com.grammarcetamol.auth.dto.RegisterRequest;
-import com.grammarcetamol.auth.dto.ResetPasswordRequest;
-import com.grammarcetamol.auth.dto.VerifyEmailRequest;
+import com.grammarcetamol.auth.dto.*;
 import com.grammarcetamol.auth.service.AuthService;
 import com.grammarcetamol.auth.service.JwtService;
 import jakarta.servlet.http.Cookie;

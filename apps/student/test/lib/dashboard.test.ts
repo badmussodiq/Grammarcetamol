@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { greetingForHour } from '../../lib/dashboard';
+import {describe, expect, it} from 'vitest';
+import {greetingForHour} from '../../lib/dashboard';
 
 describe('greetingForHour', () => {
   it('greets morning hours', () => {

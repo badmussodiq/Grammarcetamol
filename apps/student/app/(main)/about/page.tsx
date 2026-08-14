@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Button } from '@grammarcetamol/utilities';
+import {Button} from '@grammarcetamol/utilities';
 
 const STATS = [
   { value: '10,000+', label: 'Students' },

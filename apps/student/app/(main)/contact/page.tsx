@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Button } from '@grammarcetamol/utilities';
+import {Button} from '@grammarcetamol/utilities';
 
 export default function ContactPage() {
   return (

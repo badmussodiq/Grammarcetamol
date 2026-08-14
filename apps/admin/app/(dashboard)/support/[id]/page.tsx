@@ -1,10 +1,10 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useParams } from 'next/navigation';
+import {Suspense, useState} from 'react';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import { Badge, Button, Skeleton, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { supportApi, type SupportTicket } from '@/lib/support.api';
+import {ApiError, Badge, Button, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {supportApi, type SupportTicket} from '@/lib/support.api';
 
 export default function SupportTicketDetailPage() {
   return (

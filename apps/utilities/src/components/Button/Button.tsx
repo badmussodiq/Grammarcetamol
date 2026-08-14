@@ -1,9 +1,9 @@
 'use client';
 
-import { forwardRef } from 'react';
-import type { ButtonHTMLAttributes } from 'react';
-import { Spinner } from '../Spinner/Spinner';
-import { cn } from '../../utils/cn';
+import type {ButtonHTMLAttributes} from 'react';
+import {forwardRef} from 'react';
+import {Spinner} from '../Spinner/Spinner';
+import {cn} from '../../utils/cn';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';

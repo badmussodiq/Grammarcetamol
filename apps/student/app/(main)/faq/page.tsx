@@ -1,5 +1,5 @@
-import { FaqAccordion } from '@/components/FaqAccordion';
-import { FAQ_ITEMS } from '@/lib/faqData';
+import {FaqAccordion} from '@/components/FaqAccordion';
+import {FAQ_ITEMS} from '@/lib/faqData';
 
 export default function FaqPage() {
   return (

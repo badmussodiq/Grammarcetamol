@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createTransport, type Transporter } from 'nodemailer';
-import type { EmailProvider, SendEmailInput, SendEmailResult } from './email-provider.interface';
+import {Injectable, Logger, OnApplicationBootstrap} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {createTransport, type Transporter} from 'nodemailer';
+import type {EmailProvider, SendEmailInput, SendEmailResult} from './email-provider.interface';
 
 /**
  * Real SMTP delivery via nodemailer — activated by setting EMAIL_PROVIDER=smtp (see

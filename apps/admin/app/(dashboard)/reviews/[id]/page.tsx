@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import {useState} from 'react';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import { Badge, Button, Skeleton, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { reviewsApi, type Review } from '@/lib/reviews.api';
+import {ApiError, Badge, Button, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {type Review, reviewsApi} from '@/lib/reviews.api';
 
 const statusVariant: Record<Review['status'], 'success' | 'warning' | 'neutral' | 'error' | 'info'> = {
   pending: 'warning',

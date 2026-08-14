@@ -1,11 +1,11 @@
 package com.grammarcetamol.auth.service;
 
 import com.grammarcetamol.auth.dto.LoginRequest;
+import com.grammarcetamol.auth.dto.PasswordPolicy;
 import com.grammarcetamol.auth.dto.RegisterRequest;
 import com.grammarcetamol.auth.entity.RefreshToken;
 import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
-import com.grammarcetamol.auth.dto.PasswordPolicy;
 import com.grammarcetamol.auth.exception.AccountLockedException;
 import com.grammarcetamol.auth.exception.EmailAlreadyExistsException;
 import com.grammarcetamol.auth.exception.InvalidPasswordException;

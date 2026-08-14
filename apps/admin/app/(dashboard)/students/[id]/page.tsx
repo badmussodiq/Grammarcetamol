@@ -1,14 +1,14 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import {Suspense, useState} from 'react';
+import {useParams, useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
-import { Badge, Button, Skeleton, Tabs, useFetch, useToast, ApiError } from '@grammarcetamol/utilities';
-import { studentsApi, type Student } from '@/lib/students.api';
-import { ActivityTab } from './ActivityTab';
-import { EnrollmentsTab } from './EnrollmentsTab';
-import { ProgressTab } from './ProgressTab';
-import { TransactionsTab } from './TransactionsTab';
+import {ApiError, Badge, Button, Skeleton, Tabs, useFetch, useToast} from '@grammarcetamol/utilities';
+import {type Student, studentsApi} from '@/lib/students.api';
+import {ActivityTab} from './ActivityTab';
+import {EnrollmentsTab} from './EnrollmentsTab';
+import {ProgressTab} from './ProgressTab';
+import {TransactionsTab} from './TransactionsTab';
 
 const TABS = [
   { label: 'Activity', value: 'activity' },

@@ -8,7 +8,16 @@
  * course, and confirm() correctly reports "not yet paid" for a reference nobody has
  * actually paid, and 404s for a reference that was never initialized at all.
  */
-import { ADMIN_EMAIL, ADMIN_PASSWORD, NONEXISTENT_ID, api, createPublishedCourse, deleteCourse, login, registerAndLogin } from './helpers';
+import {
+    ADMIN_EMAIL,
+    ADMIN_PASSWORD,
+    api,
+    createPublishedCourse,
+    deleteCourse,
+    login,
+    NONEXISTENT_ID,
+    registerAndLogin
+} from './helpers';
 
 describe('Payment flow — real running stack (real Paystack test-mode calls)', () => {
   let adminToken: string;

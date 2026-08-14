@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import {useState} from 'react';
 import Link from 'next/link';
-import { Badge, DataTable, useFetch } from '@grammarcetamol/utilities';
-import { buildTransactionsQuery, type PaymentStatus, type Transaction, type Paged } from '@/lib/transactions.api';
+import {Badge, DataTable, useFetch} from '@grammarcetamol/utilities';
+import {buildTransactionsQuery, type Paged, type PaymentStatus, type Transaction} from '@/lib/transactions.api';
 
 const STATUS_FILTERS: { label: string; value: PaymentStatus | 'all' }[] = [
   { label: 'All', value: 'all' },

@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, useFormState, useToast, ApiError } from '@grammarcetamol/utilities';
-import { authApi } from '../../../lib/auth.api';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
+import {authApi} from '../../../lib/auth.api';
+import type {ChangeEvent, FormEvent} from 'react';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();

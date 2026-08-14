@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { isWithinEditWindow, type Review } from '../../lib/reviews.api';
+import {describe, expect, it} from 'vitest';
+import {isWithinEditWindow, type Review} from '../../lib/reviews.api';
 
 function review(createdAt: string): Review {
   return {

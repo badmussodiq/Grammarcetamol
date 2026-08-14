@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseLearningGoals } from '../../lib/profile.api';
+import {describe, expect, it} from 'vitest';
+import {parseLearningGoals} from '../../lib/profile.api';
 
 describe('parseLearningGoals', () => {
   it('splits a comma-separated string into a trimmed array', () => {

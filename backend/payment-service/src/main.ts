@@ -1,7 +1,7 @@
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import {ValidationPipe} from '@nestjs/common';
+import {NestFactory} from '@nestjs/core';
+import {AppModule} from './app.module';
+import {AllExceptionsFilter} from './common/all-exceptions.filter';
 
 async function bootstrap() {
   // rawBody: true — the Paystack webhook needs the exact raw request bytes for HMAC signature

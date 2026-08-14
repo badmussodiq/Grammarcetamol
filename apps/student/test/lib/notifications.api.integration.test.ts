@@ -2,8 +2,8 @@
  * Integration test for notificationsApi — exercises the real apiFetch/fetch wiring (only
  * global.fetch is mocked), matching reviews.api.integration.test.ts's pattern.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { notificationsApi } from '../../lib/notifications.api';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {notificationsApi} from '../../lib/notifications.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

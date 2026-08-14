@@ -1,11 +1,11 @@
 package com.grammarcetamol.course.service;
 
-import com.grammarcetamol.shared.config.CurrentUser;
 import com.grammarcetamol.course.dto.CreateCategoryRequest;
 import com.grammarcetamol.course.entity.Category;
-import com.grammarcetamol.shared.exception.ForbiddenException;
 import com.grammarcetamol.course.repository.CategoryRepository;
 import com.grammarcetamol.course.util.SlugUtil;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

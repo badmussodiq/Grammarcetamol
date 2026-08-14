@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
+import {cookies} from 'next/headers';
 import Link from 'next/link';
-import { Badge, Button, Mapping } from '@grammarcetamol/utilities';
-import { archiveCourse, deleteCourse } from './actions';
-import type { Category, Course, Paged } from '@/lib/courses.api';
+import {Badge, Button, Mapping} from '@grammarcetamol/utilities';
+import {archiveCourse, deleteCourse} from './actions';
+import type {Category, Course, Paged} from '@/lib/courses.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 20;

@@ -7,8 +7,8 @@
  * coursesApi) and backend/integration-tests (hits the real running backend) — this is the
  * middle layer: real frontend code, fake network.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { sha256Hex, uploadsApi } from '../../lib/uploads.api';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {sha256Hex, uploadsApi} from '../../lib/uploads.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

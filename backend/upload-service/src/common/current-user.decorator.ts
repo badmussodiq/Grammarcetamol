@@ -1,5 +1,5 @@
-import { createParamDecorator, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import type { Request } from 'express';
+import {createParamDecorator, ExecutionContext, ForbiddenException} from '@nestjs/common';
+import type {Request} from 'express';
 
 /** Mirrors shared-java's CurrentUser record — id is null and roles is empty for anonymous
  * requests (there is no anonymous/public route on this service, but the shape stays consistent

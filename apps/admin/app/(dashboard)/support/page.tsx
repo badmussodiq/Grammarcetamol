@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
+import {cookies} from 'next/headers';
 import Link from 'next/link';
-import { Badge, DataTable } from '@grammarcetamol/utilities';
-import type { DataTableColumn } from '@grammarcetamol/utilities';
-import { buildSupportQuery, type Paged, type SupportTicket } from '@/lib/support.api';
+import type {DataTableColumn} from '@grammarcetamol/utilities';
+import {Badge, DataTable} from '@grammarcetamol/utilities';
+import {buildSupportQuery, type Paged, type SupportTicket} from '@/lib/support.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9000';
 const PAGE_SIZE = 20;

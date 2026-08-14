@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { LogEmailProvider } from './log-email.provider';
-import { SmtpEmailProvider } from './smtp-email.provider';
-import type { EmailProvider } from './email-provider.interface';
+import {Injectable} from '@nestjs/common';
+import {LogEmailProvider} from './log-email.provider';
+import {SmtpEmailProvider} from './smtp-email.provider';
+import type {EmailProvider} from './email-provider.interface';
 
 @Injectable()
 export class EmailProviderRegistry {

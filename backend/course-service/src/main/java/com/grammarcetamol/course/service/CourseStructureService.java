@@ -1,18 +1,14 @@
 package com.grammarcetamol.course.service;
 
-import com.grammarcetamol.shared.config.CurrentUser;
-import com.grammarcetamol.course.dto.CreateLessonRequest;
-import com.grammarcetamol.course.dto.CreateModuleRequest;
-import com.grammarcetamol.course.dto.ReorderRequest;
-import com.grammarcetamol.course.dto.UpdateLessonRequest;
-import com.grammarcetamol.course.dto.UpdateModuleRequest;
+import com.grammarcetamol.course.dto.*;
 import com.grammarcetamol.course.entity.Course;
 import com.grammarcetamol.course.entity.CourseModule;
 import com.grammarcetamol.course.entity.Lesson;
-import com.grammarcetamol.shared.exception.ForbiddenException;
 import com.grammarcetamol.course.repository.CourseModuleRepository;
 import com.grammarcetamol.course.repository.CourseRepository;
 import com.grammarcetamol.course.repository.LessonRepository;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.exception.ForbiddenException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

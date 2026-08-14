@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildNotificationsQuery } from '../../lib/notifications.api';
+import {describe, expect, it} from 'vitest';
+import {buildNotificationsQuery} from '../../lib/notifications.api';
 
 describe('buildNotificationsQuery', () => {
   it('returns an empty string when no filters are set', () => {

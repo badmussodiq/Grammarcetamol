@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatCurrency } from '../../lib/dashboard';
+import {describe, expect, it} from 'vitest';
+import {formatCurrency} from '../../lib/dashboard';
 
 describe('formatCurrency', () => {
   it('formats a whole number as NGN with no decimals', () => {

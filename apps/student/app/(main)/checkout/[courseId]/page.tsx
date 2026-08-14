@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import {useEffect, useRef, useState} from 'react';
+import {useParams, useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { useFetch, useToast, Button, Input, Skeleton, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import type { CourseDetailResponse } from '@/lib/course.api';
-import { checkoutApi, toPaystackSubunit } from '@/lib/checkout.api';
-import { enrollmentApi, hasEnrollmentFor } from '@/lib/enrollment.api';
+import {ApiError, Button, Input, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import type {CourseDetailResponse} from '@/lib/course.api';
+import {checkoutApi, toPaystackSubunit} from '@/lib/checkout.api';
+import {enrollmentApi, hasEnrollmentFor} from '@/lib/enrollment.api';
 
 declare global {
   interface Window {

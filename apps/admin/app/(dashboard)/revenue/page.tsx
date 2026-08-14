@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiFetch, LineChart, DonutChart, Skeleton } from '@grammarcetamol/utilities';
-import { revenueApi, formatMethodLabel } from '@/lib/revenue.api';
-import type { RevenueSummary, RevenueTrendPoint, BestSeller, RevenueByMethod, RevenuePeriod } from '@/lib/revenue.api';
+import {useEffect, useState} from 'react';
+import {apiFetch, DonutChart, LineChart, Skeleton} from '@grammarcetamol/utilities';
+import type {BestSeller, RevenueByMethod, RevenuePeriod, RevenueSummary, RevenueTrendPoint} from '@/lib/revenue.api';
+import {formatMethodLabel, revenueApi} from '@/lib/revenue.api';
 
 interface CourseTitleLookup {
   success: boolean;

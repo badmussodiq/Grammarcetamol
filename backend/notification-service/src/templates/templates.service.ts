@@ -1,8 +1,8 @@
-import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import type { Collection, Db } from 'mongodb';
-import { MONGO_DB } from '../config/database.module';
-import { TEMPLATE_SEEDS } from './templates.seed';
-import type { EmailTemplate } from './template.types';
+import {Inject, Injectable, Logger, OnApplicationBootstrap} from '@nestjs/common';
+import type {Collection, Db} from 'mongodb';
+import {MONGO_DB} from '../config/database.module';
+import {TEMPLATE_SEEDS} from './templates.seed';
+import type {EmailTemplate} from './template.types';
 
 @Injectable()
 export class TemplatesService implements OnApplicationBootstrap {

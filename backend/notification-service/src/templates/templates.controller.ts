@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
-import { CurrentUser, requireAdminOrModerator, type CurrentUserPayload } from '../common/current-user.decorator';
-import { ApiResponse } from '../common/api-response';
-import { TemplatesService } from './templates.service';
+import {Body, Controller, Get, Param, Patch} from '@nestjs/common';
+import {CurrentUser, type CurrentUserPayload, requireAdminOrModerator} from '../common/current-user.decorator';
+import {ApiResponse} from '../common/api-response';
+import {TemplatesService} from './templates.service';
 
 /** Admin-only visibility into what's actually seeded and rendering — no create/edit endpoint yet
  * (templates are edited by changing templates.seed.ts and restarting, see TemplatesService's own

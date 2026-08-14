@@ -1,6 +1,6 @@
-import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
-import { PaystackProvider } from '../../src/providers/paystack.provider';
+import {ConfigService} from '@nestjs/config';
+import {createHmac} from 'crypto';
+import {PaystackProvider} from '../../src/providers/paystack.provider';
 
 describe('PaystackProvider.verifyWebhookSignature', () => {
   const secret = 'sk_test_secret';

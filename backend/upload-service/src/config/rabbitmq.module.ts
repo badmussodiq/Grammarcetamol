@@ -1,8 +1,8 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import * as amqp from 'amqplib';
-import { UploadEventPublisher } from '../messaging/upload-event-publisher';
-import { AMQP_CHANNEL, UPLOAD_EXCHANGE } from './amqp.constants';
+import {UploadEventPublisher} from '../messaging/upload-event-publisher';
+import {AMQP_CHANNEL, UPLOAD_EXCHANGE} from './amqp.constants';
 
 @Global()
 @Module({

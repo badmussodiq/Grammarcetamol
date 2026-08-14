@@ -1,7 +1,7 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { revalidatePath } from 'next/cache';
+import {cookies} from 'next/headers';
+import {revalidatePath} from 'next/cache';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9000';
 

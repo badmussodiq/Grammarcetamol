@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Injectable, NotFoundException, ServiceUnavailableException} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 
 export interface UserContact {
   id: string;

@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, Mapping, useToast, useFormState, useGenericState, ApiError } from '@grammarcetamol/utilities';
-import { authApi } from '../../../lib/auth.api';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, Mapping, useFormState, useGenericState, useToast} from '@grammarcetamol/utilities';
+import {authApi} from '../../../lib/auth.api';
+import type {ChangeEvent, FormEvent} from 'react';
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
   let score = 0;

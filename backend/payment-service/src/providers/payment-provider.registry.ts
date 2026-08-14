@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PaystackProvider } from './paystack.provider';
-import type { PaymentProvider } from './payment-provider.interface';
+import {Injectable} from '@nestjs/common';
+import {PaystackProvider} from './paystack.provider';
+import type {PaymentProvider} from './payment-provider.interface';
 
 @Injectable()
 export class PaymentProviderRegistry {

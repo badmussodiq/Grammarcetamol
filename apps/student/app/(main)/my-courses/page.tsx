@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import {useState} from 'react';
 import Link from 'next/link';
-import { Skeleton, Tabs, Button, Mapping } from '@grammarcetamol/utilities';
-import { useMyCourses } from '@/hooks/useMyCourses';
-import { EnrolledCourseCard } from '@/components/EnrolledCourseCard';
+import {Button, Mapping, Skeleton, Tabs} from '@grammarcetamol/utilities';
+import {useMyCourses} from '@/hooks/useMyCourses';
+import {EnrolledCourseCard} from '@/components/EnrolledCourseCard';
 
 const TABS = [
   { label: 'All', value: 'all' },

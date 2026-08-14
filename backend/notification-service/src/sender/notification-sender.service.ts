@@ -1,12 +1,12 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { EmailProviderRegistry } from '../providers/email-provider.registry';
-import { NotificationLogsService } from '../notification-logs/notification-logs.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { formatNotification } from '../notifications/notification-formatter';
-import { TemplatesService } from '../templates/templates.service';
-import { renderTemplate } from '../templates/template-renderer';
-import type { NotificationRequestedEvent } from '../config/amqp.constants';
+import {Injectable, Logger} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {EmailProviderRegistry} from '../providers/email-provider.registry';
+import {NotificationLogsService} from '../notification-logs/notification-logs.service';
+import {NotificationsService} from '../notifications/notifications.service';
+import {formatNotification} from '../notifications/notification-formatter';
+import {TemplatesService} from '../templates/templates.service';
+import {renderTemplate} from '../templates/template-renderer';
+import type {NotificationRequestedEvent} from '../config/amqp.constants';
 
 /**
  * The actual "render template, send email, write one notification_logs row regardless of

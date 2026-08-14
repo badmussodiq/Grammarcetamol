@@ -1,4 +1,4 @@
-import { formatBucketLabel } from '../../src/payments/revenue.service';
+import {formatBucketLabel} from '../../src/payments/revenue.service';
 
 describe('formatBucketLabel', () => {
   it('formats a day bucket as "Mon D"', () => {

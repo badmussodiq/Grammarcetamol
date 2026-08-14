@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { cn } from '@grammarcetamol/utilities';
-import type { FaqItem } from '@/lib/faqData';
+import {useState} from 'react';
+import {cn} from '@grammarcetamol/utilities';
+import type {FaqItem} from '@/lib/faqData';
 
 export function FaqAccordion({ items }: { items: FaqItem[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { DataTable } from '../../../src/components/DataTable/DataTable';
-import type { DataTableColumn } from '../../../src/components/DataTable/DataTable';
+import {describe, expect, it} from 'vitest';
+import {render, screen} from '@testing-library/react';
+import type {DataTableColumn} from '../../../src/components/DataTable/DataTable';
+import {DataTable} from '../../../src/components/DataTable/DataTable';
 
 interface Row {
   id: string;

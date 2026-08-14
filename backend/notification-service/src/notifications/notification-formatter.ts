@@ -1,4 +1,4 @@
-import type { NotificationType } from './notification.types';
+import type {NotificationType} from './notification.types';
 
 /** Maps an email templateName (the generic {service, templateName, ...} event shape every
  * publisher already sends) to the {type, title, message} shown in the in-app inbox. Deliberately

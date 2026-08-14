@@ -1,4 +1,4 @@
-import { apiFetch } from '@grammarcetamol/utilities';
+import {apiFetch} from '@grammarcetamol/utilities';
 
 export interface SupportTicket {
   _id: string;

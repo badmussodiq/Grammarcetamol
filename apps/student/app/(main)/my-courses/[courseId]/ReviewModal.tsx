@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button, Input, Modal, useToast, ApiError } from '@grammarcetamol/utilities';
-import { reviewsApi, type Review } from '@/lib/reviews.api';
+import {useEffect, useState} from 'react';
+import {ApiError, Button, Input, Modal, useToast} from '@grammarcetamol/utilities';
+import {type Review, reviewsApi} from '@/lib/reviews.api';
 
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
