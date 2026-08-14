@@ -1,11 +1,11 @@
 ﻿'use client';
 
-import { Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import type {ChangeEvent, FormEvent} from 'react';
+import {Suspense} from 'react';
+import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, useToast, useFormState, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '../../../contexts/AuthContext';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
+import {useAuth} from '../../../contexts/AuthContext';
 
 export default function LoginPage() {
   return (

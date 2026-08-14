@@ -4,7 +4,7 @@
  * each spec file only contains the behavior it's actually asserting.
  */
 
-export const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:8080';
+export const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:9000';
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@grammarcetamol.com';
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'ChangeMe123!';
 export const STUDENT_EMAIL = process.env.STUDENT_EMAIL ?? 'checkout.tester@example.com';

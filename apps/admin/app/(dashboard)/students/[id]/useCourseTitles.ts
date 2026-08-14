@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { coursesApi } from '@/lib/courses.api';
+import {useEffect, useState} from 'react';
+import {coursesApi} from '@/lib/courses.api';
 
 /** Enrollments/progress only carry a courseId — resolve titles one course-service call at a
  * time (fine at admin-table scale) and cache them for the lifetime of the page. */

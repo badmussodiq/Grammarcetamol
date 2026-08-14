@@ -1,0 +1,460 @@
+# Centralized full-stack compose file — the SAME file for local dev and a cloud server,
+# no edits needed between them. Pulls in the existing infra-only compose
+# (Postgres/Redis/RabbitMQ/MinIO/Mongo, with their own healthchecks and idempotent
+# per-DB provisioning entrypoints) via `include:`, then layers every app service on top.
+#
+# Startup order is enforced via `depends_on: ... condition: service_healthy` chains:
+#   infra (healthy) -> backend services (each depends only on the infra it needs)
+#   gateway (depends on redis only) -> both frontends (depend on gateway only)
+# Deliberately NOT a strict "every backend service before gateway before frontend" chain
+# — gateway proxies to the other backend services over HTTP at request time rather than
+# needing them at boot, so one crashed/still-starting microservice never blocks the
+# gateway or frontends from coming up; it only breaks that microservice's own routes.
+#
+# Image source is env-var-driven (see .env.example: IMAGE_PREFIX / IMAGE_TAG /
+# IMAGE_PULL_POLICY) so the exact same `image:`+`build:` pair either builds locally
+# (the default — IMAGE_PULL_POLICY=build never attempts a pull) or pulls a pre-built
+# image a CI pipeline already pushed to GHCR/Docker Hub (set IMAGE_PREFIX to that
+# registry's prefix and IMAGE_PULL_POLICY=missing on a cloud server) — same file, only
+# .env differs.
+#
+# Usage (local):
+#   cp .env.example .env   # fill in PAYSTACK_SECRET_KEY etc.
+#   docker compose up -d --build
+#   docker compose ps      # watch services flip to "healthy"
+#
+# Usage (cloud server, pulling images CI already built):
+#   cp .env.example .env
+#   # then in .env: IMAGE_PREFIX=ghcr.io/<owner>/grammarcetamol-  (or <dockerhub-user>/grammarcetamol-)
+#   #               IMAGE_TAG=latest
+#   #               IMAGE_PULL_POLICY=missing
+#   docker compose up -d
+
+include:
+  - docker/docker-compose.dev.yml
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend — Java / Spring Boot
+  # ---------------------------------------------------------------------------
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}auth-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host ports: this service is scaled via `--scale auth-service=N`
+    # (container_name forces a unique name per container, which caps you at one replica;
+    # a fixed host port mapping fails outright for N>1 since every replica would fight
+    # over the same host port). Reachable only from inside the Docker network — nothing
+    # external needs it directly, only gateway-service, over its own service-name DNS.
+    expose:
+      - "9001"
+      - "9091"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      FRONTEND_URL: ${STUDENT_FRONTEND_URL:-http://localhost:3000}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@grammarcetamol.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMe123!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  course-service:
+    build:
+      context: ./backend
+      dockerfile: course-service/Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}course-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9002"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9002/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  enrollment-service:
+    build:
+      context: ./backend
+      dockerfile: enrollment-service/Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}enrollment-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9003"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://upload-service:9006}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  review-service:
+    build:
+      context: ./backend
+      dockerfile: review-service/Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}review-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9004"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      ENROLLMENT_SERVICE_URL: ${ENROLLMENT_SERVICE_URL:-http://enrollment-service:9003}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9004/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Backend — Node / NestJS
+  # ---------------------------------------------------------------------------
+
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}payment-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9005"
+    environment:
+      PORT: 9005
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
+      PAYMENT_GATEWAY: paystack
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://localhost:9005/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  notification-service:
+    build:
+      context: ./backend/notification-service
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}notification-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    # Scaling this one specifically also gets you competing-consumers on its RabbitMQ
+    # queues for free — each replica's consumer.module.ts binds the same queue names, so
+    # RabbitMQ round-robins deliveries across whichever replicas are up.
+    expose:
+      - "9008"
+    environment:
+      PORT: 9008
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Grammarcetamol}
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_USERNAME: platform
+      MONGO_PASSWORD: platform12345
+      MONGO_DB_NAME: notification_db
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://localhost:9008/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  upload-service:
+    build:
+      context: ./backend/upload-service
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}upload-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9006"
+    environment:
+      PORT: 9006
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: platform
+      DB_PASSWORD: platform
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      STORAGE_PROVIDER: minio
+      STORAGE_BUCKET: course-content
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: platform
+      MINIO_SECRET_KEY: platform12345
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://localhost:9006/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Backend — Gateway (the stack's front door). Deliberately depends on infra
+  # ONLY, not on the other backend services: it proxies to them over HTTP at
+  # request time (and its gRPC channel to auth-service connects lazily, IDLE
+  # until first use), so a single crashed/still-starting microservice degrades
+  # only THAT microservice's routes, never blocks the gateway itself from
+  # coming up or takes the rest of the stack down with it.
+  # ---------------------------------------------------------------------------
+
+  gateway-service:
+    build:
+      context: ./backend
+      dockerfile: gateway-service/Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}gateway-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    container_name: grammarcetamol-gateway-service
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://course-service:9002}
+      ENROLLMENT_SERVICE_URL: ${ENROLLMENT_SERVICE_URL:-http://enrollment-service:9003}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:9005}
+      REVIEW_SERVICE_URL: ${REVIEW_SERVICE_URL:-http://review-service:9004}
+      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://upload-service:9006}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL:-http://notification-service:9008}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-secret-change-in-prod}
+      AUTH_GRPC_HOST: ${AUTH_GRPC_HOST:-auth-service}
+      AUTH_GRPC_PORT: ${AUTH_GRPC_PORT:-9091}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Frontends — depend on gateway-service ONLY, not on the individual backend
+  # services. Gateway is the single entry point every frontend API call goes
+  # through; if one microservice behind it is down, calls to that specific
+  # microservice fail (a real, visible error), but the frontend itself starts
+  # and stays up rather than being blocked or taken down by an unrelated
+  # service's crash.
+  # ---------------------------------------------------------------------------
+
+  student-frontend:
+    build:
+      context: ./apps
+      dockerfile: student/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9000}
+    image: ${IMAGE_PREFIX:-grammarcetamol/}student-frontend:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    container_name: grammarcetamol-student-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, not localhost — Next's standalone server binds IPv4-only
+      # (HOSTNAME=0.0.0.0), and busybox wget resolves "localhost" to ::1 first.
+      test: ["CMD", "wget", "-qO-", "--spider", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  admin-frontend:
+    build:
+      context: ./apps
+      dockerfile: admin/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9000}
+    image: ${IMAGE_PREFIX:-grammarcetamol/}admin-frontend:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    container_name: grammarcetamol-admin-frontend
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, not localhost — Next's standalone server binds IPv4-only
+      # (HOSTNAME=0.0.0.0), and busybox wget resolves "localhost" to ::1 first.
+      test: ["CMD", "wget", "-qO-", "--spider", "http://127.0.0.1:3001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # nginx — the actual public entry point (ports 80/443). Routes by subdomain to
+  # gateway-service (api.$DOMAIN_API) and both frontends (app.$DOMAIN_APP,
+  # admin.$DOMAIN_ADMIN); see docker/nginx/templates/*.conf.template for the
+  # per-domain server blocks. Uses the OFFICIAL nginx image's own envsubst
+  # templating (nginx docker-entrypoint.d processes *.template files in
+  # /etc/nginx/templates -> /etc/nginx/conf.d at every container start) rather
+  # than a third-party nginx+certbot bundle image, so every piece here is a
+  # well-documented, verifiable mechanism.
+  #
+  # No depends_on health-gating on gateway-service/the frontends — same
+  # resilience reasoning as everywhere else in this file: nginx should come up
+  # regardless, and just 502 on a route whose backend isn't ready yet rather
+  # than refuse to start at all.
+  #
+  # TLS bootstrap is a one-time MANUAL step (see README.md's "Deploying to a
+  # cloud server" section) — nginx's HTTPS server blocks reference certificate
+  # files that must already exist in the certbot-certs volume before nginx can
+  # start at all (it validates ssl_certificate paths at startup), so the very
+  # first certificate has to be issued via `certbot certonly --standalone`
+  # BEFORE nginx ever binds port 80/443. After that, nginx owns 80/443
+  # permanently and renewals use the webroot method instead (see
+  # docker/scripts/certbot-renew.sh).
+  #
+  # profiles: ["proxy"] — nginx/TLS/domains only make sense once you have a real
+  # domain pointed at a real server; plain local dev just hits gateway:9000
+  # directly. A bare `docker compose up -d` skips both services entirely; set
+  # `COMPOSE_PROFILES=proxy` in the SERVER's .env (see .env.example) to include
+  # them there — no change to the command itself, matching every other
+  # local-vs-cloud difference in this file living in .env, not in the compose
+  # file or how you invoke it.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: grammarcetamol-nginx
+    restart: always
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN_APP: ${DOMAIN_APP:-app.localhost}
+      DOMAIN_ADMIN: ${DOMAIN_ADMIN:-admin.localhost}
+      DOMAIN_API: ${DOMAIN_API:-api.localhost}
+    volumes:
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+
+  # Not a long-running service — `entrypoint: "true"` makes `docker compose up` treat it
+  # as an immediate no-op if it's ever accidentally started as part of the stack. Real
+  # usage is always ad-hoc: `docker compose run --rm certbot <command>` (see
+  # docker/scripts/certbot-renew.sh and the one-time bootstrap instructions in README.md).
+  certbot:
+    image: certbot/certbot
+    container_name: grammarcetamol-certbot
+    profiles: ["proxy"]
+    entrypoint: "true"
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+
+volumes:
+  certbot-webroot:
+  certbot-certs:

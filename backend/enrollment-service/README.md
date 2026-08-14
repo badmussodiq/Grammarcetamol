@@ -2,7 +2,7 @@
 
 Spring Boot 3 / Java 21. Phase 3 (`PLAN.md` Task 20). Owns free/paid enrollment, per-lesson progress
 tracking, prerequisite gating, and the at-risk student query. Reachable through the gateway at
-`/api/enrollments/**` and `/api/progress`, or directly on `:8084` in dev.
+`/api/enrollments/**` and `/api/progress`, or directly on `:9003` in dev.
 
 Built on `backend/shared-java` (see its README) — same header-trust pattern as `course-service`: no
 `spring-boot-starter-security`, no JWT parsing, `CurrentUser` read straight off the gateway's
@@ -59,13 +59,9 @@ batched by distinct `course_id` for the course-service lookup, not called once p
    runs inside WSL2, `wsl docker compose -f docker/docker-compose.dev.yml up -d` from the repo root —
    a plain `docker` command from a Windows shell won't see WSL2's Docker at all).
 2. `backend/shared-java` must be `mvn install`ed first (`cd ../shared-java && mvn install`).
-3. `enrollment_db` must exist before Flyway can connect — same situation as `course_db` in
-   `course-service/README.md`. On a fresh `postgres-data` volume,
-   `docker/postgres-init/01-create-databases.sh` creates it automatically; on an existing volume:
-   ```bash
-   docker exec -it grammarcetamol-postgres psql -U platform -d auth_db -c "CREATE DATABASE enrollment_db;"
-   ```
-4. `course-service` should be running too (`:8083`) — most endpoints call out to it.
+3. `enrollment_db` is created automatically on every Postgres container start by
+   `docker/scripts/ensure-postgres-databases.sh` — no manual step needed.
+4. `course-service` should be running too (`:9002`) — most endpoints call out to it.
 5. `mvn spring-boot:run`
 
 ### Windows-specific gotcha
@@ -77,13 +73,13 @@ not just Tomcat's connector. `CourseServiceClient`'s `RestClient` was deliberate
 `java.net.http.HttpClient`-based default specifically because the latter also opens a `Selector` at
 construction time and hit the same failure specifically when launched from sandboxed automation
 (`mvn spring-boot:run` via a scripted Bash/PowerShell call) — a normal direct run starts cleanly
-(`GET :8084/actuator/health` → `UP`, confirmed live). If you hit this from your own terminal, it's the
+(`GET :9003/actuator/health` → `UP`, confirmed live). If you hit this from your own terminal, it's the
 same fix as `auth-service`: a `java.exe` process exclusion in whatever security software is
 intercepting the loopback socket.
 
 ## Endpoints
 
-REST, via the gateway or directly on `:8084`. Everything requires authentication — no public/optional
+REST, via the gateway or directly on `:9003`. Everything requires authentication — no public/optional
 route tier for this service (unlike course-service's catalog reads).
 
 | Method & path | Auth | Notes |
@@ -106,9 +102,9 @@ consumer-side queue/binding, so this service's own migration/config doesn't depe
 
 | Property | Default | |
 |---|---|---|
-| `server.port` | `8084` | |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5433/enrollment_db` | |
-| `app.course-service-url` | `http://localhost:8083` | |
+| `server.port` | `9003` | |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:9009/enrollment_db` | |
+| `app.course-service-url` | `http://localhost:9002` | |
 | `app.at-risk-completion-threshold-pct` | `20` | |
 | `app.at-risk-min-days-since-enrollment` | `14` | |
 

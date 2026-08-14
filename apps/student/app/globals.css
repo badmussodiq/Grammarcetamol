@@ -4,8 +4,12 @@
 @theme {
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
 
-  --color-primary: #1E3A5F;
-  --color-primary-light: #2A5285;
+  /* Brand red (Material Red 500), with its own -light/-dark shades taken directly from
+     Material's adjacent Red 400/700 steps rather than a computed tint — guarantees visual
+     harmony and already-tested contrast instead of an arbitrary lighten/darken. */
+  --color-primary: #F44336;
+  --color-primary-light: #EF5350;
+  --color-primary-dark: #D32F2F;
   --color-accent: #F59E0B;
   --color-accent-hover: #D97706;
   --color-success: #10B981;

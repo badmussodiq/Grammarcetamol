@@ -1,0 +1,10 @@
+Hi {{fullName}},
+
+Receipt for your Grammarcetamol purchase:
+
+Course: {{courseTitle}}
+Amount: {{currency}} {{amount}}
+Reference: {{reference}}
+Date: {{paidAt}}
+
+Please keep this email for your records.

@@ -4,7 +4,7 @@
  * actually published. Also exercises the publish-validation guard (Task 12's own rule:
  * needs a cover image, price, and at least one module+lesson before it can publish).
  */
-import { ADMIN_EMAIL, ADMIN_PASSWORD, api, createPublishedCourse, deleteCourse, login } from './helpers';
+import {ADMIN_EMAIL, ADMIN_PASSWORD, api, createPublishedCourse, deleteCourse, login} from './helpers';
 
 describe('Course catalog — real running stack', () => {
   let adminToken: string;

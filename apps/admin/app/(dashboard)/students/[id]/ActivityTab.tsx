@@ -1,9 +1,9 @@
 'use client';
 
-import { Skeleton, useFetch } from '@grammarcetamol/utilities';
-import type { Enrollment } from '@/lib/students.api';
-import type { Paged, Payment } from '@/lib/transactions.api';
-import { useCourseTitles } from './useCourseTitles';
+import {Skeleton, useFetch} from '@grammarcetamol/utilities';
+import type {Enrollment} from '@/lib/students.api';
+import type {Paged, Payment} from '@/lib/transactions.api';
+import {useCourseTitles} from './useCourseTitles';
 
 interface ActivityEvent {
   timestamp: string;

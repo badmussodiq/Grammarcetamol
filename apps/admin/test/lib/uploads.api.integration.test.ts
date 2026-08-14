@@ -7,8 +7,8 @@
  * coursesApi) and backend/integration-tests (hits the real running backend) — this is the
  * middle layer: real frontend code, fake network.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { sha256Hex, uploadsApi } from '../../lib/uploads.api';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {sha256Hex, uploadsApi} from '../../lib/uploads.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -36,7 +36,7 @@ describe('uploadsApi (integration — real fetch wiring, mocked network)', () =>
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/uploads/sessions');
+    expect(url).toBe('http://localhost:9000/api/uploads/sessions');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual({
       courseId: 'c1',
@@ -53,7 +53,7 @@ describe('uploadsApi (integration — real fetch wiring, mocked network)', () =>
     const result = await uploadsApi.presignChunk('file-1', 0);
 
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/uploads/files/file-1/chunks/0/presign');
+    expect(url).toBe('http://localhost:9000/api/uploads/files/file-1/chunks/0/presign');
     expect(result.data.url).toBe('https://minio.test/presigned');
   });
 
@@ -63,7 +63,7 @@ describe('uploadsApi (integration — real fetch wiring, mocked network)', () =>
     await uploadsApi.completeChunk('file-1', 0, '"real-etag-value"');
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/uploads/files/file-1/chunks/0/complete');
+    expect(url).toBe('http://localhost:9000/api/uploads/files/file-1/chunks/0/complete');
     expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body)).toEqual({ etag: '"real-etag-value"' });
   });
@@ -76,7 +76,7 @@ describe('uploadsApi (integration — real fetch wiring, mocked network)', () =>
     const result = await uploadsApi.completeFile('file-1');
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/uploads/files/file-1/complete');
+    expect(url).toBe('http://localhost:9000/api/uploads/files/file-1/complete');
     expect(init.method).toBe('POST');
     expect(result.data.status).toBe('completed');
   });

@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { BarChart } from '../../../src/components/Charts/BarChart';
-import { LineChart } from '../../../src/components/Charts/LineChart';
-import { DonutChart } from '../../../src/components/Charts/DonutChart';
+import {describe, expect, it} from 'vitest';
+import {render, screen} from '@testing-library/react';
+import {BarChart} from '../../../src/components/Charts/BarChart';
+import {LineChart} from '../../../src/components/Charts/LineChart';
+import {DonutChart} from '../../../src/components/Charts/DonutChart';
 
 describe('BarChart', () => {
   it('renders one bar per datum', () => {

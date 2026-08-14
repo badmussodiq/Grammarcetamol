@@ -1,5 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { cn } from '../../utils/cn';
+import type {CSSProperties, ReactNode} from 'react';
+import {cn} from '../../utils/cn';
 
 export interface BadgeProps {
   variant?: 'success' | 'warning' | 'error' | 'info' | 'neutral';

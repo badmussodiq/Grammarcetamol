@@ -15,7 +15,7 @@ Requires the backend gateway + auth-service running (see the root README and `ba
 
 ```bash
 npm install
-cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL, defaults to the gateway at :8080
+cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL, defaults to the gateway at :9000
 npm run dev      # http://localhost:3000
 ```
 

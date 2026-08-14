@@ -1,13 +1,11 @@
 ﻿'use client';
 
-import { Suspense, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import type {ChangeEvent, FormEvent} from 'react';
+import {Suspense, useEffect} from 'react';
+import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Spinner, useFormState, useGenericState, useToast, ApiError } from '@grammarcetamol/utilities';
-import { authApi } from '../../../lib/auth.api';
-import type { FormEvent } from 'react';
-
-type Status = 'loading' | 'success' | 'expired' | 'no-token';
+import {ApiError, Button, Input, useFormState, useGenericState, useToast} from '@grammarcetamol/utilities';
+import {authApi} from '../../../lib/auth.api';
 
 export default function VerifyEmailPage() {
   return (
@@ -19,35 +17,42 @@ export default function VerifyEmailPage() {
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-  const [{ status, cooldown }, updateFlow] = useGenericState({
-    status: (token ? 'loading' : 'no-token') as Status,
-    cooldown: 0,
-  });
-  const { values, setValue, isSubmitting, setSubmitting } = useFormState({ email: '' });
+  const router = useRouter();
+  const emailFromQuery = searchParams.get('email') ?? '';
+  const [cooldown, setCooldown] = useGenericState(0);
   const { addToast } = useToast();
-
-  useEffect(() => {
-    if (!token) return;
-    authApi.verifyEmail(token)
-      .then(() => updateFlow('status', 'success'))
-      .catch(() => updateFlow('status', 'expired'));
-  }, [token, updateFlow]);
+  const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
+    useFormState({ email: emailFromQuery, otp: '' });
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const t = setTimeout(() => updateFlow('cooldown', (c) => c - 1), 1000);
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [cooldown, updateFlow]);
+  }, [cooldown, setCooldown]);
 
-  async function handleResend(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!values.email) return;
+    if (!values.email) { setError('email', 'Email is required'); return; }
+    if (!/^\d{6}$/.test(values.otp)) { setError('otp', 'Enter the 6-digit code from your email'); return; }
+    setSubmitting(true);
+    try {
+      await authApi.verifyEmail(values.email, values.otp);
+      addToast({ type: 'success', message: 'Email verified! You can now sign in.' });
+      router.push('/login');
+    } catch (err) {
+      addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Verification failed — check the code and try again' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!values.email) { setError('email', 'Enter your email first'); return; }
     setSubmitting(true);
     try {
       await authApi.resendVerification(values.email);
-      addToast({ type: 'success', message: 'Verification email sent!' });
-      updateFlow('cooldown', 60);
+      addToast({ type: 'success', message: 'Verification code resent!' });
+      setCooldown(60);
     } catch (err) {
       addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Failed to resend' });
     } finally {
@@ -55,44 +60,24 @@ function VerifyEmailContent() {
     }
   }
 
-  if (status === 'loading') return (
-    <div className="flex flex-col items-center gap-4 py-4">
-      <Spinner size="lg" color="#1E3A5F" />
-      <p className="text-[#64748B]">Verifying your email...</p>
-    </div>
-  );
-
-  if (status === 'success') return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#D1FAE5] flex items-center justify-center">
-        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#065F46" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h2 className="text-xl font-semibold text-[#0F172A]">Email Verified!</h2>
-      <p className="text-[#64748B]">Your account is active. You can now sign in.</p>
-      <Link href="/login"><Button className="mt-2">Go to Login</Button></Link>
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold text-[#0F172A]">
-        {status === 'no-token' ? 'Verify Your Email' : 'Link Expired'}
-      </h2>
+      <h2 className="text-xl font-semibold text-[#0F172A]">Verify your email</h2>
       <p className="text-[#64748B] text-sm">
-        {status === 'no-token'
-          ? 'Enter your email below to resend the verification link.'
-          : 'Your verification link has expired. Enter your email to get a new one.'}
+        Enter the 6-digit code we emailed you. It expires in 15 minutes.
       </p>
-      <form onSubmit={handleResend} className="flex flex-col gap-3 mt-2">
-        <input type="email" placeholder="you@example.com" value={values.email}
-          onChange={(e) => setValue('email', e.target.value)} required
-          className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
-        <Button type="submit" loading={isSubmitting} disabled={cooldown > 0} className="w-full">
-          {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Verification Email'}
-        </Button>
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3 mt-2">
+        <Input label="Email" type="email" placeholder="you@example.com"
+          value={values.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setValue('email', e.target.value)}
+          error={errors.email} autoComplete="email" />
+        <Input label="6-digit code" type="text" inputMode="numeric" placeholder="123456" maxLength={6}
+          value={values.otp} onChange={(e: ChangeEvent<HTMLInputElement>) => setValue('otp', e.target.value.replace(/\D/g, ''))}
+          error={errors.otp} autoComplete="one-time-code" />
+        <Button type="submit" loading={isSubmitting} className="w-full">Verify Email</Button>
       </form>
+      <Button variant="ghost" loading={isSubmitting} disabled={cooldown > 0} onClick={handleResend} className="w-full">
+        {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+      </Button>
       <p className="text-center text-sm text-[#64748B]">
         <Link href="/login" className="text-primary hover:underline">Back to login</Link>
       </p>

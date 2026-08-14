@@ -5,12 +5,12 @@
  * rendering and interaction behavior: badges, the preview/allowDownload toggles, and the
  * edit panel.
  */
-import type { ReactElement } from 'react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
-import { ToastProvider } from '@grammarcetamol/utilities';
-import { ContentTab } from '../../../../../app/(dashboard)/courses/[id]/ContentTab';
-import { coursesApi, type ModuleResponse } from '@/lib/courses.api';
+import type {ReactElement} from 'react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, within} from '@testing-library/react';
+import {ToastProvider} from '@grammarcetamol/utilities';
+import {ContentTab} from '../../../../../app/(dashboard)/courses/[id]/ContentTab';
+import {coursesApi, type ModuleResponse} from '@/lib/courses.api';
 
 function renderWithProviders(ui: ReactElement) {
   return render(<ToastProvider>{ui}</ToastProvider>);

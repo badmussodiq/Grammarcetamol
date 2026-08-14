@@ -13,6 +13,8 @@ Let me now complete the full plan with these corrections applied throughout.
 
 # Implementation Plan — Grammarcetamol Digital Learning Ecosystem
 
+> **Port renumbering (2026-08-09):** every service and infra container port cited in individual tasks below (`8080` gateway, `8081` auth, `8083` course, `8084` enrollment, `8085` review, `8086` payment, `8087` upload, plus Postgres `5433`/Redis `6380`/RabbitMQ `5673`+`15673`/MinIO `9002`+`9003`) reflects what was true **when that task was originally written and built** — left as historical record, not retroactively rewritten. All of it was later moved into one dedicated `9000`-series block (gateway first at `9000`, MongoDB added on `9015` for Task 31) to avoid colliding with any other project's own instances of these services on the same machine. **The root `README.md`'s "Running everything locally" section is the authoritative current port mapping** — check there, not the historical numbers below, before actually running anything.
+
 > **Status as of 2026-08-05:** Tasks 1–10 below (Phase 0 + Phase 1) are implemented, with real divergences from this original plan noted inline per task — most notably: no root npm workspace (the repo root is a plain container folder, not a project; `apps/utilities` — renamed from `packages/ui` — is a sibling each app reaches via a `tsconfig.json` path + `turbopack.root`, not an npm dependency), Google OAuth deferred, and gateway CORS handled via Spring Cloud Gateway's native `globalcors` config instead of a hand-rolled `CorsWebFilter` bean (the two conflicted and produced duplicate CORS headers that browsers reject). See `implementation-phases.md` for the phase-level exit-criteria view of the same status.
 >
 > **Phase 2 planning added 2026-08-05** (Tasks 11–18 below). Backend-first, dependency-first ordering, same as Phase 1: Course Service (Java/Spring Boot, same stack as auth-service) lands before either frontend touches courses. **Tasks 11–12 (Course Service backend) are done as of 2026-08-05** — see their status notes below. Tasks 13–15 (both frontends' course pages, integration) are next. Upload Service and Media Service (Tasks 16–17) are **deferred from the start** — no MinIO/S3 or MongoDB is provisioned in `docker/docker-compose.dev.yml` yet, and the phase's own soft-dependency note explicitly allows stubbing media ("accept file, return mock URL"). Lessons carry a plain admin-supplied `video_url` string until that lands. Course Service also denormalizes `instructor_name`/`instructor_bio`/`instructor_avatar_url` directly onto `courses` — there's no instructor directory or role yet (`admin-frontend.md` lists "Instructor Management" as **Future**), so `instructor_id` is just the creating admin/moderator's user id for audit purposes, not a foreign key into a real instructor entity.
@@ -866,4 +868,251 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Tests:** The integration/unit tests specified in Tasks 19–29, run together against a single running stack.
 
-**Demo:** Same as Phase 3's exit criteria in `implementation-phases.md`.
+---
+
+### PHASE 3.5 — MVP Completion
+
+> **Current status (2026-08-09):** Planned and **in progress** — see Tasks 31–37 below. Inserted between Phase 3 and Phase 4 on explicit user direction: a real production MVP (guest/student flows for pre-recorded courses, admin course management + analytics + support) ships *before* Live Classes, not after. Phase 4's own Tasks 31–37 are renumbered to 38–44 below to make room, and Phase 4's former "Notification Service" task is reduced to an *extension* task (39) since the service now gets built here instead.
+>
+> **Resolved decisions** (do not revisit): "services" for MVP purposes means courses only, no Phase 5 Service Request Catalog pulled forward. OTP covers email verification + password reset; login 2FA is explicitly deferred to later. Account auto-lockout was found **already built** in `AuthService.login()` (`MAX_FAILED_ATTEMPTS=5`, `LOCK_DURATION_MINUTES=15`, publishes `user.locked`) — the gap is just wiring an email to that existing event, not new lockout logic. `EmailProvider` is pluggable with a log-only default, same shape as `PaymentProvider`/`StorageProvider` — no real SMTP/SendGrid/SES credentials yet. Support/enquiry is a deliberately thin two-state (`open`→`closed`) ticket flow — **admin never sends email through the platform**, they reply directly via their own email client (Gmail etc.) after seeing the submitter's email in the admin console; the platform only sends the automatic "submitted" and "closed" emails. Every other service publishes `{service, templateName, to, toName, variables}` to its **own existing exchange** (no new shared exchange) — Notification Service binds queues to the specific routing keys it cares about. Every email attempt gets exactly one row in an **immutable, insert-only `notification_logs`** collection — no update/delete path exists anywhere in the code for it. Brand color becomes `#F44336` (Material Red 500) with `-light`/`-dark` shades from Material's own adjacent Red palette (`#EF5350`/`#D32F2F`).
+>
+> **Architecture pivot mid-build (also user-directed):** Notification Service was originally scoped as NestJS + Postgres (matching `payment-service`/`upload-service`'s convention) — switched to **NestJS + MongoDB** instead, reusing the dedicated `grammarcetamol-mongo` instance (port `9015`) already provisioned for Live Class Service's future work. `notification_db` is simply a second database on that same instance. Official `mongodb` driver, no Mongoose, no migration runner — indexes created idempotently on `onModuleInit` instead of SQL migration files.
+
+---
+
+**Task 31: Notification Service — Bootstrap, Templates, Cross-Service Consumer, Immutable Logs, Support Tickets**
+
+**Objective:** Stand up `backend/notification-service/` (NestJS + MongoDB, port `9008`) as the one place outbound email happens, consuming events from auth/payment/enrollment-service, rendering named templates with dynamic variables, logging every attempt immutably, and hosting the lightweight support-ticket module.
+
+**Implementation guidance:**
+- No ORM, official `mongodb` driver (first Mongo consumer in this codebase), same `CurrentUser`/`ApiResponse`/`AllExceptionsFilter` conventions as `payment-service`. Connects to the dedicated `grammarcetamol-mongo` instance (`mongodb://platform:platform12345@localhost:9015/?authSource=admin`, database `notification_db`) — a completely separate instance from the pre-existing standalone `platform-mongo` (default `27017`, unrelated `notifications` database, never touched).
+- **`email_templates`** collection: `name` (unique index), `subject`, `bodyHtml`, `bodyText`, `variables` (documented placeholder-name array), `isActive`, timestamps. Seeded on startup via idempotent upsert-by-name (not a one-shot migration file). Names: `email-verification-otp`, `password-reset-otp`, `account-locked`, `course-purchase-confirmation`, `payment-receipt`, `enrollment-confirmation`, `support-ticket-submitted`, `support-ticket-closed`, `newsletter`. Simple in-house `{{variableName}}` substitution — no templating library, matches the "minimize external packages" convention.
+- **`notification_logs`** collection — **insert-only, no update, no delete, ever**: `service`, `templateName`, `recipientEmail`, `status` (`success`|`failed`), `errorMessage` (nullable), `createdAt`. No `updatedAt` field — its absence is the deliberate signal.
+- **RabbitMQ consumer** — first NestJS consumer in this repo (every existing NestJS service only publishes so far). On init, idempotently `assertExchange` for `user.exchange`, `payment.exchange`, `enrollment.exchange`; bind one queue per routing key (`user.otp.verification`, `user.otp.password-reset`, `user.locked`, `payment.completed`, `enrollment.created`); ack-on-success / nack-no-requeue-on-parse-failure. Handler reads `templateName`/`to`/`toName`/`variables` straight off the payload (the publishing service names its own template — Notification Service never infers one from the routing key), renders, calls `EmailProvider.send()`, inserts exactly one `notification_logs` row either way.
+- **`EmailProvider`/`EmailProviderRegistry`** — mirrors `PaymentProviderRegistry`/`StorageProviderRegistry` exactly. `LogEmailProvider` default logs what would be sent; a real provider later is a new class + registry entry, zero call-site changes.
+- **`SupportController`** (same service, own module): `POST /api/support/tickets` (public/optionally-authenticated; creates the ticket, **directly calls the internal email-send function** — no RabbitMQ round-trip needed since Support lives in-process with the email logic — using `support-ticket-submitted`), `GET /api/support/tickets` (admin/moderator, filterable by status), `GET /api/support/tickets/{id}` (admin/moderator — surfaces the submitter's email prominently since replying happens in the admin's own email client, not here), `PATCH /api/support/tickets/{id}/close` (admin/moderator — sends `support-ticket-closed`). `support_tickets` collection: `name`, `email`, `userId` (nullable), `subject`, `message`, `courseId` (nullable), `status` (`open`|`closed`, default `open`), `closedBy`, `closedAt`, timestamps.
+- **Gateway wiring**: `notificationServiceUrl` + `.route("support-service", r -> r.path("/api/support/**")...)`. `POST /api/support/tickets` in `OPTIONALLY_AUTHENTICATED_ROUTES`; everything else admin/moderator-gated in the controller.
+
+**Tests:** consumer payload→template→send→log flow (success and failure both produce exactly one log row), template variable substitution, support ticket creation triggers the submitted email, closing triggers the closed email and only that email.
+
+**Demo:** boots on `:9008`, templates seeded. A manual `user.locked` RabbitMQ message produces a real `notification_logs` row (`status='success'`) and a `LogEmailProvider` log line. Guest `POST /api/support/tickets` triggers the submitted email; admin `PATCH .../close` triggers the closed email; both logged.
+
+---
+
+**Task 32: Auth Service — OTP-Based Email Verification & Password Reset**
+
+**Objective:** Replace the current silent UUID-token flow (verified live: sends nothing — `forgotPassword()` literally has the comment `// In production, send email here via mail service`) with real 6-digit OTP codes, emailed via the new Notification Service.
+
+**Implementation guidance:**
+- Change `register()`'s/`forgotPassword()`'s token generation from `UUID.randomUUID().toString()` to a 6-digit numeric code, same Redis key/TTL pattern (`verify:<code>`/`fp:<code>` → userId) but a shorter, OTP-appropriate TTL (~10 min) paired with a bounded wrong-attempt guard per code (same shape as the existing lockout counter, not a new subsystem).
+- `verifyEmail`: `GET ...?token=` (link-click) → `POST /api/auth/verify-email {email, otp}` (form submission). `resetPassword`: body becomes `{email, otp, newPassword}`.
+- After generating each OTP, publish via the existing `UserEventPublisher` (`user.exchange`): `user.otp.verification` → `{service, templateName: "email-verification-otp", to, toName, variables: {otp, expiresInMinutes}}`; `user.otp.password-reset` similarly.
+- `user.locked` is **already published** — no auth-service change needed, Task 31's binding is the only missing piece.
+
+**Tests:** OTP format/TTL/bounded-attempt behavior, the two new event-publish calls (mock `UserEventPublisher`, assert routing key + payload).
+
+**Demo:** `POST /api/auth/register` → a real `user.otp.verification` event with a 6-digit `otp` → `POST /api/auth/verify-email {email, otp}` succeeds and flips status to `ACTIVE`; wrong/expired codes rejected. Same round-trip for forgot/reset.
+
+---
+
+**Task 33: Payment & Enrollment Events — Enrich Payloads for Email**
+
+**Objective:** Give Notification Service everything it needs without it looking anything up itself — the *publishing* service supplies `to`/`toName`/`variables` directly, per the user's own spec.
+
+**Implementation guidance:**
+- `payment-service`'s `payment.completed` publish gains `to`/`toName` (resolved via a call to auth-service's existing `GET /api/users/{id}`, the same internal-trusted-caller pattern `CourseServiceClient`/`UploadServiceClient` already use) and fires both `course-purchase-confirmation` and `payment-receipt` template sends off this one event.
+- `enrollment-service`'s `EnrollmentEventPublisher`'s `enrollment.created` publish gains the same enrichment + `templateName: "enrollment-confirmation"` — covers both free and paid enrollment (paid already flows through `enrollment.created` via enrollment-service's own `payment.completed` consumer).
+
+**Tests:** mock the auth-service HTTP call in both services' existing suites; assert the enriched payload shape.
+
+**Demo:** a real Paystack test-mode purchase produces two successful `notification_logs` entries; a real free enrollment produces one.
+
+---
+
+**Task 34: Student Frontend — OTP Verification/Reset UI & Support Enquiry Form**
+
+**Objective:** Update verification/reset from link-based to code-entry; give guests/students a support enquiry form.
+
+**Implementation guidance:**
+- `/verify-email`: auto-verify-on-load → a 6-digit code-entry form with resend (reusing the existing rate-limit UX). `/reset-password`: code input alongside the new password field.
+- New `/support` page/modal — name/email (pre-filled if logged in)/subject/message/optional course, posts to Task 31's endpoint, success state confirms "check your email."
+- `lib/support.api.ts`; `lib/auth.api.ts`'s verify/reset calls updated to the new request bodies.
+
+**Tests:** OTP-input validation (6 digits, numeric), support form client-side validation.
+
+**Demo:** freshly registered student enters the (dev-logged) OTP and verifies; a guest submits `/support` and sees a confirmation state.
+
+---
+
+**Task 35: Admin Frontend — Support Tickets & Real Dashboard Analytics**
+
+**Objective:** Give admins the support-ticket list/detail/close workflow, and replace the current static-skeleton `/dashboard` (verified live: four hardcoded skeleton placeholders, zero data fetching) with real aggregated numbers.
+
+**Implementation guidance:**
+- `/support` — `DataTable` (name/email/subject/status/date), status filter, row → detail. `/support/[id]` — message + submitter email prominently displayed + a single "Close Ticket" action, **no response/reply UI** per the resolved decision.
+- `/dashboard` — real numbers: total students, published-course count, revenue (reuse `/revenue`'s summary endpoint, don't duplicate its aggregation), and a real open-ticket count replacing the fake "Support Requests" label. Reuse existing `StatCard`/chart primitives from `apps/utilities`.
+
+**Tests:** any pure formatting/aggregation helper as a logic test.
+
+**Demo:** admin closes a real ticket, submitter gets the closed email; `/dashboard` shows real numbers that change as new data arrives.
+
+---
+
+**Task 36: Brand Color Rollout — `#F44336`**
+
+**Objective:** Replace the current navy (`#1E3A5F`) primary with the new orange-red across both frontends' buttons/hover/nav/sidebar.
+
+**Implementation guidance:**
+- Both apps' `@theme` blocks (`apps/admin/app/globals.css`, `apps/student/app/globals.css` — verified live: these have already diverged, not a copy-paste between them): `--color-primary: #F44336`, `--color-primary-light: #EF5350`, new `--color-primary-dark: #D32F2F` (doesn't exist in either app today — needed for `hover:bg-primary-dark`-style classes to exist at all under Tailwind v4's `@theme`-only wiring, no `tailwind.config.ts` exists).
+- Fix `apps/utilities/src/components/Button/Button.tsx`'s two hardcoded arbitrary-hex classes (verified live: `text-[#64748B]`, `hover:bg-[#DC2626]`) — the destructive-hover one especially should get a real semantic variable instead of a bare hex.
+- Grep specifically for the *old* primary hex (`#1E3A5F`/`#2A5285`/`#152B47`) across both apps' page files — not the full ~180-hit hardcoded-hex sweep, which is overwhelmingly unrelated semantic-state color — and replace hits with semantic classes.
+- Clean up `apps/utilities/src/tokens/tokens.ts`/`tokens.css` — confirmed live: orphaned, unconsumed, already-drifted duplicates of the real theme (`tokens.ts` is still publicly exported from the package's `index.ts` though nothing imports it).
+- `Sidebar.tsx`/`TopHeader.tsx` need no direct changes — already fully semantic, pick up the new color automatically.
+
+**Tests:** none needed for a pure color-value change — verified visually.
+
+**Demo:** both apps' primary buttons/nav/sidebar/hover render the new red family; no navy remains on any primary-branded surface.
+
+---
+
+**Task 37: MVP Integration & Verification**
+
+**Objective:** Confirm the full MVP loop end-to-end through the gateway across both frontends, same discipline as Task 30 closed out Phase 3.
+
+**Implementation guidance:**
+- Full chain: guest browses → registers → OTP-verifies → logs in → free-enrolls one course + real-pays for another → gets purchase/receipt emails → learns → reviews.
+- Second chain: 5 wrong passwords locks the account → locked email; forgot-password → OTP → reset succeeds.
+- Third chain: guest submits a support enquiry → submitted email; admin closes it → closed email.
+- Fourth chain: admin uploads + publishes a course, sees it live and in `/dashboard`'s real numbers.
+- Visual: new `#F44336` brand color consistent across both apps.
+- Extend `backend/integration-tests` with `notification-flow.integration.spec.ts`: OTP verify/reset round-trip, support-ticket create→close with `notification_logs` assertions, 401/403 sweep on Notification Service's admin-gated endpoints.
+- Update `PLAN.md`/`implementation-phases.md`/`todo.md` status notes for Tasks 31–36 as each is actually verified.
+
+**Tests:** the unit/integration tests specified in Tasks 31–36, run together, plus the new integration-test file.
+
+**Demo:** a real, unscripted end-to-end pass through every chain above, with `notification_logs` as the audit trail proving every email attempt actually happened.
+
+---
+
+### PHASE 4 — Live Classes & Notifications
+
+> **Current status (2026-08-07):** Planned — see Tasks 38–44 below (renumbered from 31–37 on 2026-08-09 to make room for Phase 3.5's MVP work, which now ships first). Mirrors how Phase 3 looked before Task 19 started: `implementation-phases.md` had a phase-level sketch, no task-level breakdown existed yet. Three scope decisions were resolved with the user before writing these tasks (see each task's own guidance for where they land): (1) email is a pluggable `EmailProvider` abstraction with a log-only default, not a real SendGrid/SES/SMTP integration yet; (2) the admin live-class scheduler builds the real calendar view (month/week/day, drag-to-reschedule, conflict detection), not a simplified list-only page, despite that being bigger than this project's usual "simplify the aspirational spec" pattern; (3) video conferencing embeds Jitsi Meet's free public server (`meet.jit.si`) via their IFrame API, with the room identifier only ever revealed to a verified registered student within the join window — not a self-hosted Jitsi + JWT auth server (presented as the more correct but much larger-scope alternative, explicitly declined for now). **Task 39 (previously "Notification Service — Bootstrap") is now an *extension* task** — Phase 3.5's Task 31 already builds the service; Phase 4 only adds SSE/in-app center/Announcements/live-class templates to it.
+
+---
+
+**Task 38: Live Class Service — Bootstrap, Scheduling, Booking & Join-Room**
+
+**Objective:** Stand up `backend/live-class-service/` so admins/moderators can schedule live classes without double-booking an instructor, students can register (free instantly, paid via the existing payment flow) and see a real "Join Class" state machine, and reminders fire automatically as events for the already-built Notification Service (Task 39 extends it to actually consume these) to deliver.
+
+**Implementation guidance:**
+- New NestJS project at `backend/live-class-service/`, port `9007`. Second Mongo-backed service in the repo — `backend/notification-service` (Task 31) already established the pattern: official `mongodb` driver, no Mongoose, no migration runner, index creation as an idempotent `onModuleInit` step (`createIndex` calls, safe to re-run). Reuse that `DatabaseModule` shape directly rather than re-deriving it.
+- **Database provisioning — done ahead of this task, already in `docker/docker-compose.dev.yml`**: a dedicated `mongo` service (`mongo:7`, container `grammarcetamol-mongo`, port `9015:27017`, credentials `platform`/`platform12345` matching MinIO's convention) — a completely separate instance from the pre-existing standalone `platform-mongo` container on `27017`, which holds an unrelated pre-existing `notifications` database and is left untouched, same "found it, left it alone" precedent as Task 16's MinIO provisioning. `9015` is part of the same dedicated 9000-series block every other Grammarcetamol container uses (app services 9000-9008, infra 9009+) — see the port-renumbering note in this phase's own status block. Point this service's `MONGO_URL` at `mongodb://platform:platform12345@localhost:9015` (or the container's internal DNS name/27017 if running inside the same compose network).
+- **Collections** (adapted from `database-schema-and-migrations.md` §4.2 — Mongo, so no enum→VARCHAR+CHECK conversion, just application-layer string validation): `live_classes` (title, description, instructorId, startTime, endTime, timezone, capacity, enrolledCount default 0, price, currency, `roomId` — **never included in any list/detail response projection**, platform, coverImageUrl, status `scheduled|live|completed|cancelled`, recordingUrl, settings, createdBy, timestamps; indexes `{instructorId,startTime}`, `{status,startTime}`, `{startTime}`) and `class_bookings` (classId, userId, status `registered|attended|no_show|cancelled`, paymentId, joinedAt, leftAt, feedback `{rating,comment}`, timestamps; unique index `{classId,userId}`, index `{userId,createdAt desc}`).
+- **`LiveClassesController`**: `POST /api/live-classes` (SUPER_ADMIN/MODERATOR; validates `startTime < endTime`; conflict check — any other non-cancelled class for the same `instructorId` whose time range overlaps, 409 with the conflicting class's detail if found), `PATCH /api/live-classes/{id}` (same conflict re-check excluding itself; `notifyEnrolledStudents` boolean triggers a `liveclass.updated` publish), `GET /api/live-classes` (Upcoming/Past + date-range/instructor/search filters; **`roomId` excluded from the projection**), `GET /api/live-classes/{id}` (same exclusion), `DELETE /api/live-classes/{id}` (sets `status='cancelled'`, publishes `liveclass.cancelled`), `POST /api/live-classes/{id}/register` (authenticated student; free classes create a `registered` booking immediately, idempotent on `(classId,userId)`, atomic `$inc` on `enrolledCount`, 409 at capacity; paid classes go through a `PaymentEventListener` consuming `payment.completed` keyed by a new `itemType`/`itemId` pair added to `payment-service`'s initialize DTO — same free-vs-paid split as Task 20/21's course enrollment), `GET /api/live-classes/{id}/room` (**the only endpoint that ever returns `roomId`** — verifies a real `registered`/`attended` booking for the caller and that `now()` is within `[startTime - 15min, endTime]`, else 403 distinguishing too-early / not-registered / ended — this is what the student join page's countdown/disabled-button state machine reads), `GET /api/live-classes/{id}/ics` (hand-rolled `VCALENDAR`/`VEVENT` text, no external library, registered-only), `GET /api/live-classes/mine`, `GET /api/live-classes/instructor-availability` (backs the admin create/edit form's real-time conflict check).
+- **Reminders — no Kubernetes CronJobs** (this project has an established "no k8s/heavy infra work" constraint, the same reason Media Service remains deferred): use `@nestjs/schedule`'s in-process `@Cron()` (e.g. every minute) querying classes starting in the ~24h/~1h/~15min windows that haven't already had that tier sent — track sent tiers as an array field on the document so a restart mid-run can't double-fire. Publishes one `liveclass.reminder` event per registered booking. This service only emits the event; it never sends an actual notification/email itself — that's entirely Task 39's job.
+- **RabbitMQ**: `LiveClassEventPublisher` (raw `amqplib`, same `TopicExchange`/`persistent:true`/try-catch-log-never-throw shape as `payment-event-publisher.ts`) publishes `liveclass.created`, `liveclass.updated`, `liveclass.cancelled`, `liveclass.registered`, `liveclass.reminder`. A `PaymentEventListener` consumes `payment.completed` off `payment.exchange` — the same consumer pattern `backend/notification-service` (Task 31) already established, reuse it rather than inventing a second shape.
+- **Gateway wiring**: `liveClassServiceUrl` in `AppGatewayProperties`/`application.yml`; `.route("live-class-service", r -> r.path("/api/live-classes/**").uri(...))`. `GET /api/live-classes` and `GET /api/live-classes/{id}` go in `OPTIONALLY_AUTHENTICATED_ROUTES`; everything else (including `.../room` and `.../register`) stays fully authenticated.
+
+**Tests:** Jest unit tests — instructor double-booking conflict detection (overlapping / adjacent-non-overlapping / different-day), capacity boundary, the room-authorization three-way logic (too-early/not-registered/ended vs. success), idempotent free registration, the reminder cron's "already-sent-this-tier" guard.
+
+**Demo:** `npm run start:dev` boots on `:9007`, Mongo indexes create cleanly against the new compose `mongo` service. Scheduling two overlapping classes for the same instructor → second `POST` returns 409. A registered student calling `GET .../room` more than 15 minutes early gets 403 "too early"; inside the window gets the real `roomId`. Manually publishing `payment.completed` (with a `liveClassId`) via the RabbitMQ management UI creates a `registered` booking.
+
+---
+
+**Task 39: Notification Service — Extend for Live Classes (In-App Center, SSE, Announcements)**
+
+**Objective:** Extend the already-built `backend/notification-service` (Phase 3.5 Task 31 — bootstrap, `email_templates`, `notification_logs`, `EmailProvider`, the cross-service consumer, Support tickets) with the pieces Phase 4 specifically needs that weren't part of the MVP: an in-app notification center, SSE streaming, and the Announcement system — rather than building the service from scratch.
+
+**Implementation guidance:**
+- Add MongoDB collections: `notifications` (in-app rows — separate from the immutable `notification_logs` audit trail, this one is genuinely mutable: `read`/`unread`/`archived`) and `user_notification_preferences`. Plus a new `announcements` collection (`title`, `body`, `targetType` `all|courses|segments`, `targetIds`, `priority` `low|normal|high|critical`, `status` `draft|scheduled|published|expired`, `publishAt`, `expiresAt`, `createdBy`, timestamps) — at publish time fans out into individual `notifications` rows per matched user. "Segments" targeting is a documented no-op — no real user-segment concept exists anywhere in this codebase; don't invent one just to fill the field.
+- Extend the existing RabbitMQ consumer (Task 31 already has the idempotent-`assertExchange`-plus-bind pattern working) with a new binding on `liveclass.exchange` (Task 38's publisher) for `liveclass.reminder` and friends, in addition to the bindings Task 31 already has.
+- **`NotificationsController`**: `GET /api/notifications` (own, paginated, filterable), `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`, `DELETE /api/notifications/{id}`, `GET /api/notifications/unread-count`, `GET /api/notifications/stream` (**Server-Sent Events** — an in-process `EventEmitter`/RxJS `Subject` the consumer handler also writes to when it inserts a row), `GET`/`PUT /api/notification-preferences`.
+- **`AnnouncementsController`** (SUPER_ADMIN/MODERATOR only): full CRUD + `POST .../publish` + `POST .../send-test` (via the already-built `EmailProvider`) + `GET .../recipient-count` (dry-run). A `@Cron()` sweep publishes anything `status='scheduled' AND publishAt <= now()`. High/critical priority also calls `EmailProvider.send()` per matched recipient, same as any other Task-31-style send, logged the same way in `notification_logs`.
+- **Gateway wiring**: add routes for `/api/notifications/**`, `/api/announcements/**`, `/api/notification-preferences` (the `/api/support/**` route already exists from Task 31). **Flag as a real risk to verify, not silently assume works**: `GET /api/notifications/stream` needs to be confirmed live with `curl -N` to actually stream through Spring Cloud Gateway's Netty-based reactive proxy without being buffered by the existing `JwtAuthFilter`/rate-limit `GlobalFilter`s. Fallback if it doesn't stream cleanly: client-side polling of `unread-count` instead of true SSE (Task 41 builds this fallback into the frontend client regardless).
+
+**Tests:** announcement audience resolution per `targetType`, recipient-count dry-run matching a real publish's fan-out, the scheduled-publish cron's "already published" guard, high-priority triggering `EmailProvider.send` while normal/low don't, the new consumer binding's routing.
+
+**Demo:** a manual `liveclass.reminder` RabbitMQ message produces a real row in `GET /api/notifications`. Admin creates a `high`-priority "all" announcement → logged simulated send per matched user, shows up for a test student. `curl -N` against `/api/notifications/stream` through the gateway (authenticated) receives a live event while the connection is open.
+
+---
+
+**Task 40: Student Frontend — Live Classes & Join Flow**
+
+**Objective:** Let students browse upcoming/past live classes, register (free instantly, paid via checkout), and join through an embedded Jitsi call that only becomes accessible in the real join window — never exposing a raw external meeting link.
+
+**Implementation guidance:**
+- `lib/liveclasses.api.ts` — `listLiveClasses(filters)`, `getLiveClass(id)`, `registerForClass(id)`, `getJoinRoom(id)`, `getMyClasses()`. Paid-class checkout: extend `/checkout/[courseId]` with an `itemType` param or build a thin live-class-specific variant — decide based on how much actually differs once both exist, same open-call shape as Task 29's `/students`-vs-`/users` reuse decision.
+- `/live-classes` (student-frontend.md §5.7) — Upcoming | Past tabs, filters (date range/instructor/search), card grid: banner, title, date/time in the viewer's local timezone, duration, instructor, price/Free badge, capacity indicator ("12/30 spots left"), Register/Buy/Join button per the class's actual state.
+- `/live-classes/[id]/join` (§5.7) — state machine driven by `startTime`/`endTime` plus the real `GET .../room` authorization: **pre-join** (>15 min out) shows countdown + class details; **waiting** (inside 15 min) fetches and caches the real `roomId`, shows "Waiting for host…"; **active** mounts Jitsi's IFrame API (`https://meet.jit.si/external_api.js`, `new JitsiMeetExternalAPI(domain, {roomName, parentNode, ...})`) — the only place the room identifier is ever used, never rendered as a link/URL anywhere in the DOM; **post-class** shows a recording notice (if `recordingUrl` set) + a feedback/rating prompt writing to `class_bookings.feedback`.
+- Dashboard widget (extends Task 24's explicitly-deferred live-classes panel): horizontal card list, sharing the join-window state-machine logic with the join page as one hook rather than duplicating it.
+- No custom timezone picker beyond browser auto-detect + a display override, no payment-method selector (Paystack's own popup still handles that) — same scoping precedent as Task 23.
+
+**Tests:** Logic tests for timezone/duration formatting, the capacity-indicator text, and the join-window state-machine's transition function (pre-join/waiting/active/ended).
+
+**Demo:** Logged-in student registers for a free live class, sees it on the dashboard with a live countdown, and — within the join window of a real test class — `/live-classes/[id]/join` transitions to a real embedded Jitsi call with no bare room link ever visible in the DOM or network tab.
+
+---
+
+**Task 41: Student Frontend — Notification Center & Preferences**
+
+**Objective:** Give students the bell-icon notification center (student-frontend.md §4.2/§5.4) and a preferences tab wired to `user_notification_preferences`, closing the loop on every event type Tasks 38/39 now emit.
+
+**Implementation guidance:**
+- `lib/notifications.api.ts` — `listNotifications`, `markRead`, `markAllRead`, `deleteNotification`, `getUnreadCount`, `getPreferences`/`updatePreferences`, and `subscribeToStream(onMessage)` wrapping the browser `EventSource` pointed at `/api/notifications/stream` — falls back to polling `unread-count` after repeated stream errors, the concrete mitigation for Task 39's own flagged gateway-streaming risk.
+- `NotificationItem` component in `apps/utilities` (§4.2) — icon colored by type (Course blue, Payment green, Live Class purple, Announcement orange, System gray), title + message preview + relative timestamp + unread dot, actions mark-read/delete/click-to-navigate (built from the notification's `data` JSONB deep-link payload). RTL test covering the type→color/icon mapping and the route-builder helper.
+- Bell icon + dropdown panel in the student nav (latest 5, "View All" link, inline mark-read, unread badge sourced from `getUnreadCount()`/the live stream).
+- `/notifications` page — no dedicated design spec exists for this route (only referenced in the IA, never detailed in §5); design it from the `NotificationItem` spec plus implementation-phases.md's "grouped by category filters; unread dot; infinite scroll; mark-all-read." Category filter tabs, unread-only toggle, infinite scroll, "Mark all read."
+- Dashboard "Notifications Panel" (§5.4, extends Task 24): latest 5 + "View All" + inline mark-read, reusing `NotificationItem`.
+- Profile → Notifications tab (§5.8): toggle list per notification type × delivery preference (in-app only / email / both), reading and writing Task 39's preferences endpoint.
+
+**Tests:** `NotificationItem`'s type→color/icon mapping and route-builder as logic tests; any pure grouping/filter helper for `/notifications`.
+
+**Demo:** A live event (enrollment/payment/live-class reminder) appears in the bell dropdown within seconds via SSE (or the polling fallback) with the correct icon/color; clicking it navigates correctly and marks it read; `/notifications` shows full history with working filters. Explicitly confirm whether Task 39's consumer actually checks `user_notification_preferences` before delivering — if it doesn't, that's a Task 39 gap to flag back, not something to paper over with a UI toggle that quietly does nothing.
+
+---
+
+**Task 42: Admin Frontend — Live Class Scheduler**
+
+**Objective:** Give admins the real calendar-based live-class scheduling workflow from admin-frontend.md §6.6 — month/week/day views with drag-to-reschedule and conflict detection, per the resolved scope decision to build the real calendar rather than simplify it to a list.
+
+**Implementation guidance:**
+- `lib/liveclasses.api.ts` (admin variant — needs internal fields like scheduling/conflict data the student-facing client deliberately omits, so this is likely a separate thin client over overlapping-but-not-identical endpoints rather than a shared one).
+- **Calendar view via FullCalendar** (`@fullcalendar/react` + `@fullcalendar/daygrid` + `@fullcalendar/timegrid` + `@fullcalendar/interaction`) — **first external UI library in this codebase**, a deliberate exception to the "hand-roll everything visual" convention `BarChart`/`LineChart`/`DonutChart`/`DataTable` otherwise follow (decided with the user: a hand-rolled month/week/day grid + drag-and-drop + conflict UI was judged too large and bug-prone relative to a well-maintained, officially-supported library that already covers this exact feature set). `dayGridMonth`/`timeGridWeek`/`timeGridDay` views map directly onto the spec; `interaction` plugin provides `eventClick` (→ detail sidebar) and `eventDrop`/`eventResize` (→ `PATCH`, reverting via `dropInfo.revert()`/`resizeInfo.revert()` and toasting on a 409 conflict response, rather than committing optimistically). Event color driven by `eventColor`/`classNames` keyed off `status`. Wrap it in a thin `apps/utilities/src/components/Calendar/Calendar.tsx` adapter (maps this project's own event/props shape to FullCalendar's props) so call sites don't depend on FullCalendar's API directly — same "thin wrapper over the third-party piece" shape as `LessonFileUpload` wrapping the raw upload flow. No RTL test for FullCalendar's own rendering (out of scope, matches the precedent of not RTL-testing complex third-party/interaction-heavy pieces) — test the adapter's own prop-mapping function instead.
+- `/live-classes` (admin, §6.6) — Calendar/List view toggle sharing one filter bar (date range/instructor/status/capacity); List is a `DataTable` (title/date&time/duration/instructor/capacity/price/status/actions); "+ Schedule Class" quick-create modal with the essential fields, linking out to the full create page for everything else.
+- `/live-classes/create`/edit — one sectioned form (per the established wizard→sectioned-form precedent from course creation, not a multi-step wizard): title\*, description (reuse the existing rich-text component if course authoring has one), instructor\* (dropdown filtered by real-time availability), date\*/start\*/end\* time, timezone (auto-detected, editable), capacity\* (default 30), pricing (free toggle | price), meeting platform selector (defaults to `jitsi`; `zoom`/`google_meet` shown but disabled since nothing backs them yet — never accept a config that silently does nothing), cover image (reuse the existing upload component), real-time conflict banner (calls `instructor-availability`, blocks submit on overlap), and on edit a "notify enrolled students of changes" checkbox wired to Task 38's `notifyEnrolledStudents` flag.
+
+**Tests:** The `Calendar` adapter's event/prop-mapping function, the conflict-banner's debounce/comparison logic, `DataTable` column formatters.
+
+**Demo:** Admin schedules a class; it renders correctly positioned and color-coded on the month calendar. Dragging it into conflict with another of that instructor's classes shows the conflict inline and reverts; dragging to a genuinely free slot persists across a reload. List view shows the same data with working filters.
+
+---
+
+**Task 43: Admin Frontend — Announcement Manager**
+
+**Objective:** Give admins the announcement creation/targeting/publishing workflow from admin-frontend.md §6.11, closing the loop with Task 39's audience fan-out and email-on-high-priority.
+
+**Implementation guidance:**
+- `lib/announcements.api.ts` against Task 39's `AnnouncementsController`.
+- `/announcements` (§6.11) — `DataTable` (title, target-audience summary, priority badge, status badge, publish date, author), status/date/author/target filters, bulk delete (plain select-rows→Delete Selected, no floating action bar — same scope-down as Task 26), duplicate action (pre-fills the create form, submits as a new draft).
+- `/announcements/create`/edit — title\*, body\* (reuse Task 42's rich-text component if built), target audience (radio: All | Specific Courses [multi-select] | Specific Segments [rendered but disabled with a tooltip explaining it's not backed yet — same "don't accept a config that silently does nothing" principle as Task 42's platform selector]), priority (with a visible "high/critical will also send email" note), scheduling (Publish Now | Schedule for later | Save as Draft), expiry (optional), "Send Test" button (calls Task 39's `send-test`, toast confirms), publish confirmation modal showing the real estimated recipient count from `recipient-count` before the final, irreversible publish.
+
+**Tests:** The target-audience-summary formatter, priority-badge mapping, and status-transition guard (e.g. a published announcement's targeting can't be edited) as logic tests.
+
+**Demo:** Admin creates a `high`-priority "All" announcement, sees an accurate recipient-count estimate, publishes it — appears in a real test student's notification center within seconds, and a simulated email log line appears in Notification Service's console. A scheduled-for-later announcement flips from `scheduled` to `published` automatically once `publish_at` passes, with no manual action.
+
+---
+
+**Task 44: Phase 4 Integration & Verification**
+
+**Objective:** Confirm the full schedule → register → join → reminder → notification-received loop works end-to-end through the gateway across both frontends, and the announcement fan-out reaches real users, same verification discipline as Task 30 closed out Phase 3.
+
+**Implementation guidance:**
+- Full chain: admin schedules a live class (including a deliberately overlapping second class first, to prove the conflict check actually fires) → a student registers free → sees it on the dashboard widget and `/live-classes` → a sped-up reminder (short-window test class) fires `liveclass.reminder` → Notification Service's consumer creates a real `notifications` row → the student sees it via the bell/SSE stream in near-real-time → within the join window, `/live-classes/[id]/join` authorizes and embeds a live Jitsi room → post-class feedback submission persists.
+- Second chain: admin publishes a `high`-priority "All" announcement → the recipient-count estimate matches the actual fan-out count → a real student receives the notification and a simulated email log line appears.
+- Auth-boundary checks via `backend/integration-tests`: add `liveclass-notification-flow.integration.spec.ts` covering 401/403 on every write/admin-gated endpoint across both new services, plus real assertions on the room-reveal endpoint's three-way authorization (too-early / not-registered / success).
+- Re-verify Task 39's flagged SSE-through-gateway risk for real now that the full stack is up — record the actual outcome (true SSE vs. polling fallback) in this task's own status note, the same way Phase 2's gateway-whitelist bug got recorded in its own integration task rather than silently patched.
+- Update `PLAN.md`/`implementation-phases.md` status notes for Tasks 38–43 and the Phase 4 header as each is actually verified, same convention as every prior phase's own integration task.
+
+**Tests:** The integration/unit tests specified in Tasks 38–43, run together against a single running stack, plus the new `liveclass-notification-flow.integration.spec.ts`.
+
+**Demo:** Same shape as Task 30's own exit criteria — a real, unscripted end-to-end pass through both new services and both frontends, with any real deviations found during integration recorded rather than silently patched over.

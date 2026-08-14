@@ -5,7 +5,7 @@
  * fetching one's own profile — all against the real running auth-service through the
  * gateway.
  */
-import { api, login, uniqueEmail } from './helpers';
+import {api, login, uniqueEmail} from './helpers';
 
 describe('Auth flow — real running stack', () => {
   const email = uniqueEmail('auth-flow');

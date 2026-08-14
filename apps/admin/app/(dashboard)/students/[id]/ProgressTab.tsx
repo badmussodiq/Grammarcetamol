@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ProgressBar, Skeleton, useFetch } from '@grammarcetamol/utilities';
-import { studentsApi, type Enrollment } from '@/lib/students.api';
-import { useCourseTitles } from './useCourseTitles';
+import {useEffect, useState} from 'react';
+import {ProgressBar, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import {type Enrollment, studentsApi} from '@/lib/students.api';
+import {useCourseTitles} from './useCourseTitles';
 
 export function ProgressTab({ studentId }: { studentId: string }) {
   const { data: enrollments, loading, error } = useFetch<Enrollment[]>(`/api/enrollments/user/${studentId}`);

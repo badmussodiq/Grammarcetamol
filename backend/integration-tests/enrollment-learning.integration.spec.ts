@@ -6,7 +6,15 @@
  * completion percentage. Also confirms enrollment is idempotent (re-enrolling is a no-op,
  * not a duplicate) and that a paid course can't be free-enrolled into directly.
  */
-import { ADMIN_EMAIL, ADMIN_PASSWORD, api, createPublishedCourse, deleteCourse, login, registerAndLogin } from './helpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  api,
+  createPublishedCourse,
+  deleteCourse,
+  login,
+  registerAndLogin
+} from './helpers';
 
 describe('Enrollment + learning loop — real running stack', () => {
   let adminToken: string;

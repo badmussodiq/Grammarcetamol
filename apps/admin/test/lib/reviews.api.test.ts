@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildReviewsQuery, DEFAULT_REVIEW_FILTERS } from '../../lib/reviews.api';
+import {describe, expect, it} from 'vitest';
+import {buildReviewsQuery, DEFAULT_REVIEW_FILTERS} from '../../lib/reviews.api';
 
 describe('buildReviewsQuery', () => {
   it('always sets page and limit', () => {

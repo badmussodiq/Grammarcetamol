@@ -1,14 +1,14 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import {Suspense} from 'react';
+import {useParams, useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
-import { Tabs, useFetch, Skeleton } from '@grammarcetamol/utilities';
-import { OverviewTab } from './OverviewTab';
-import { EditTab } from './EditTab';
-import { ContentTab } from './ContentTab';
-import { VersionsTab } from './VersionsTab';
-import type { CourseDetailResponse } from '@/lib/courses.api';
+import {Skeleton, Tabs, useFetch} from '@grammarcetamol/utilities';
+import {OverviewTab} from './OverviewTab';
+import {EditTab} from './EditTab';
+import {ContentTab} from './ContentTab';
+import {VersionsTab} from './VersionsTab';
+import type {CourseDetailResponse} from '@/lib/courses.api';
 
 const TABS = [
   { label: 'Overview', value: 'overview' },

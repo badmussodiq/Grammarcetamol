@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Channel } from 'amqplib';
-import { AMQP_CHANNEL, PAYMENT_EXCHANGE } from '../config/amqp.constants';
+import {Inject, Injectable, Logger} from '@nestjs/common';
+import type {Channel} from 'amqplib';
+import {AMQP_CHANNEL, PAYMENT_EXCHANGE} from '../config/amqp.constants';
 
 /**
  * Publishes to payment.exchange — same TopicExchange + <domain>.<event> routing-key convention
@@ -33,6 +33,21 @@ export class PaymentEventPublisher {
 
   publishRefundCompleted(payload: Record<string, unknown>): void {
     this.publish('refund.completed', payload);
+  }
+
+  /** "payment.notification" — the generic {service, templateName, to, toName, variables} shape
+   * notification-service's consumer binds to, same convention as auth-service's
+   * UserEventPublisher.publishNotification. Distinct from payment.completed/payment.failed,
+   * which carry domain-shaped payloads for other consumers (e.g. enrollment-service). */
+  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>, userId?: string): void {
+    this.publish('payment.notification', {
+      service: 'payment-service',
+      templateName,
+      to,
+      toName,
+      variables,
+      ...(userId ? { userId } : {}),
+    });
   }
 
   private publish(routingKey: string, payload: Record<string, unknown>): void {

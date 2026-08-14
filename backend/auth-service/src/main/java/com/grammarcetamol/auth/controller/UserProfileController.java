@@ -1,6 +1,7 @@
 package com.grammarcetamol.auth.controller;
 
 import com.grammarcetamol.auth.dto.ApiResponse;
+import com.grammarcetamol.auth.dto.ChangePasswordRequest;
 import com.grammarcetamol.auth.dto.CreateUserRequest;
 import com.grammarcetamol.auth.dto.UpdateProfileRequest;
 import com.grammarcetamol.auth.entity.User;
@@ -41,6 +42,16 @@ public class UserProfileController {
             @Valid @RequestBody UpdateProfileRequest dto) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(userId, dto)));
+    }
+
+    /** POST /api/users/me/change-password — any authenticated user, requires current password */
+    @PostMapping("/me/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody ChangePasswordRequest dto) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        userProfileService.changePassword(userId, dto.getCurrentPassword(), dto.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password updated"));
     }
 
     /** POST /api/users — SUPER_ADMIN only. Creates a Moderator/Customer Support staff account. */

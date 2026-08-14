@@ -1,7 +1,7 @@
-import { Logger } from '@nestjs/common';
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { Pool } from 'pg';
+import {Logger} from '@nestjs/common';
+import {readdirSync, readFileSync} from 'fs';
+import {join} from 'path';
+import {Pool} from 'pg';
 
 const logger = new Logger('MigrationRunner');
 

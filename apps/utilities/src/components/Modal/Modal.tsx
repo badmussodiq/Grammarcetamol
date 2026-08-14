@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type {ReactNode} from 'react';
+import {useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
-import { cn } from '../../utils/cn';
 
 export interface ModalProps {
   open: boolean;

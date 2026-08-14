@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
-import type { KeyboardEvent } from 'react';
-import { cn } from '../../utils/cn';
+import type {KeyboardEvent} from 'react';
+import {useRef} from 'react';
+import {cn} from '../../utils/cn';
 
 export interface TabItem {
   label: string;

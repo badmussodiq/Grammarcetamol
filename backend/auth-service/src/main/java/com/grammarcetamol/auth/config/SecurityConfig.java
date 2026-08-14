@@ -46,6 +46,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Auth endpoints — public
                 .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
+                // Internal service-to-service lookup — never reachable through the gateway
+                // (see InternalUserController), so this is safe to leave unauthenticated here.
+                .requestMatchers("/api/internal/**").permitAll()
                 // Own profile — any authenticated user
                 .requestMatchers("/api/users/me").authenticated()
                 // Admin/moderator user management — role check via @PreAuthorize

@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { findDefaultLesson, hasEnrollmentFor, type Enrollment, type LearnLesson, type LearnModule } from '../../lib/enrollment.api';
+import {describe, expect, it} from 'vitest';
+import {
+    type Enrollment,
+    findDefaultLesson,
+    hasEnrollmentFor,
+    type LearnLesson,
+    type LearnModule
+} from '../../lib/enrollment.api';
 
 function enrollment(courseId: string): Enrollment {
   return {

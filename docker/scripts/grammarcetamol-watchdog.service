@@ -1,0 +1,7 @@
+[Unit]
+Description=Grammarcetamol Docker Compose stack watchdog (auto-heal stalled containers)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /mnt/c/Users/Sodiq.Badmus/personal/Grammarcetamol/docker/scripts/compose-watchdog.sh

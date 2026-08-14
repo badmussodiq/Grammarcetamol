@@ -4,8 +4,8 @@
  * (pure logic: isWithinEditWindow) and ReviewModal.test.tsx (component-level, mocks
  * reviewsApi wholesale) — this is the middle layer: real frontend code, fake network.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { reviewsApi } from '../../lib/reviews.api';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {reviewsApi} from '../../lib/reviews.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -29,7 +29,7 @@ describe('reviewsApi (integration — real fetch wiring, mocked network)', () =>
     const result = await reviewsApi.mine('course-1');
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/reviews/mine?courseId=course-1');
+    expect(url).toBe('http://localhost:9000/api/reviews/mine?courseId=course-1');
     expect(init?.method ?? 'GET').toBe('GET');
     expect(result.data).toBeNull();
   });
@@ -42,7 +42,7 @@ describe('reviewsApi (integration — real fetch wiring, mocked network)', () =>
     const result = await reviewsApi.create({ courseId: 'course-1', rating: 5, title: 'Great', comment: 'Loved it' });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/reviews');
+    expect(url).toBe('http://localhost:9000/api/reviews');
     expect(init.method).toBe('POST');
     expect(init.credentials).toBe('include');
     expect(JSON.parse(init.body)).toEqual({ courseId: 'course-1', rating: 5, title: 'Great', comment: 'Loved it' });
@@ -55,7 +55,7 @@ describe('reviewsApi (integration — real fetch wiring, mocked network)', () =>
     await reviewsApi.update('r1', { rating: 3 });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://localhost:8080/api/reviews/r1');
+    expect(url).toBe('http://localhost:9000/api/reviews/r1');
     expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body)).toEqual({ rating: 3 });
   });

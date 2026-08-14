@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import {IsNotEmpty, IsString} from 'class-validator';
 
 export class CompleteChunkDto {
   /** S3/MinIO's ETag for this part, read off the presigned PUT's response header

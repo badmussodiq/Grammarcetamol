@@ -1,8 +1,8 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { join } from 'path';
-import { Pool } from 'pg';
-import { runMigrations } from './migration-runner';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {join} from 'path';
+import {Pool} from 'pg';
+import {runMigrations} from './migration-runner';
 
 export const PG_POOL = 'PG_POOL';
 
@@ -15,7 +15,7 @@ export const PG_POOL = 'PG_POOL';
       useFactory: async (config: ConfigService): Promise<Pool> => {
         const pool = new Pool({
           host: config.get<string>('DB_HOST', 'localhost'),
-          port: config.get<number>('DB_PORT', 5433),
+          port: config.get<number>('DB_PORT', 9009),
           database: 'payment_db',
           user: config.get<string>('DB_USERNAME', 'platform'),
           password: config.get<string>('DB_PASSWORD', 'platform'),

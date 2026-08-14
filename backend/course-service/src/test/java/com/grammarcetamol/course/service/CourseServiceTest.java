@@ -1,19 +1,15 @@
 package com.grammarcetamol.course.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.grammarcetamol.shared.config.CurrentUser;
 import com.grammarcetamol.course.dto.CreateCourseRequest;
 import com.grammarcetamol.course.entity.Course;
 import com.grammarcetamol.course.entity.CourseModule;
 import com.grammarcetamol.course.entity.Lesson;
 import com.grammarcetamol.course.exception.CourseDeletionBlockedException;
 import com.grammarcetamol.course.exception.CoursePublishValidationException;
+import com.grammarcetamol.course.repository.*;
+import com.grammarcetamol.shared.config.CurrentUser;
 import com.grammarcetamol.shared.exception.ForbiddenException;
-import com.grammarcetamol.course.repository.CategoryRepository;
-import com.grammarcetamol.course.repository.CourseModuleRepository;
-import com.grammarcetamol.course.repository.CourseRepository;
-import com.grammarcetamol.course.repository.CourseVersionRepository;
-import com.grammarcetamol.course.repository.LessonRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

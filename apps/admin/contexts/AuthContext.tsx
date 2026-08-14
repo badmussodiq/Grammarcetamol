@@ -1,8 +1,8 @@
 ﻿'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { ApiError } from '@grammarcetamol/utilities';
-import { authApi, computeHasPermission, AdminUser } from '@/lib/auth.api';
+import React, {createContext, useCallback, useContext, useEffect, useReducer} from 'react';
+import {ApiError} from '@grammarcetamol/utilities';
+import {AdminUser, authApi, computeHasPermission} from '@/lib/auth.api';
 
 const STAFF_ROLES = ['SUPER_ADMIN', 'MODERATOR', 'CUSTOMER_SUPPORT'];
 

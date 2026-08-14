@@ -1,8 +1,10 @@
 package com.grammarcetamol.auth.service;
 
+import com.grammarcetamol.auth.dto.PasswordPolicy;
 import com.grammarcetamol.auth.dto.UpdateProfileRequest;
 import com.grammarcetamol.auth.entity.RoleName;
 import com.grammarcetamol.auth.entity.User;
+import com.grammarcetamol.auth.exception.InvalidPasswordException;
 import com.grammarcetamol.auth.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -10,11 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -22,6 +26,9 @@ import java.util.UUID;
 public class UserProfileService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile(PasswordPolicy.REGEX);
 
     // -----------------------------------------------------------------------
     // Internal — called from AuthService after saving the User record
@@ -67,8 +74,33 @@ public class UserProfileService {
         if (dto.getBio()           != null) user.setBio(dto.getBio());
         if (dto.getLearningGoals() != null) user.setLearningGoals(
             dto.getLearningGoals().toArray(String[]::new));
+        if (dto.getAvatarUrl()     != null) user.setAvatarUrl(dto.getAvatarUrl());
+        if (dto.getDateOfBirth()   != null) user.setDateOfBirth(dto.getDateOfBirth());
+        if (dto.getPreferences()   != null) user.setPreferences(dto.getPreferences());
 
         return userRepository.save(user);
+    }
+
+    /**
+     * Changes the authenticated user's password after verifying their current one.
+     * Unlike {@link com.grammarcetamol.auth.service.AuthService#resetPassword}, this is the
+     * authenticated (logged-in, knows current password) path — the OTP flow remains the only
+     * route for a user who's locked out and can't supply their current password.
+     */
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User user = getMyProfile(userId);
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new InvalidPasswordException("Current password is incorrect");
+        }
+        if (newPassword == null || newPassword.length() < 8 || !PASSWORD_PATTERN.matcher(newPassword).matches()) {
+            throw new InvalidPasswordException(PasswordPolicy.MESSAGE);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        log.info("Password changed for userId={}", userId);
     }
 
     // -----------------------------------------------------------------------

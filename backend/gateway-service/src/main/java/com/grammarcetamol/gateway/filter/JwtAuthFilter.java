@@ -37,7 +37,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         new String[]{"POST", "/api/auth/forgot-password"},
         new String[]{"POST", "/api/auth/reset-password"},
         new String[]{"POST", "/api/auth/resend-verification"},
-        new String[]{"GET",  "/api/auth/verify-email"},
+        new String[]{"POST", "/api/auth/verify-email"},
         new String[]{"GET",  "/api/auth/.well-known/jwks.json"},
         new String[]{"*",    "/api/auth/oauth2/**"},
         // Paystack calls this server-to-server — no user session, no JWT. It authenticates
@@ -56,7 +56,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
      */
     private static final List<String[]> OPTIONALLY_AUTHENTICATED_ROUTES = List.of(
         new String[]{"GET", "/api/courses/**"},
-        new String[]{"GET", "/api/categories/**"}
+        new String[]{"GET", "/api/categories/**"},
+        // Guest or logged-in student can submit a support ticket; a present token just links
+        // the ticket to that user (see SupportController) instead of leaving it anonymous.
+        new String[]{"POST", "/api/support/tickets"}
     );
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";

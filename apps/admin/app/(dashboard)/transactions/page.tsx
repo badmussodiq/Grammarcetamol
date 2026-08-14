@@ -1,9 +1,9 @@
-import { cookies } from 'next/headers';
-import { Badge, DataTable } from '@grammarcetamol/utilities';
-import type { DataTableColumn } from '@grammarcetamol/utilities';
-import { RefundButton } from './RefundButton';
-import type { Paged, Payment } from '@/lib/transactions.api';
-import { buildTransactionsQuery } from '@/lib/transactions.api';
+import {cookies} from 'next/headers';
+import type {DataTableColumn} from '@grammarcetamol/utilities';
+import {Badge, DataTable} from '@grammarcetamol/utilities';
+import {RefundButton} from './RefundButton';
+import type {Paged, Payment} from '@/lib/transactions.api';
+import {buildTransactionsQuery} from '@/lib/transactions.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 20;

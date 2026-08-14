@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { ProgressBar, Badge } from '@grammarcetamol/utilities';
-import type { EnrolledCourse } from '@/hooks/useMyCourses';
+import {Badge, ProgressBar} from '@grammarcetamol/utilities';
+import type {EnrolledCourse} from '@/hooks/useMyCourses';
 
 export function EnrolledCourseCard({ item }: { item: EnrolledCourse }) {
   const { course, enrollment, completionPct } = item;

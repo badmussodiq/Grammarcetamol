@@ -9,6 +9,7 @@ import com.grammarcetamol.auth.exception.EmailAlreadyExistsException;
 import com.grammarcetamol.auth.exception.InvalidPasswordException;
 import com.grammarcetamol.auth.exception.InvalidTokenException;
 import com.grammarcetamol.auth.messaging.UserEventPublisher;
+import com.grammarcetamol.auth.repository.RefreshTokenRepository;
 import com.grammarcetamol.auth.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,8 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -80,6 +83,9 @@ class AuthServiceTest {
         verify(userRepository).save(any(User.class));
         verify(userProfileService).initProfile(
                 any(UUID.class), eq("Test User"), eq(RoleName.STUDENT.name())
+        );
+        verify(eventPublisher).publishNotification(
+                eq("email-verification-otp"), eq("test@example.com"), eq("Test User"), anyMap(), any(UUID.class)
         );
         verifyNoMoreInteractions(eventPublisher);
     }
@@ -189,6 +195,28 @@ class AuthServiceTest {
         assertThat(user.getLockedUntil()).isNotNull();
         assertThat(user.getLockedUntil()).isAfter(Instant.now());
         verify(eventPublisher).publishUserLocked(user.getId());
+        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
+    }
+
+    @Test
+    void login_5thFailure_missingFullName_fallsBackToEmail_doesNotCrash() {
+        // Map.of throws NullPointerException on a null value — a user with no fullName set
+        // must not take the lockout response down with it.
+        User user = createActiveUser();
+        user.setFullName(null);
+        user.setFailedAttempts(4);
+
+        LoginRequest req = new LoginRequest();
+        req.setEmail("user@example.com");
+        req.setPassword("wrong");
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.login(req, null))
+                .isInstanceOf(AccountLockedException.class);
+
+        verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), eq("user@example.com"), anyMap(), eq(user.getId()));
     }
 
     @Test
@@ -211,17 +239,16 @@ class AuthServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void verifyEmail_validToken_activatesUser() {
+    void verifyEmail_correctOtp_activatesUser() {
         User user = new User();
         user.setId(UUID.randomUUID());
         user.setEmail("user@example.com");
         user.setStatus(User.Status.PENDING_VERIFICATION);
 
-        String token = "valid-token";
-        when(valueOps.get("verify:" + token)).thenReturn(user.getId().toString());
-        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:verify:user@example.com")).thenReturn("123456");
 
-        authService.verifyEmail(token);
+        authService.verifyEmail("user@example.com", "123456");
 
         assertThat(user.isEmailVerified()).isTrue();
         assertThat(user.getStatus()).isEqualTo(User.Status.ACTIVE);
@@ -229,11 +256,125 @@ class AuthServiceTest {
     }
 
     @Test
-    void verifyEmail_expiredToken_throwsInvalidTokenException() {
-        when(valueOps.get("verify:expired-token")).thenReturn(null);
+    void verifyEmail_wrongOtp_throwsInvalidTokenException() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("user@example.com");
+        user.setStatus(User.Status.PENDING_VERIFICATION);
 
-        assertThatThrownBy(() -> authService.verifyEmail("expired-token"))
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:verify:user@example.com")).thenReturn("123456");
+
+        assertThatThrownBy(() -> authService.verifyEmail("user@example.com", "999999"))
                 .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void verifyEmail_expiredOrNeverIssuedOtp_throwsInvalidTokenException() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("user@example.com");
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:verify:user@example.com")).thenReturn(null);
+
+        assertThatThrownBy(() -> authService.verifyEmail("user@example.com", "123456"))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void verifyEmail_unknownEmail_throwsInvalidTokenException() {
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.verifyEmail("nobody@example.com", "123456"))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    // -----------------------------------------------------------------------
+    // forgotPassword / resetPassword
+    // -----------------------------------------------------------------------
+
+    @Test
+    void forgotPassword_existingEmail_publishesOtpNotification() {
+        User user = createActiveUser();
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+        authService.forgotPassword("user@example.com");
+
+        verify(valueOps).set(eq("otp:fp:user@example.com"), anyString(), any());
+        verify(eventPublisher).publishNotification(eq("password-reset-otp"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
+    }
+
+    @Test
+    void forgotPassword_unknownEmail_doesNothing() {
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        authService.forgotPassword("nobody@example.com");
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void resetPassword_correctOtp_updatesPasswordAndRevokesSessions() {
+        User user = createActiveUser();
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:fp:user@example.com")).thenReturn("654321");
+        when(passwordEncoder.encode("NewPass123!")).thenReturn("newHashed");
+
+        authService.resetPassword("user@example.com", "654321", "NewPass123!");
+
+        assertThat(user.getPasswordHash()).isEqualTo("newHashed");
+        verify(refreshTokenRepository).deleteAllByUserId(user.getId());
+    }
+
+    @Test
+    void resetPassword_wrongOtp_throwsInvalidTokenException() {
+        User user = createActiveUser();
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:fp:user@example.com")).thenReturn("654321");
+
+        assertThatThrownBy(() -> authService.resetPassword("user@example.com", "000000", "NewPass123!"))
+                .isInstanceOf(InvalidTokenException.class);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // resendVerification
+    // -----------------------------------------------------------------------
+
+    @Test
+    void resendVerification_unverifiedUser_publishesNewOtp() {
+        User user = createActiveUser();
+        user.setEmailVerified(false);
+        when(redisTemplate.hasKey("resend:user@example.com")).thenReturn(false);
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+        authService.resendVerification("user@example.com");
+
+        verify(eventPublisher).publishNotification(eq("email-verification-otp"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
+    }
+
+    @Test
+    void resendVerification_alreadyVerifiedUser_doesNotPublish() {
+        User user = createActiveUser();
+        user.setEmailVerified(true);
+        when(redisTemplate.hasKey("resend:user@example.com")).thenReturn(false);
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+        authService.resendVerification("user@example.com");
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void resendVerification_rateLimited_throwsInvalidTokenException() {
+        when(redisTemplate.hasKey("resend:user@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.resendVerification("user@example.com"))
+                .isInstanceOf(InvalidTokenException.class);
+
+        verifyNoInteractions(userRepository);
     }
 
     // -----------------------------------------------------------------------

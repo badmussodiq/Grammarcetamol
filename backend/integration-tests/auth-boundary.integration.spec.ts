@@ -11,7 +11,7 @@
  * Requires the full local stack up (gateway + auth-service + enrollment/payment/review-service)
  * and a seeded SUPER_ADMIN plus one ordinary STUDENT account. Run: npm test (from this dir).
  */
-import { NONEXISTENT_ID, ADMIN_EMAIL, ADMIN_PASSWORD, STUDENT_EMAIL, STUDENT_PASSWORD, api, login } from './helpers';
+import {ADMIN_EMAIL, ADMIN_PASSWORD, api, login, NONEXISTENT_ID, STUDENT_EMAIL, STUDENT_PASSWORD} from './helpers';
 
 describe('Auth boundary — real running stack', () => {
   let adminToken: string;

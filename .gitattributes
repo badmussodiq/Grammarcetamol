@@ -1,0 +1,5 @@
+# Shell scripts run inside Linux containers (mounted as Docker entrypoints) — bash chokes
+# on CRLF. Force LF regardless of core.autocrlf, which otherwise converts these to CRLF
+# on a Windows checkout and breaks every container that mounts one as its entrypoint.
+*.sh text eol=lf
+Dockerfile text eol=lf

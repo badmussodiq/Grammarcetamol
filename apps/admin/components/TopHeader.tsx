@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Dropdown } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import { Breadcrumb } from './Breadcrumb';
+import {useRouter} from 'next/navigation';
+import {Dropdown} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import {Breadcrumb} from './Breadcrumb';
 
 export function TopHeader() {
   const { user, logout } = useAuth();

@@ -7,12 +7,12 @@
  * mounted once by its parent and toggled via `open`, so its useState initial values alone
  * don't pick up `existingReview` arriving asynchronously after mount.
  */
-import type { ReactElement } from 'react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ToastProvider } from '@grammarcetamol/utilities';
-import { ReviewModal } from '../../../../app/my-courses/[courseId]/ReviewModal';
-import { reviewsApi, type Review } from '@/lib/reviews.api';
+import type {ReactElement} from 'react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/react';
+import {ToastProvider} from '@grammarcetamol/utilities';
+import {ReviewModal} from '../../../../app/(main)/my-courses/[courseId]/ReviewModal';
+import {type Review, reviewsApi} from '@/lib/reviews.api';
 
 vi.mock('@/lib/reviews.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/reviews.api')>();

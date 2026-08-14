@@ -1,8 +1,8 @@
 'use client';
 
-import { Badge, DataTable, Skeleton, useFetch } from '@grammarcetamol/utilities';
-import type { DataTableColumn } from '@grammarcetamol/utilities';
-import type { Paged, Payment } from '@/lib/transactions.api';
+import type {DataTableColumn} from '@grammarcetamol/utilities';
+import {Badge, DataTable, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import type {Paged, Payment} from '@/lib/transactions.api';
 
 const statusVariant: Record<Payment['status'], 'success' | 'warning' | 'neutral' | 'error' | 'info'> = {
   completed: 'success',

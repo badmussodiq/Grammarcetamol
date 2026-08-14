@@ -1,5 +1,5 @@
-import { Fragment } from 'react';
-import type { ReactNode } from 'react';
+import type {ReactNode} from 'react';
+import {Fragment} from 'react';
 
 export interface MappingProps<T> {
   array: readonly T[] | null | undefined;

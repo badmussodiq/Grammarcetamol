@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Channel } from 'amqplib';
-import { AMQP_CHANNEL, UPLOAD_EXCHANGE } from '../config/amqp.constants';
+import {Inject, Injectable, Logger} from '@nestjs/common';
+import type {Channel} from 'amqplib';
+import {AMQP_CHANNEL, UPLOAD_EXCHANGE} from '../config/amqp.constants';
 
 /**
  * Publishes to upload.exchange — same TopicExchange + <domain>.<event> routing-key convention as

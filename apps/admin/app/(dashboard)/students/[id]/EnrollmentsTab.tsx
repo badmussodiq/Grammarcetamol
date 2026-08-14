@@ -1,8 +1,8 @@
 'use client';
 
-import { Badge, Skeleton, useFetch } from '@grammarcetamol/utilities';
-import type { Enrollment } from '@/lib/students.api';
-import { useCourseTitles } from './useCourseTitles';
+import {Badge, Skeleton, useFetch} from '@grammarcetamol/utilities';
+import type {Enrollment} from '@/lib/students.api';
+import {useCourseTitles} from './useCourseTitles';
 
 const statusVariant: Record<Enrollment['status'], 'success' | 'warning' | 'neutral' | 'error'> = {
   active: 'warning',

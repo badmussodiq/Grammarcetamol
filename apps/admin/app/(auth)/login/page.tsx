@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, useToast, useFormState, ApiError } from '@grammarcetamol/utilities';
-import { useAuth } from '@/contexts/AuthContext';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
+import {useAuth} from '@/contexts/AuthContext';
+import type {ChangeEvent, FormEvent} from 'react';
 
 export default function AdminLoginPage() {
   const router = useRouter();

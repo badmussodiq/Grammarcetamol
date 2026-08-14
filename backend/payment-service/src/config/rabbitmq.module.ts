@@ -1,8 +1,8 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Global, Module} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import * as amqp from 'amqplib';
-import { PaymentEventPublisher } from '../messaging/payment-event-publisher';
-import { AMQP_CHANNEL, PAYMENT_EXCHANGE } from './amqp.constants';
+import {PaymentEventPublisher} from '../messaging/payment-event-publisher';
+import {AMQP_CHANNEL, PAYMENT_EXCHANGE} from './amqp.constants';
 
 @Global()
 @Module({
@@ -12,7 +12,7 @@ import { AMQP_CHANNEL, PAYMENT_EXCHANGE } from './amqp.constants';
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => {
         const host = config.get<string>('RABBITMQ_HOST', 'localhost');
-        const port = config.get<number>('RABBITMQ_PORT', 5673);
+        const port = config.get<number>('RABBITMQ_PORT', 9011);
         const username = config.get<string>('RABBITMQ_USERNAME', 'guest');
         const password = config.get<string>('RABBITMQ_PASSWORD', 'guest');
         const connection = await amqp.connect(`amqp://${username}:${password}@${host}:${port}`);

@@ -1,9 +1,9 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { revalidatePath } from 'next/cache';
+import {cookies} from 'next/headers';
+import {revalidatePath} from 'next/cache';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9000';
 
 async function authHeaders(): Promise<Record<string, string>> {
   const accessToken = (await cookies()).get('access_token')?.value;

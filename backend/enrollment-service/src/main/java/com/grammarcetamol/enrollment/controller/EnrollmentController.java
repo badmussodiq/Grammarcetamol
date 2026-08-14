@@ -1,10 +1,6 @@
 package com.grammarcetamol.enrollment.controller;
 
-import com.grammarcetamol.enrollment.dto.AtRiskEnrollmentResponse;
-import com.grammarcetamol.enrollment.dto.CompletionResponse;
-import com.grammarcetamol.enrollment.dto.EnrollRequest;
-import com.grammarcetamol.enrollment.dto.LearnResponse;
-import com.grammarcetamol.enrollment.dto.ProgressUpdateRequest;
+import com.grammarcetamol.enrollment.dto.*;
 import com.grammarcetamol.enrollment.entity.Enrollment;
 import com.grammarcetamol.enrollment.entity.LessonProgress;
 import com.grammarcetamol.enrollment.service.EnrollmentService;

@@ -11,12 +11,12 @@
 
 ## 1. Migration Philosophy
 
-| Aspect | Relational (PostgreSQL) | Document (MongoDB) |
-|:---|:---|:---|
-| **Migration Style** | Versioned SQL files with idempotent DDL (`IF NOT EXISTS`, `IF EXISTS`) | Schema-validation in app + index-migration scripts |
-| **Tooling** | Flyway, Liquibase, or raw SQL boot-migration | Mongoose Migrations, mongo-migrate, or custom Node scripts |
-| **Safety** | Transactions wrap DDL where supported; destructive changes require manual gates | No DDL locks; additive-only in production |
-| **Rollback** | Down-migration scripts provided per-version | Snapshot + restore for major changes |
+| Aspect              | Relational (PostgreSQL)                                                         | Document (MongoDB)                                         |
+|:--------------------|:--------------------------------------------------------------------------------|:-----------------------------------------------------------|
+| **Migration Style** | Versioned SQL files with idempotent DDL (`IF NOT EXISTS`, `IF EXISTS`)          | Schema-validation in app + index-migration scripts         |
+| **Tooling**         | Flyway, Liquibase, or raw SQL boot-migration                                    | Mongoose Migrations, mongo-migrate, or custom Node scripts |
+| **Safety**          | Transactions wrap DDL where supported; destructive changes require manual gates | No DDL locks; additive-only in production                  |
+| **Rollback**        | Down-migration scripts provided per-version                                     | Snapshot + restore for major changes                       |
 
 > **Note:** MongoDB does not use `CREATE TABLE`. Instead, collections are created implicitly. "Migrations" in MongoDB typically mean: (1) creating indexes, (2) setting validation rules, (3) back-filling documents, or (4) renaming fields via update scripts.
 
@@ -24,20 +24,20 @@
 
 ## 2. Service-to-Database Mapping
 
-| Microservice | Database | Engine | Justification |
-|:---|:---|:---|:---|
-| Auth Service | `auth_db` | PostgreSQL | ACID transactions for credentials, profile data, and role assignment (user-service merged in) |
-| Course Service | `course_db` | PostgreSQL | Structured content with heavy referential integrity |
-| Enrollment Service | `enrollment_db` | PostgreSQL | Transactional enrollments & progress tracking |
-| Payment Service | `payment_db` | PostgreSQL | Financial records require ACID compliance |
-| Review Service | `review_db` | PostgreSQL | Structured ratings with aggregations |
-| Notification Service | `notification_db` | PostgreSQL | Ordered, queryable message logs |
-| Admin Service | `admin_db` | PostgreSQL | Audit trails, settings, RBAC |
-| Live Class Service | `liveclass_db` | MongoDB | Flexible session metadata, rapid schema evolution |
-| Media Service | `media_db` | MongoDB | Unstructured asset metadata, transcoding state machines |
-| Analytics Service | `analytics_db` | MongoDB | High-write event streams, time-series friendly |
-| Service Request Service | `request_db` | MongoDB | Evolving request forms, nested conversation threads |
-| Upload Service | `upload_db` | PostgreSQL | Chunked upload session state (high consistency) |
+| Microservice            | Database          | Engine     | Justification                                                                                 |
+|:------------------------|:------------------|:-----------|:----------------------------------------------------------------------------------------------|
+| Auth Service            | `auth_db`         | PostgreSQL | ACID transactions for credentials, profile data, and role assignment (user-service merged in) |
+| Course Service          | `course_db`       | PostgreSQL | Structured content with heavy referential integrity                                           |
+| Enrollment Service      | `enrollment_db`   | PostgreSQL | Transactional enrollments & progress tracking                                                 |
+| Payment Service         | `payment_db`      | PostgreSQL | Financial records require ACID compliance                                                     |
+| Review Service          | `review_db`       | PostgreSQL | Structured ratings with aggregations                                                          |
+| Notification Service    | `notification_db` | PostgreSQL | Ordered, queryable message logs                                                               |
+| Admin Service           | `admin_db`        | PostgreSQL | Audit trails, settings, RBAC                                                                  |
+| Live Class Service      | `liveclass_db`    | MongoDB    | Flexible session metadata, rapid schema evolution                                             |
+| Media Service           | `media_db`        | MongoDB    | Unstructured asset metadata, transcoding state machines                                       |
+| Analytics Service       | `analytics_db`    | MongoDB    | High-write event streams, time-series friendly                                                |
+| Service Request Service | `request_db`      | MongoDB    | Evolving request forms, nested conversation threads                                           |
+| Upload Service          | `upload_db`       | PostgreSQL | Chunked upload session state (high consistency)                                               |
 
 ---
 
@@ -1170,11 +1170,11 @@ db.service_requests.createIndex({ serviceType: 1 });
 
 Since each service owns its database, **no direct foreign keys exist across service boundaries**. Use these patterns:
 
-| Relationship | Pattern | Example |
-|:---|:---|:---|
-| Strong Ownership | Local surrogate + event sync | `enrollment_db.enrollments.course_id` stores UUID; Course Service is source of truth |
-| Lookup / Cache | Read replica or API fallback | User name in `payments` table fetched from User Service on read |
-| Eventual Consistency | Outbox pattern + RabbitMQ | When a user is deleted, `user.deleted` event triggers cleanup in all services |
+| Relationship         | Pattern                      | Example                                                                              |
+|:---------------------|:-----------------------------|:-------------------------------------------------------------------------------------|
+| Strong Ownership     | Local surrogate + event sync | `enrollment_db.enrollments.course_id` stores UUID; Course Service is source of truth |
+| Lookup / Cache       | Read replica or API fallback | User name in `payments` table fetched from User Service on read                      |
+| Eventual Consistency | Outbox pattern + RabbitMQ    | When a user is deleted, `user.deleted` event triggers cleanup in all services        |
 
 ### 5.2 Migration Execution Order
 
@@ -1206,12 +1206,12 @@ npx migrate-mongo up
 
 ### 5.4 Backup & Disaster Recovery
 
-| Layer | Strategy | Frequency |
-|:---|:---|:---|
-| PostgreSQL | `pg_dump` + WAL archiving | Daily full, continuous WAL |
-| MongoDB | `mongodump` + Oplog backup | Daily full, hourly incremental |
-| Object Storage (S3/MinIO) | Cross-region replication | Real-time |
-| Redis (Cache) | RDB snapshots + AOF | Every 15 min (ephemeral) |
+| Layer                     | Strategy                   | Frequency                      |
+|:--------------------------|:---------------------------|:-------------------------------|
+| PostgreSQL                | `pg_dump` + WAL archiving  | Daily full, continuous WAL     |
+| MongoDB                   | `mongodump` + Oplog backup | Daily full, hourly incremental |
+| Object Storage (S3/MinIO) | Cross-region replication   | Real-time                      |
+| Redis (Cache)             | RDB snapshots + AOF        | Every 15 min (ephemeral)       |
 
 ---
 

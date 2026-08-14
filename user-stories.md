@@ -22,13 +22,13 @@ Every story is accompanied by **acceptance criteria** (Given-When-Then), **prior
 
 ## 2. User Personas
 
-| ID | Persona | Description | Primary Goal |
-|---|---|---|---|
-| P1 | **Guest Visitor** | Unauthenticated individual exploring the platform for the first time | Evaluate platform credibility and discover relevant courses |
-| P2 | **Registered Student** | Authenticated learner enrolled in one or more courses | Master English communication through structured learning |
-| P3 | **Super Admin** | Platform owner with unrestricted system access | Manage the entire business, content, and revenue efficiently |
-| P4 | **Moderator** | Trusted assistant with configurable permissions | Support content publishing, student engagement, and operations |
-| P5 | **Instructor** | Subject matter expert delivering live or recorded content | Deliver high-quality instruction and interact with learners |
+| ID | Persona                | Description                                                          | Primary Goal                                                   |
+|----|------------------------|----------------------------------------------------------------------|----------------------------------------------------------------|
+| P1 | **Guest Visitor**      | Unauthenticated individual exploring the platform for the first time | Evaluate platform credibility and discover relevant courses    |
+| P2 | **Registered Student** | Authenticated learner enrolled in one or more courses                | Master English communication through structured learning       |
+| P3 | **Super Admin**        | Platform owner with unrestricted system access                       | Manage the entire business, content, and revenue efficiently   |
+| P4 | **Moderator**          | Trusted assistant with configurable permissions                      | Support content publishing, student engagement, and operations |
+| P5 | **Instructor**         | Subject matter expert delivering live or recorded content            | Deliver high-quality instruction and interact with learners    |
 
 ---
 
@@ -826,17 +826,17 @@ Every story is accompanied by **acceptance criteria** (Given-When-Then), **prior
 
 ## 12. Story Map Summary
 
-| Epic | Key Stories | Priority | Complexity |
-|---|---|---|---|
-| Guest Experience | US-GUEST-001 to 006 | Must Have | S–M |
-| Student Auth & Onboarding | US-STU-001 to 003 | Must Have | S–M |
-| Student Dashboard & Learning | US-STU-004 to 015 | Must Have | S–L |
-| Admin Dashboard & Operations | US-ADM-001 to 005 | Must Have | S–L |
-| Course Management | US-ADM-006 to 011 | Must Have | M–XL |
-| User & Role Management | US-ADM-012 to 013 | Must Have | M |
-| Service & Support | US-ADM-014 to 015 | Should Have | M |
-| Notifications | US-NOTIF-001 to 002 | Should Have | S–M |
-| Non-Functional | US-NFR-001 to 004 | Must Have | — |
+| Epic                         | Key Stories         | Priority    | Complexity |
+|------------------------------|---------------------|-------------|------------|
+| Guest Experience             | US-GUEST-001 to 006 | Must Have   | S–M        |
+| Student Auth & Onboarding    | US-STU-001 to 003   | Must Have   | S–M        |
+| Student Dashboard & Learning | US-STU-004 to 015   | Must Have   | S–L        |
+| Admin Dashboard & Operations | US-ADM-001 to 005   | Must Have   | S–L        |
+| Course Management            | US-ADM-006 to 011   | Must Have   | M–XL       |
+| User & Role Management       | US-ADM-012 to 013   | Must Have   | M          |
+| Service & Support            | US-ADM-014 to 015   | Should Have | M          |
+| Notifications                | US-NOTIF-001 to 002 | Should Have | S–M        |
+| Non-Functional               | US-NFR-001 to 004   | Must Have   | —          |
 
 ---
 

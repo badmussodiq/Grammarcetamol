@@ -1,67 +1,69 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18.0-alpine
     container_name: grammarcetamol-postgres
     restart: always
     ports:
-      - "5433:5432"
+      - "9009:5432"
     environment:
       POSTGRES_USER: platform
       POSTGRES_PASSWORD: platform
       POSTGRES_DB: auth_db
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d
+      - ./scripts/postgres-entrypoint.sh:/postgres-entrypoint.sh:ro
+      - ./scripts/ensure-postgres-databases.sh:/ensure-postgres-databases.sh:ro
+    entrypoint: [ "bash", "/postgres-entrypoint.sh" ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U platform"]
+      test: [ "CMD-SHELL", "pg_isready -U platform -d auth_db" ]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
 
   redis:
-    image: redis:7
+    image: redis:8-alpine
     container_name: grammarcetamol-redis
     restart: always
     ports:
-      - "6380:6379"
+      - "9010:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:management-alpine
     container_name: grammarcetamol-rabbitmq
     restart: always
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - "9011:5672"
+      - "9012:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # Dev-only object storage for Upload/Media Service (S3-compatible). Console at :9003,
-  # S3 API at :9002 — nonstandard ports, same reasoning as the other services in this file
-  # (9000/9001 are free right now but avoiding MinIO's own well-known defaults keeps this
-  # consistent and avoids the exact kind of surprise collision that hit auth-service's gRPC
-  # port at 9091 during setup). Not yet wired to any service — see PLAN.md Tasks 16-17.
+  # Dev-only object storage for Upload/Media Service (S3-compatible). Console at :9014,
+  # S3 API at :9013 — part of the same 9000-series block as every other Grammarcetamol
+  # container (app services 9000-9008, infra 9009+) so nothing here can collide with some
+  # other project's own Postgres/Redis/RabbitMQ/MinIO running on the same machine.
   minio:
     image: minio/minio:latest
     container_name: grammarcetamol-minio
     restart: always
     ports:
-      - "9002:9000"
-      - "9003:9001"
+      - "9013:9000"
+      - "9014:9001"
     environment:
       MINIO_ROOT_USER: platform
       MINIO_ROOT_PASSWORD: platform12345
@@ -69,7 +71,31 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Dedicated MongoDB instance for Live Class Service (backend/live-class-service, PLAN.md
+  # Task 31) — deliberately its OWN container, not the pre-existing standalone `platform-mongo`
+  # container that already runs outside this compose file on the default 27017 with an
+  # unrelated `notifications` database. Same 9000-series block as everything else here.
+  mongo:
+    image: mongo:latest
+    container_name: grammarcetamol-mongo
+    restart: always
+    ports:
+      - "9015:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: platform
+      MONGO_INITDB_ROOT_PASSWORD: platform12345
+    volumes:
+      - mongo-data:/data/db
+      - ./scripts/mongo-entrypoint.sh:/mongo-entrypoint.sh:ro
+      - ./scripts/ensure-mongo-databases.sh:/ensure-mongo-databases.sh:ro
+    entrypoint: [ "bash", "/mongo-entrypoint.sh" ]
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -79,3 +105,8 @@ volumes:
   redis-data:
   rabbitmq-data:
   minio-data:
+  mongo-data:
+
+networks:
+  default:
+    name: grammarcetamol-network

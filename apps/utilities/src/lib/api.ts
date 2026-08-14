@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9000';
 
 export class ApiError extends Error {
   /** The parsed error response body, when the server returned one (e.g. { data: [...] } for structured validation errors). */

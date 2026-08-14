@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { S3CompatibleStorageProvider } from './s3-compatible-storage.provider';
-import type { StorageProvider } from './storage-provider.interface';
+import {Injectable, Logger, OnModuleInit} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {S3CompatibleStorageProvider} from './s3-compatible-storage.provider';
+import type {StorageProvider} from './storage-provider.interface';
 
 /**
  * Mirrors PaymentProviderRegistry's shape (interface + registry + "which one is active" config
@@ -28,7 +28,7 @@ export class StorageProviderRegistry implements OnModuleInit {
       'minio',
       new S3CompatibleStorageProvider({
         name: 'minio',
-        endpoint: this.config.get<string>('MINIO_ENDPOINT', 'http://localhost:9002'),
+        endpoint: this.config.get<string>('MINIO_ENDPOINT', 'http://localhost:9013'),
         region: 'us-east-1', // MinIO ignores region but the AWS SDK requires a non-empty value
         accessKeyId: this.config.get<string>('MINIO_ACCESS_KEY', 'platform'),
         secretAccessKey: this.config.get<string>('MINIO_SECRET_KEY', 'platform12345'),

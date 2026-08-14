@@ -1,8 +1,8 @@
-﻿import { cookies } from 'next/headers';
+﻿import {cookies} from 'next/headers';
 import Link from 'next/link';
-import { Badge, Button, Mapping } from '@grammarcetamol/utilities';
-import { toggleUserStatus } from './actions';
-import type { StaffUser, UserListResult } from '../../../lib/users.api';
+import {Badge, Button, Mapping} from '@grammarcetamol/utilities';
+import {toggleUserStatus} from './actions';
+import type {StaffUser, UserListResult} from '../../../lib/users.api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 20;

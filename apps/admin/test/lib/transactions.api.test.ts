@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildTransactionsQuery, DEFAULT_TRANSACTION_FILTERS } from '../../lib/transactions.api';
+import {describe, expect, it} from 'vitest';
+import {buildTransactionsQuery, DEFAULT_TRANSACTION_FILTERS} from '../../lib/transactions.api';
 
 describe('buildTransactionsQuery', () => {
   it('always sets page and limit', () => {

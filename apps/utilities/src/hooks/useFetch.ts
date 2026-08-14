@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../lib/api';
+import {useCallback, useEffect, useState} from 'react';
+import {apiFetch} from '../lib/api';
 
 export interface FetchState<T> {
   data: T | null;

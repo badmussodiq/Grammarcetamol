@@ -2,22 +2,14 @@ package com.grammarcetamol.course.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.grammarcetamol.shared.config.CurrentUser;
 import com.grammarcetamol.course.dto.*;
-import com.grammarcetamol.course.entity.Category;
-import com.grammarcetamol.course.entity.Course;
-import com.grammarcetamol.course.entity.CourseModule;
-import com.grammarcetamol.course.entity.CourseVersion;
-import com.grammarcetamol.course.entity.Lesson;
+import com.grammarcetamol.course.entity.*;
 import com.grammarcetamol.course.exception.CourseDeletionBlockedException;
 import com.grammarcetamol.course.exception.CoursePublishValidationException;
-import com.grammarcetamol.shared.exception.ForbiddenException;
-import com.grammarcetamol.course.repository.CategoryRepository;
-import com.grammarcetamol.course.repository.CourseModuleRepository;
-import com.grammarcetamol.course.repository.CourseRepository;
-import com.grammarcetamol.course.repository.CourseVersionRepository;
-import com.grammarcetamol.course.repository.LessonRepository;
+import com.grammarcetamol.course.repository.*;
 import com.grammarcetamol.course.util.SlugUtil;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.exception.ForbiddenException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,11 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service

@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Injectable, NotFoundException, ServiceUnavailableException} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 
 export interface CourseSummary {
   id: string;
@@ -27,7 +27,7 @@ export class CourseServiceClient {
   constructor(private readonly config: ConfigService) {}
 
   async getCourse(courseId: string): Promise<CourseSummary> {
-    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL', 'http://localhost:8083');
+    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL', 'http://localhost:9002');
     const res = await fetch(`${baseUrl}/api/courses/${courseId}`, {
       headers: {
         'X-User-Id': INTERNAL_CALLER_ID,

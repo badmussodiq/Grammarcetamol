@@ -1,9 +1,9 @@
 'use client';
 
-import { forwardRef } from 'react';
-import type { ButtonHTMLAttributes } from 'react';
-import { Spinner } from '../Spinner/Spinner';
-import { cn } from '../../utils/cn';
+import type {ButtonHTMLAttributes} from 'react';
+import {forwardRef} from 'react';
+import {Spinner} from '../Spinner/Spinner';
+import {cn} from '../../utils/cn';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
@@ -21,8 +21,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           'inline-flex items-center justify-center gap-2 font-medium transition-all duration-150 ease-out',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-          variant === 'primary'     && 'bg-primary text-white hover:bg-primary-light rounded-md',
-          variant === 'secondary'   && 'bg-surface border border-primary text-primary hover:bg-background rounded-md',
+          variant === 'primary'     && 'bg-primary text-white hover:bg-primary-dark rounded-md',
+          variant === 'secondary'   && 'bg-surface border border-primary text-primary hover:bg-primary-light/10 rounded-md',
           variant === 'ghost'       && 'bg-transparent text-[#64748B] hover:bg-background rounded-md',
           variant === 'destructive' && 'bg-error text-white hover:bg-[#DC2626] rounded-md',
           size === 'sm' && 'px-3 py-1.5 text-sm',

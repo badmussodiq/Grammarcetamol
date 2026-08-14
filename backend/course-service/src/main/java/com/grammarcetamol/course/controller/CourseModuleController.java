@@ -1,15 +1,11 @@
 package com.grammarcetamol.course.controller;
 
-import com.grammarcetamol.shared.config.CurrentUser;
-import com.grammarcetamol.shared.dto.ApiResponse;
-import com.grammarcetamol.course.dto.CreateLessonRequest;
-import com.grammarcetamol.course.dto.CreateModuleRequest;
-import com.grammarcetamol.course.dto.ReorderRequest;
-import com.grammarcetamol.course.dto.UpdateLessonRequest;
-import com.grammarcetamol.course.dto.UpdateModuleRequest;
+import com.grammarcetamol.course.dto.*;
 import com.grammarcetamol.course.entity.CourseModule;
 import com.grammarcetamol.course.entity.Lesson;
 import com.grammarcetamol.course.service.CourseStructureService;
+import com.grammarcetamol.shared.config.CurrentUser;
+import com.grammarcetamol.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

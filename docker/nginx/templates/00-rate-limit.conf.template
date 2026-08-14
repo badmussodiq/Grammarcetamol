@@ -1,0 +1,23 @@
+# Shared http{}-level directives, included once here rather than repeated in each
+# per-domain template — every file under conf.d/ lands inside the SAME http{} block (the
+# base nginx.conf does `include /etc/nginx/conf.d/*.conf;`), so anything declared at a
+# template's top level (outside any server{} block) shares that one scope. `resolver` in
+# particular errors with "directive is duplicate" if declared more than once in the same
+# context — confirmed by actually starting nginx with it repeated in all three per-domain
+# templates before consolidating it here.
+#
+# resolver: Docker's own embedded DNS (127.0.0.11), used by the `set $upstream ...;
+# proxy_pass $upstream;` pattern in each per-domain template so nginx re-resolves
+# gateway-service/student-frontend/admin-frontend periodically instead of caching whatever
+# IP it first resolved for the life of the worker process — see api.conf.template for the
+# full reasoning.
+resolver 127.0.0.11 valid=10s;
+
+# Rate/connection limit zones, referenced by every server block below. Complements
+# gateway-service's own Redis-backed limiter (RateLimitConfig.java, currently scoped to
+# /api/auth/**) with a blunter, always-on, per-IP defense at the edge — the first line of
+# defense against a request flood before it ever reaches an app container. Numbered "00-"
+# so it's included before the per-domain server blocks (limit_req_zone must be defined in
+# the http{} context before any location{} references it via limit_req).
+limit_req_zone $binary_remote_addr zone=general_limit:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=general_conn:10m;

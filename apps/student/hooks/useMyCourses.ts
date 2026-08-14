@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiFetch } from '@grammarcetamol/utilities';
-import { enrollmentApi } from '@/lib/enrollment.api';
-import type { Enrollment } from '@/lib/enrollment.api';
-import type { Course } from '@/lib/course.api';
+import {useEffect, useState} from 'react';
+import {apiFetch} from '@grammarcetamol/utilities';
+import type {Enrollment} from '@/lib/enrollment.api';
+import {enrollmentApi} from '@/lib/enrollment.api';
+import type {Course} from '@/lib/course.api';
 
 export interface EnrolledCourse {
   enrollment: Enrollment;

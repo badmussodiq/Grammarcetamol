@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { Badge } from '@grammarcetamol/utilities';
-import type { Course } from '@/lib/course.api';
+import {Badge} from '@grammarcetamol/utilities';
+import type {Course} from '@/lib/course.api';
 
 function formatPrice(course: Course): string {
   if (course.price === 0) return 'Free';

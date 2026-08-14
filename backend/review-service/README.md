@@ -1,7 +1,7 @@
 # review-service
 
 Spring Boot 3 / Java 21. Phase 3 (`PLAN.md` Task 22). Owns course reviews and moderation. Reachable
-through the gateway at `/api/reviews/**` and `/api/courses/{courseId}/reviews`, or directly on `:8085`
+through the gateway at `/api/reviews/**` and `/api/courses/{courseId}/reviews`, or directly on `:9004`
 in dev.
 
 Built on `backend/shared-java` (fourth consumer) — same header-trust pattern as `course-service`/
@@ -47,9 +47,8 @@ one first. No `JwtAuthFilter` whitelist change was needed — the path already m
 ## How to run locally
 
 Same pattern as `enrollment-service`: infra up, `backend/shared-java` installed, `review_db` created
-(`docker/postgres-init/01-create-databases.sh` handles it on a fresh volume; on an existing volume,
-`CREATE DATABASE review_db;` once), `enrollment-service` and `course-service` reachable, then
-`mvn spring-boot:run`.
+automatically by `docker/scripts/ensure-postgres-databases.sh` on every Postgres container start,
+`enrollment-service` and `course-service` reachable, then `mvn spring-boot:run`.
 
 ## Endpoints
 
@@ -71,9 +70,9 @@ Publish-only — no consumer, since the completion check is a live call rather t
 
 | Property | Default | |
 |---|---|---|
-| `server.port` | `8085` | |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5433/review_db` | |
-| `app.enrollment-service-url` | `http://localhost:8084` | |
+| `server.port` | `9004` | |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:9009/review_db` | |
+| `app.enrollment-service-url` | `http://localhost:9003` | |
 | `app.review-completion-threshold-pct` | `50` | |
 | `app.review-edit-window-days` | `7` | |
 

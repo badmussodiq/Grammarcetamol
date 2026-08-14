@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useToast, ApiError } from '@grammarcetamol/utilities';
-import { uploadsApi, sha256Hex } from '@/lib/uploads.api';
+import {useState} from 'react';
+import {ApiError, useToast} from '@grammarcetamol/utilities';
+import {sha256Hex, uploadsApi} from '@/lib/uploads.api';
 
 type Phase = 'idle' | 'hashing' | 'uploading' | 'finalizing' | 'done' | 'error';
 

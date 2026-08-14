@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 9000
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6380}
+      port: ${REDIS_PORT:9010}
   cloud:
     gateway:
       globalcors:
@@ -28,12 +28,13 @@ spring:
             maxAge: 3600
 
 gateway:
-  auth-service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
-  course-service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
-  enrollment-service-url: ${ENROLLMENT_SERVICE_URL:http://localhost:8084}
-  payment-service-url: ${PAYMENT_SERVICE_URL:http://localhost:8086}
-  review-service-url: ${REVIEW_SERVICE_URL:http://localhost:8085}
-  upload-service-url: ${UPLOAD_SERVICE_URL:http://localhost:8087}
+  auth-service-url: ${AUTH_SERVICE_URL:http://localhost:9001}
+  course-service-url: ${COURSE_SERVICE_URL:http://localhost:9002}
+  enrollment-service-url: ${ENROLLMENT_SERVICE_URL:http://localhost:9003}
+  payment-service-url: ${PAYMENT_SERVICE_URL:http://localhost:9005}
+  review-service-url: ${REVIEW_SERVICE_URL:http://localhost:9004}
+  upload-service-url: ${UPLOAD_SERVICE_URL:http://localhost:9006}
+  notification-service-url: ${NOTIFICATION_SERVICE_URL:http://localhost:9008}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 
 grpc:

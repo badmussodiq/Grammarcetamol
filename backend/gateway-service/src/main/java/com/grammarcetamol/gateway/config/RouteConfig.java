@@ -61,6 +61,21 @@ public class RouteConfig {
             .route("upload-service", r -> r
                 .path("/api/uploads/**")
                 .uri(appGatewayProperties.getUploadServiceUrl()))
+            // Notification service routes (templates + immutable send-audit log, both admin-gated)
+            .route("notification-service", r -> r
+                .path("/api/notification-templates/**", "/api/notification-logs/**")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Student-facing in-app notification inbox (list/read/unread-count) — every route is
+            // scoped to the authenticated caller inside NotificationsController itself.
+            .route("notifications-service", r -> r
+                .path("/api/notifications/**")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Support tickets — also served by notification-service. POST /api/support/tickets
+            // is public (see JwtAuthFilter's OPTIONALLY_AUTHENTICATED_ROUTES); list/detail/close
+            // are admin/moderator-gated inside SupportController itself.
+            .route("support-service", r -> r
+                .path("/api/support/**")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
             .build();
     }
 }

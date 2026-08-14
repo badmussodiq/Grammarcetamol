@@ -1,8 +1,8 @@
-import { Controller, ForbiddenException, Get, Query } from '@nestjs/common';
-import { ApiResponse } from '../common/api-response';
-import { CurrentUser, CurrentUserPayload, requireAuthenticated } from '../common/current-user.decorator';
-import { RevenueService } from './revenue.service';
-import type { RevenuePeriod } from './revenue.types';
+import {Controller, ForbiddenException, Get, Query} from '@nestjs/common';
+import {ApiResponse} from '../common/api-response';
+import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '../common/current-user.decorator';
+import {RevenueService} from './revenue.service';
+import type {RevenuePeriod} from './revenue.types';
 
 @Controller('api/payments/revenue')
 export class RevenueController {

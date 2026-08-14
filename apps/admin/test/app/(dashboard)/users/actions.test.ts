@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 const mockGet = vi.fn();
 vi.mock('next/headers', () => ({
@@ -30,7 +30,7 @@ describe('toggleUserStatus', () => {
     await toggleUserStatus(formDataFor('user-123', 'SUSPENDED'));
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/api/users/user-123/status',
+      'http://localhost:9000/api/users/user-123/status',
       expect.objectContaining({
         method: 'PATCH',
         headers: expect.objectContaining({ Cookie: 'access_token=abc.jwt.token' }),

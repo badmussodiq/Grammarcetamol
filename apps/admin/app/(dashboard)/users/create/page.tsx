@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { Button, Input, Mapping, useToast, useFormState, ApiError } from '@grammarcetamol/utilities';
-import { usersApi } from '../../../../lib/users.api';
-import type { ChangeEvent, FormEvent } from 'react';
+import {ApiError, Button, Input, Mapping, useFormState, useToast} from '@grammarcetamol/utilities';
+import {usersApi} from '../../../../lib/users.api';
+import type {ChangeEvent, FormEvent} from 'react';
 
 const ROLES = [
   { value: 'MODERATOR', label: 'Moderator' },

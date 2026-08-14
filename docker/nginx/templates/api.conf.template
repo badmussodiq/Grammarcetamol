@@ -1,0 +1,51 @@
+# api.${DOMAIN_API} -> gateway-service. The `set $upstream ...; proxy_pass $upstream;`
+# combo (instead of a bare `proxy_pass http://gateway-service:9000;`) is deliberate: nginx
+# resolves a bare hostname in proxy_pass ONCE, at config load, and caches it for the life
+# of the worker process. Using a variable forces nginx to actually consult the `resolver`
+# (declared once, shared across all server blocks, in 00-rate-limit.conf.template — nginx
+# rejects a second `resolver` directive in the same http{} scope) on its `valid=10s` TTL —
+# so if gateway-service's container restarts and gets a new internal IP (or, if it's ever
+# scaled with `--scale gateway-service=N` the same way the 7 backend microservices already
+# are), nginx picks up the change within ~10s instead of hammering a dead IP indefinitely.
+
+server {
+    listen 80;
+    server_name ${DOMAIN_API};
+
+    # Required for both the initial certbot --standalone bootstrap's later renewals
+    # (certbot renew --webroot) — must stay reachable over plain HTTP even though
+    # everything else on this server redirects to HTTPS.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN_API};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN_API}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_API}/privkey.pem;
+
+    # Course content / avatar uploads go through upload-service via the gateway — bump
+    # the default 1m body-size cap accordingly.
+    client_max_body_size 50m;
+
+    location / {
+        limit_req zone=general_limit burst=40 nodelay;
+        limit_conn general_conn 20;
+
+        set $upstream http://gateway-service:9000;
+        proxy_pass $upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

@@ -1,6 +1,6 @@
 # gateway-service
 
-Spring Cloud Gateway (reactive, WebFlux). Java 21. The single entry point for all browser traffic — port `8080`. Routes are configured programmatically (no Eureka/service registry; downstream URLs come from environment variables / `application.yml`), not via YAML route lists.
+Spring Cloud Gateway (reactive, WebFlux). Java 21. The single entry point for all browser traffic — port `9000`, first in Grammarcetamol's dedicated `9000`-series port block (every app service and infra container in this project uses one, to avoid colliding with anything else you might have running locally — see the root `README.md`). Routes are configured programmatically (no Eureka/service registry; downstream URLs come from environment variables / `application.yml`), not via YAML route lists.
 
 ## How to run locally
 
@@ -14,7 +14,7 @@ See `../auth-service/README.md` for a Windows-specific startup gotcha that appli
 
 ## What it does
 
-- **Routing** (`RouteConfig`): `/api/auth/**` and `/api/users/**` → `auth-service`; `/api/courses/**` and `/api/categories/**` → `course-service` (Phase 2, `backend/course-service`, port 8083). Auth routes carry a rate-limit filter.
+- **Routing** (`RouteConfig`): `/api/auth/**` and `/api/users/**` → `auth-service`; `/api/courses/**` and `/api/categories/**` → `course-service` (Phase 2, `backend/course-service`, port 9002). Auth routes carry a rate-limit filter.
 - **JWT validation** (`JwtAuthFilter`): extracts the token from an `Authorization: Bearer` header or the `access_token` httpOnly cookie (cookie is what the browser actually sends — the frontend never has JS access to the JWT), calls `auth-service` over gRPC to validate it, and injects `X-User-Id` / `X-User-Role` / `X-User-Email` headers onto the downstream request on success. Downstream services (course-service included) trust these headers rather than parsing the JWT themselves. Also stamps every request with an `X-Request-Id`.
   - **`PUBLIC_ROUTES`** (login, register, forgot/reset-password, email verification, JWKS) skip auth entirely — no attempt to read a token even if one's present.
   - **`OPTIONALLY_AUTHENTICATED_ROUTES`** (`GET /api/courses/**`, `GET /api/categories/**`) are different on purpose: a request with no token, an expired token, or a token that can't be validated (auth-service down) all fail *open* to anonymous — guests can always browse the public catalog. But a request that *does* carry a valid token still gets its identity headers injected. This distinction matters: an early version of this filter treated `GET /api/courses/**` as flat-out public and never attempted validation, which meant a logged-in admin viewing their own **draft** course (via `GET /api/courses/{id}`) looked identical to an anonymous guest to course-service — and course-service correctly 404s a non-published course for anyone it can't identify as the owner/an admin. Fixed 2026-08-05; see `JwtAuthFilterTest`'s `optionallyAuthenticatedRoute*` tests.
@@ -28,14 +28,14 @@ Key `application.yml` values (all overridable via env var):
 
 | Property | Default | |
 |---|---|---|
-| `gateway.auth-service-url` | `http://localhost:8081` | auth-service REST |
-| `gateway.course-service-url` | `http://localhost:8083` | course-service REST |
+| `gateway.auth-service-url` | `http://localhost:9001` | auth-service REST |
+| `gateway.course-service-url` | `http://localhost:9002` | course-service REST |
 | `grpc.client.auth-service.address` | `static://localhost:9091` | auth-service gRPC |
-| `spring.data.redis.host` / `.port` | `localhost` / `6380` | rate limiting |
+| `spring.data.redis.host` / `.port` | `localhost` / `9010` | rate limiting |
 | `spring.cloud.gateway.globalcors.cors-configurations` | allows `:3000` and `:3001` | student + admin frontends |
 
 `/actuator/health` and `/actuator/routes` are exposed for debugging.
 
 ## Port
 
-`8080`
+`9000`
