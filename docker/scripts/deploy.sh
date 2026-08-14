@@ -7,10 +7,11 @@
 # Usage: deploy.sh <image-tag>   (CI passes the commit SHA it just built and pushed)
 #
 # Relies on IMAGE_PREFIX and IMAGE_PULL_POLICY=always already being set in this directory's
-# own .env (created once by hand — see README.md's "Deploying to a cloud server" section),
-# so `docker compose pull` actually hits the registry instead of the local-dev "build"
-# default. IMAGE_TAG is the one value that changes per deploy, so it's passed here instead
-# of living in .env.
+# own .env — written fresh by the CI deploy step on every run (from the PROD_ENV_FILE
+# GitHub Actions secret / prod-env-file Jenkins credential — see README.md's "Deploying
+# to a cloud server" section), not created here by hand — so `docker compose pull`
+# actually hits the registry instead of the local-dev "build" default. IMAGE_TAG is the
+# one value that changes per deploy, so it's passed here instead of living in .env.
 set -euo pipefail
 
 TAG="${1:?Usage: deploy.sh <image-tag>}"
