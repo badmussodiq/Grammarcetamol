@@ -19,10 +19,10 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven-3.9'      // Must match the exact name you set in UI
-        nodejs 'Node22'       // Must match the exact name you set in UI
-    }
+//    tools {
+//        maven 'Maven-3.9'      // Must match the exact name you set in UI
+//        nodejs 'Node22'       // Must match the exact name you set in UI
+//    }
 
     environment {
         DOCKERHUB_REPO   = 'grammarcetamol'
