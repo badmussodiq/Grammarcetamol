@@ -46,7 +46,7 @@ pipeline {
                     set -e
                     mkdir -p ${TOOLS_DIR}
 
-                    # --- Maven 3.9.9 (from Apache Archive, permanent URL) ---
+                    # --- Maven 3.9.9 ---
                     if [ ! -x "${TOOLS_DIR}/maven/bin/mvn" ]; then
                         echo "Downloading Maven..."
                         mkdir -p ${TOOLS_DIR}/maven
@@ -54,12 +54,12 @@ pipeline {
                             | tar -xz -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
-                    # --- Node 22 (LTS) ---
+                    # --- Node 22 (LTS) — .tar.gz so we don't need xz ---
                     if [ ! -x "${TOOLS_DIR}/node/bin/node" ]; then
                         echo "Downloading Node 22..."
                         mkdir -p ${TOOLS_DIR}/node
-                        curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
-                            | tar -xJ -C ${TOOLS_DIR}/node --strip-components=1
+                        curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.gz \
+                            | tar -xzf -C ${TOOLS_DIR}/node --strip-components=1
                     fi
 
                     # --- Docker CLI (static binary) ---
