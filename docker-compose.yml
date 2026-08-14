@@ -14,7 +14,7 @@
 # Image source is env-var-driven (see .env.example: IMAGE_PREFIX / IMAGE_TAG /
 # IMAGE_PULL_POLICY) so the exact same `image:`+`build:` pair either builds locally
 # (the default — IMAGE_PULL_POLICY=build never attempts a pull) or pulls a pre-built
-# image a CI pipeline already pushed to GHCR/Docker Hub (set IMAGE_PREFIX to that
+# image a CI pipeline already pushed to Docker Hub (set IMAGE_PREFIX to that
 # registry's prefix and IMAGE_PULL_POLICY=missing on a cloud server) — same file, only
 # .env differs.
 #
@@ -25,7 +25,7 @@
 #
 # Usage (cloud server, pulling images CI already built):
 #   cp .env.example .env
-#   # then in .env: IMAGE_PREFIX=ghcr.io/<owner>/grammarcetamol-  (or <dockerhub-user>/grammarcetamol-)
+#   # then in .env: IMAGE_PREFIX=sodmod1999/grammarcetamol-
 #   #               IMAGE_TAG=latest
 #   #               IMAGE_PULL_POLICY=missing
 #   docker compose up -d
