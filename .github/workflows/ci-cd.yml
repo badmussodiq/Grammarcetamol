@@ -90,6 +90,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - run: npm cache clean --force
       - working-directory: backend/${{ matrix.service }}
         run: npm install
       - working-directory: backend/${{ matrix.service }}
@@ -110,7 +112,7 @@ jobs:
       # "webidl.util.markAsUncloneable is not a function" before any test can run.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24.15.0"
       # apps/utilities is consumed as raw TS source via a tsconfig path alias, not an npm
       # dependency, but it's a SIBLING PROJECT WITH ITS OWN node_modules (see its README) —
       # student/admin's TypeScript still needs utilities' own react/@types/react reachable
