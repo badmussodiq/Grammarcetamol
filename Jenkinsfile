@@ -54,11 +54,11 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
-                    # --- Node 22 (LTS) ---
+                    # --- Node 24 (LTS) — satisfies jsdom 30.x engine requirement ---
                     if [ ! -x "${TOOLS_DIR}/node/bin/node" ]; then
-                        echo "Downloading Node 22..."
+                        echo "Downloading Node 24..."
                         mkdir -p ${TOOLS_DIR}/node
-                        curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.gz \
+                        curl -fsSL https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-x64.tar.gz \
                             | tar -xzf - -C ${TOOLS_DIR}/node --strip-components=1
                     fi
 
