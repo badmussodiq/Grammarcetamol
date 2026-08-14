@@ -33,17 +33,24 @@ pipeline {
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Bootstrap Tools') {
             steps {
                 sh '''
                     set -e
                     mkdir -p ${TOOLS_DIR}
 
-                    # --- Maven 3.9.x ---
+                    # --- Maven 3.9.9 (from Apache Archive, permanent URL) ---
                     if [ ! -x "${TOOLS_DIR}/maven/bin/mvn" ]; then
                         echo "Downloading Maven..."
                         mkdir -p ${TOOLS_DIR}/maven
-                        curl -fsSL https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
+                        curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
                             | tar -xz -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
@@ -69,12 +76,6 @@ pipeline {
                     node -v
                     docker --version
                 '''
-            }
-        }
-
-        stage('Checkout') {
-            steps {
-                checkout scm
             }
         }
 
