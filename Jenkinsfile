@@ -19,13 +19,59 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'Maven-3.9'      // Must match the exact name you set in UI
+        nodejs 'Node22'       // Must match the exact name you set in UI
+    }
+
     environment {
         DOCKERHUB_REPO   = 'grammarcetamol'
         IMAGE_TAG        = "${env.GIT_COMMIT ?: 'local'}"
         DEPLOY_DIR       = '/opt/grammarcetamol'
+        TOOLS_DIR        = "${env.HOME}/.jenkins-tools"
+        PATH             = "${env.TOOLS_DIR}/maven/bin:${env.TOOLS_DIR}/node/bin:${env.TOOLS_DIR}/docker:${env.PATH}"
     }
 
     stages {
+        stage('Bootstrap Tools') {
+            steps {
+                sh '''
+                    set -e
+                    mkdir -p ${TOOLS_DIR}
+
+                    # --- Maven 3.9.x ---
+                    if [ ! -x "${TOOLS_DIR}/maven/bin/mvn" ]; then
+                        echo "Downloading Maven..."
+                        mkdir -p ${TOOLS_DIR}/maven
+                        curl -fsSL https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
+                            | tar -xz -C ${TOOLS_DIR}/maven --strip-components=1
+                    fi
+
+                    # --- Node 22 (LTS) ---
+                    if [ ! -x "${TOOLS_DIR}/node/bin/node" ]; then
+                        echo "Downloading Node 22..."
+                        mkdir -p ${TOOLS_DIR}/node
+                        curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
+                            | tar -xJ -C ${TOOLS_DIR}/node --strip-components=1
+                    fi
+
+                    # --- Docker CLI (static binary) ---
+                    if [ ! -x "${TOOLS_DIR}/docker/docker" ]; then
+                        echo "Downloading Docker CLI..."
+                        mkdir -p ${TOOLS_DIR}/docker
+                        curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz \
+                            | tar -xz -C ${TOOLS_DIR}/docker --strip-components=1
+                    fi
+
+                    # Verify
+                    echo "=== Tool versions ==="
+                    mvn -v | head -1
+                    node -v
+                    docker --version
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
