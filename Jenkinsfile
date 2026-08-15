@@ -42,8 +42,10 @@ pipeline {
         }
 
         stage('Print Out') {
-            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-                sh 'echo "$DH_PASS" and password "$DH_PASS"'
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+                    sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
+                }
             }
         }
 
