@@ -25,11 +25,11 @@ pipeline {
 //    }
 
     environment {
-        DOCKERHUB_REPO   = 'grammarcetamol'
-        IMAGE_TAG        = "${env.GIT_COMMIT ?: 'local'}"
-        DEPLOY_DIR       = '/opt/grammarcetamol'
-        TOOLS_DIR        = "${env.HOME}/.jenkins-tools"
-        PATH             = "${env.TOOLS_DIR}/maven/bin:${env.TOOLS_DIR}/node/bin:${env.TOOLS_DIR}/docker:${env.PATH}"
+        DOCKERHUB_REPO = 'grammarcetamol'
+        IMAGE_TAG = "${env.GIT_COMMIT ?: 'local'}"
+        DEPLOY_DIR = '/opt/grammarcetamol'
+        TOOLS_DIR = "${env.HOME}/.jenkins-tools"
+        PATH = "${env.TOOLS_DIR}/maven/bin:${env.TOOLS_DIR}/node/bin:${env.TOOLS_DIR}/docker:${env.PATH}"
     }
 
     stages {
@@ -196,20 +196,24 @@ pipeline {
         }
 
         stage('Build & Push Images') {
-            when { branch 'master' }
+            when {
+                expression {
+                    env.GIT_BRANCH == 'origin/master' || env.BRANCH_NAME == 'master'
+                }
+            }
             steps {
                 script {
                     def images = [
-                        [name: 'auth-service',         context: 'backend',                  dockerfile: 'backend/auth-service/Dockerfile'],
-                        [name: 'course-service',       context: 'backend',                  dockerfile: 'backend/course-service/Dockerfile'],
-                        [name: 'enrollment-service',   context: 'backend',                  dockerfile: 'backend/enrollment-service/Dockerfile'],
-                        [name: 'review-service',       context: 'backend',                  dockerfile: 'backend/review-service/Dockerfile'],
-                        [name: 'gateway-service',      context: 'backend',                  dockerfile: 'backend/gateway-service/Dockerfile'],
-                        [name: 'payment-service',      context: 'backend/payment-service',      dockerfile: 'backend/payment-service/Dockerfile'],
-                        [name: 'notification-service', context: 'backend/notification-service', dockerfile: 'backend/notification-service/Dockerfile'],
-                        [name: 'upload-service',       context: 'backend/upload-service',       dockerfile: 'backend/upload-service/Dockerfile'],
-                        [name: 'student-frontend',     context: 'apps',                     dockerfile: 'apps/student/Dockerfile'],
-                        [name: 'admin-frontend',       context: 'apps',                     dockerfile: 'apps/admin/Dockerfile'],
+                            [name: 'auth-service', context: 'backend', dockerfile: 'backend/auth-service/Dockerfile'],
+                            [name: 'course-service', context: 'backend', dockerfile: 'backend/course-service/Dockerfile'],
+                            [name: 'enrollment-service', context: 'backend', dockerfile: 'backend/enrollment-service/Dockerfile'],
+                            [name: 'review-service', context: 'backend', dockerfile: 'backend/review-service/Dockerfile'],
+                            [name: 'gateway-service', context: 'backend', dockerfile: 'backend/gateway-service/Dockerfile'],
+                            [name: 'payment-service', context: 'backend/payment-service', dockerfile: 'backend/payment-service/Dockerfile'],
+                            [name: 'notification-service', context: 'backend/notification-service', dockerfile: 'backend/notification-service/Dockerfile'],
+                            [name: 'upload-service', context: 'backend/upload-service', dockerfile: 'backend/upload-service/Dockerfile'],
+                            [name: 'student-frontend', context: 'apps', dockerfile: 'apps/student/Dockerfile'],
+                            [name: 'admin-frontend', context: 'apps', dockerfile: 'apps/admin/Dockerfile'],
                     ]
 
                     def builds = images.collectEntries { img ->
@@ -226,8 +230,8 @@ pipeline {
 
                 script {
                     def services = ['auth-service', 'course-service', 'enrollment-service', 'review-service',
-                                     'gateway-service', 'payment-service', 'notification-service', 'upload-service',
-                                     'student-frontend', 'admin-frontend']
+                                    'gateway-service', 'payment-service', 'notification-service', 'upload-service',
+                                    'student-frontend', 'admin-frontend']
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
                         services.each { svc ->
                             sh """
@@ -243,7 +247,12 @@ pipeline {
         }
 
         stage('Deploy') {
-            when { branch 'master' }
+            when {
+                expression {
+                    env.GIT_BRANCH == 'origin/master' || env.BRANCH_NAME == 'master'
+                }
+            }
+
             steps {
                 // Jenkins IS the deploy server here — no SSH/SCP, just a local copy from
                 // this build's own checkout into DEPLOY_DIR, then run deploy.sh in place.
