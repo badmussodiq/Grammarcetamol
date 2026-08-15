@@ -63,7 +63,7 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
-                    # --- Node 24 (LTS) — version-checked so upgrades are picked up ---
+                    # --- Node 24 (LTS) ---
                     NODE_VERSION="v24.15.0"
                     if [ ! -x "${TOOLS_DIR}/node/bin/node" ] || [ "$(${TOOLS_DIR}/node/bin/node -v)" != "$NODE_VERSION" ]; then
                         echo "Downloading Node $NODE_VERSION..."
@@ -81,11 +81,21 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/docker --strip-components=1
                     fi
 
+                    # --- Docker Compose plugin (required for 'docker compose' command) ---
+                    if [ ! -x "${HOME}/.docker/cli-plugins/docker-compose" ]; then
+                        echo "Downloading Docker Compose plugin..."
+                        mkdir -p ${HOME}/.docker/cli-plugins
+                        curl -fsSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+                            -o ${HOME}/.docker/cli-plugins/docker-compose
+                        chmod +x ${HOME}/.docker/cli-plugins/docker-compose
+                    fi
+
                     # Verify
                     echo "=== Tool versions ==="
                     mvn -v | head -1
                     node -v
                     docker --version
+                    docker compose version
                 '''
             }
         }
