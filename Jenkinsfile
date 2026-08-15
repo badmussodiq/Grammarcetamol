@@ -280,9 +280,9 @@ pipeline {
                 // not created by hand on the server — add a Jenkins "Secret file"
                 // credential named prod-env-file whose content is the full .env this
                 // service needs (see .env.example for the variable list).
+                //                        mkdir -p ${DEPLOY_DIR}
                 withCredentials([file(credentialsId: 'prod-env-file', variable: 'PROD_ENV_FILE')]) {
                     sh """
-                        mkdir -p ${DEPLOY_DIR}
                         cp docker-compose.yml ${DEPLOY_DIR}/
                         cp -r docker ${DEPLOY_DIR}/
                         cp "\$PROD_ENV_FILE" ${DEPLOY_DIR}/.env
