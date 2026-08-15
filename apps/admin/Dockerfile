@@ -2,7 +2,7 @@
 # tsconfig `paths` aliases @grammarcetamol/utilities straight to ../utilities/src).
 # npm install, not npm ci — package-lock.json is intentionally not committed (see
 # .gitignore), and npm ci requires one to exist.
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /workspace
 COPY utilities/ utilities/
@@ -22,7 +22,7 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:9000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 # next.config.mjs sets turbopack.root to apps/, so the standalone output mirrors that

@@ -54,11 +54,13 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
-                    # --- Node 24 (LTS) — satisfies jsdom 30.x engine requirement ---
-                    if [ ! -x "${TOOLS_DIR}/node/bin/node" ]; then
-                        echo "Downloading Node 24..."
+                    # --- Node 24 (LTS) — version-checked so upgrades are picked up ---
+                    NODE_VERSION="v24.15.0"
+                    if [ ! -x "${TOOLS_DIR}/node/bin/node" ] || [ "$(${TOOLS_DIR}/node/bin/node -v)" != "$NODE_VERSION" ]; then
+                        echo "Downloading Node $NODE_VERSION..."
+                        rm -rf ${TOOLS_DIR}/node
                         mkdir -p ${TOOLS_DIR}/node
-                        curl -fsSL https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-x64.tar.gz \
+                        curl -fsSL https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.gz \
                             | tar -xzf - -C ${TOOLS_DIR}/node --strip-components=1
                     fi
 
@@ -84,6 +86,12 @@ pipeline {
                 dir('backend/shared-java') {
                     sh 'mvn -B install -DskipTests'
                 }
+            }
+        }
+
+        stage('Install utilities') {
+            steps {
+                dir('apps/utilities') { sh 'npm install' }
             }
         }
 
