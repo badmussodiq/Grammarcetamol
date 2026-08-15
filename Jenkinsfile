@@ -38,6 +38,13 @@ pipeline {
             steps {
                 checkout scm
             }
+            withCredentials()
+        }
+
+        stage('Print Out') {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+                sh 'echo "$DH_PASS" and password "$DH_PASS"'
+            }
         }
 
         stage('Bootstrap Tools') {
