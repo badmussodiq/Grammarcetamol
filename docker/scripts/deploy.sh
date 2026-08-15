@@ -17,6 +17,7 @@ set -euo pipefail
 TAG="${1:?Usage: deploy.sh <image-tag>}"
 export IMAGE_TAG="$TAG"
 
+docker compose -p grammarcetamol down
 docker compose -p grammarcetamol pull
 docker compose -p grammarcetamol up -d
 
