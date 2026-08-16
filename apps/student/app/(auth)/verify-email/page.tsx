@@ -5,7 +5,7 @@ import {Suspense, useEffect} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useGenericState, useToast} from '@grammarcetamol/utilities';
-import {authApi} from '../../../lib/auth.api';
+import {authApi} from '@/lib/auth.api';
 
 export default function VerifyEmailPage() {
   return (

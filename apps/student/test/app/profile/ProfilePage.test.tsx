@@ -9,7 +9,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {ToastProvider} from '@grammarcetamol/utilities';
 import {AuthProvider} from '@/contexts/AuthContext';
-import ProfilePage from '../../../app/(main)/profile/page';
+import ProfilePage from '@/app/(main)/profile/page';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

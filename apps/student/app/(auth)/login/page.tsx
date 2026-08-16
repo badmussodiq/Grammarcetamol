@@ -5,7 +5,7 @@ import {Suspense} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
-import {useAuth} from '../../../contexts/AuthContext';
+import {useAuth} from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   return (

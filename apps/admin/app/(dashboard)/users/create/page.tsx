@@ -3,7 +3,7 @@
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, Mapping, useFormState, useToast} from '@grammarcetamol/utilities';
-import {usersApi} from '../../../../lib/users.api';
+import {usersApi} from '@/lib/users.api';
 import type {ChangeEvent, FormEvent} from 'react';
 
 const ROLES = [

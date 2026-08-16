@@ -8,7 +8,7 @@
  * middle layer: real frontend code, fake network.
  */
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {sha256Hex, uploadsApi} from '../../lib/uploads.api';
+import {sha256Hex, uploadsApi} from '@/lib/uploads.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

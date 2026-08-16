@@ -1,11 +1,11 @@
 import {BadRequestException, ForbiddenException} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {CurrentUserPayload} from '../../src/common/current-user.decorator';
-import {AuthServiceClient} from '../../src/course-client/auth-service.client';
-import {CourseServiceClient} from '../../src/course-client/course-service.client';
-import {PaymentEventPublisher} from '../../src/messaging/payment-event-publisher';
-import {PaymentProviderRegistry} from '../../src/providers/payment-provider.registry';
-import {PaymentsService} from '../../src/payments/payments.service';
+import {CurrentUserPayload} from '@/common/current-user.decorator';
+import {AuthServiceClient} from '@/course-client/auth-service.client';
+import {CourseServiceClient} from '@/course-client/course-service.client';
+import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
+import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
+import {PaymentsService} from '@/payments/payments.service';
 
 function paymentRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {

@@ -1,6 +1,6 @@
 import {Body, Controller, Get, Param, Patch, Post, Query} from '@nestjs/common';
-import {CurrentUser, type CurrentUserPayload, requireAdminOrModerator} from '../common/current-user.decorator';
-import {ApiResponse} from '../common/api-response';
+import {CurrentUser, type CurrentUserPayload, requireAdminOrModerator} from '@/common/current-user.decorator';
+import {ApiResponse} from '@/common/api-response';
 import {CreateTicketDto} from './dto/create-ticket.dto';
 import {SupportService} from './support.service';
 

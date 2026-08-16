@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import type {Course} from '../../lib/courses.api';
-import {courseToFormValues, EMPTY_COURSE_FORM, toRequestBody, validateCourseForm} from '../../lib/courses.api';
+import type {Course} from '@/lib/courses.api';
+import {courseToFormValues, EMPTY_COURSE_FORM, toRequestBody, validateCourseForm} from '@/lib/courses.api';
 
 describe('toRequestBody', () => {
   it('trims strings and converts empty optional fields to null', () => {

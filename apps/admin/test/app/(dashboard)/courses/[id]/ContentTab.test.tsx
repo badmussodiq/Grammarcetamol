@@ -9,7 +9,7 @@ import type {ReactElement} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen, within} from '@testing-library/react';
 import {ToastProvider} from '@grammarcetamol/utilities';
-import {ContentTab} from '../../../../../app/(dashboard)/courses/[id]/ContentTab';
+import {ContentTab} from '@/app/(dashboard)/courses/[id]/ContentTab';
 import {coursesApi, type ModuleResponse} from '@/lib/courses.api';
 
 function renderWithProviders(ui: ReactElement) {

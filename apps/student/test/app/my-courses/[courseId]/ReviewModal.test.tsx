@@ -11,7 +11,7 @@ import type {ReactElement} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen} from '@testing-library/react';
 import {ToastProvider} from '@grammarcetamol/utilities';
-import {ReviewModal} from '../../../../app/(main)/my-courses/[courseId]/ReviewModal';
+import {ReviewModal} from '@/app/(main)/my-courses/[courseId]/ReviewModal';
 import {type Review, reviewsApi} from '@/lib/reviews.api';
 
 vi.mock('@/lib/reviews.api', async (importOriginal) => {

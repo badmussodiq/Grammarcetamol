@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {buildCourseQuery, DEFAULT_FILTERS, filtersFromSearchParams} from '../../lib/course.api';
+import {buildCourseQuery, DEFAULT_FILTERS, filtersFromSearchParams} from '@/lib/course.api';
 
 describe('buildCourseQuery', () => {
   it('omits filters that are unset', () => {

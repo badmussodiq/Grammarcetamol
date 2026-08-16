@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {sha256Hex} from '../../lib/uploads.api';
+import {sha256Hex} from '@/lib/uploads.api';
 
 describe('sha256Hex', () => {
   it('returns a 64-character lowercase hex digest', async () => {

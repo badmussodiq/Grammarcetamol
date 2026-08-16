@@ -1,6 +1,6 @@
 import {Body, Controller, ForbiddenException, Get, Param, ParseIntPipe, Patch, Post} from '@nestjs/common';
-import {ApiResponse} from '../common/api-response';
-import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '../common/current-user.decorator';
+import {ApiResponse} from '@/common/api-response';
+import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '@/common/current-user.decorator';
 import {CompleteChunkDto} from './dto/complete-chunk.dto';
 import {CreateSessionDto} from './dto/create-session.dto';
 import {FailFileDto} from './dto/fail-file.dto';

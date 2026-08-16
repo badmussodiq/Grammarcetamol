@@ -5,7 +5,7 @@
  * reviewsApi wholesale) — this is the middle layer: real frontend code, fake network.
  */
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {reviewsApi} from '../../lib/reviews.api';
+import {reviewsApi} from '@/lib/reviews.api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

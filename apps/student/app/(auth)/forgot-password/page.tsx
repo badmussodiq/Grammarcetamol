@@ -3,7 +3,7 @@
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
-import {authApi} from '../../../lib/auth.api';
+import {authApi} from '@/lib/auth.api';
 import type {ChangeEvent, FormEvent} from 'react';
 
 export default function ForgotPasswordPage() {

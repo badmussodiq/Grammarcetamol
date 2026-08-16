@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {buildSupportQuery} from '../../lib/support.api';
+import {buildSupportQuery} from '@/lib/support.api';
 
 describe('buildSupportQuery', () => {
   it('always sets page and limit', () => {

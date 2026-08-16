@@ -2,12 +2,12 @@ import {BadRequestException, ForbiddenException, Inject, Injectable, Logger, Not
 import {ConfigService} from '@nestjs/config';
 import {randomUUID} from 'crypto';
 import type {Pool} from 'pg';
-import {PG_POOL} from '../config/database.module';
-import {CurrentUserPayload} from '../common/current-user.decorator';
-import {AuthServiceClient} from '../course-client/auth-service.client';
-import {CourseServiceClient, CourseSummary} from '../course-client/course-service.client';
-import {PaymentEventPublisher} from '../messaging/payment-event-publisher';
-import {PaymentProviderRegistry} from '../providers/payment-provider.registry';
+import {PG_POOL} from '@/config/database.module';
+import {CurrentUserPayload} from '@/common/current-user.decorator';
+import {AuthServiceClient} from '@/course-client/auth-service.client';
+import {CourseServiceClient, CourseSummary} from '@/course-client/course-service.client';
+import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
+import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
 import {mapPaymentRow, mapRefundRow, Payment, Refund} from './payment.types';
 
 @Injectable()

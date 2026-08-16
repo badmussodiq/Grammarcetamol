@@ -1,10 +1,10 @@
 import {BadRequestException, ConflictException, NotFoundException} from '@nestjs/common';
 import type {ConfigService} from '@nestjs/config';
 import type {Pool} from 'pg';
-import type {CourseServiceClient} from '../../src/course-client/course-service.client';
-import type {UploadEventPublisher} from '../../src/messaging/upload-event-publisher';
-import type {StorageProviderRegistry} from '../../src/storage/storage-provider.registry';
-import {UploadsService} from '../../src/uploads/uploads.service';
+import type {CourseServiceClient} from '@/course-client/course-service.client';
+import type {UploadEventPublisher} from '@/messaging/upload-event-publisher';
+import type {StorageProviderRegistry} from '@/storage/storage-provider.registry';
+import {UploadsService} from '@/uploads/uploads.service';
 
 // ---------------------------------------------------------------------------
 // Row builders — snake_case, matching what `pg` actually returns from a SELECT/RETURNING.

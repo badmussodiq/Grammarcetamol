@@ -1,7 +1,7 @@
 import {Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap} from '@nestjs/common';
 import type {Collection, Db} from 'mongodb';
 import {ObjectId} from 'mongodb';
-import {MONGO_DB} from '../config/database.module';
+import {MONGO_DB} from '@/config/database.module';
 import type {Notification} from './notification.types';
 
 @Injectable()

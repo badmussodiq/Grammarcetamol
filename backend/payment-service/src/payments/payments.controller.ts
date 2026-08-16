@@ -11,8 +11,8 @@ import {
     Req
 } from '@nestjs/common';
 import type {Request} from 'express';
-import {ApiResponse} from '../common/api-response';
-import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '../common/current-user.decorator';
+import {ApiResponse} from '@/common/api-response';
+import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '@/common/current-user.decorator';
 import {InitializePaymentDto} from './dto/initialize-payment.dto';
 import {RefundPaymentDto} from './dto/refund-payment.dto';
 import {PaymentsService} from './payments.service';

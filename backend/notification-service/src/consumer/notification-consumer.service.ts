@@ -1,7 +1,7 @@
 import {Inject, Injectable, Logger, OnApplicationBootstrap} from '@nestjs/common';
 import type {Channel, ConsumeMessage} from 'amqplib';
-import {AMQP_CHANNEL, NOTIFICATION_ROUTING_KEY, type NotificationRequestedEvent} from '../config/amqp.constants';
-import {NotificationSenderService} from '../sender/notification-sender.service';
+import {AMQP_CHANNEL, NOTIFICATION_ROUTING_KEY, type NotificationRequestedEvent} from '@/config/amqp.constants';
+import {NotificationSenderService} from '@/sender/notification-sender.service';
 
 const EXCHANGE_BY_DOMAIN: Record<keyof typeof NOTIFICATION_ROUTING_KEY, string> = {
   user: 'user.exchange',

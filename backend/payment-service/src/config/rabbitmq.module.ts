@@ -1,7 +1,7 @@
 import {Global, Module} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import * as amqp from 'amqplib';
-import {PaymentEventPublisher} from '../messaging/payment-event-publisher';
+import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {AMQP_CHANNEL, PAYMENT_EXCHANGE} from './amqp.constants';
 
 @Global()
