@@ -3,8 +3,8 @@
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, Mapping, useFormState, useToast} from '@grammarcetamol/utilities';
-import {usersApi} from '../../../../lib/users.api';
-import type {ChangeEvent, FormEvent} from 'react';
+import {usersApi} from '@/lib/users.api';
+import type {ChangeEvent, SubmitEvent} from 'react';
 
 const ROLES = [
   { value: 'MODERATOR', label: 'Moderator' },
@@ -31,7 +31,7 @@ export default function CreateUserPage() {
     return ok;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);

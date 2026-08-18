@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {buildTransactionsQuery} from '../../lib/transactions.api';
+import {buildTransactionsQuery} from '@/lib/transactions.api';
 
 describe('buildTransactionsQuery', () => {
   it('returns an empty string when no filters are set', () => {

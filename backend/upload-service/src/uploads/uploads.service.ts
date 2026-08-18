@@ -2,10 +2,10 @@ import {BadRequestException, ConflictException, Inject, Injectable, Logger, NotF
 import {ConfigService} from '@nestjs/config';
 import {randomUUID} from 'crypto';
 import type {Pool} from 'pg';
-import {PG_POOL} from '../config/database.module';
-import {CourseServiceClient} from '../course-client/course-service.client';
-import {UploadEventPublisher} from '../messaging/upload-event-publisher';
-import {StorageProviderRegistry} from '../storage/storage-provider.registry';
+import {PG_POOL} from '@/config/database.module';
+import {CourseServiceClient} from '@/course-client/course-service.client';
+import {UploadEventPublisher} from '@/messaging/upload-event-publisher';
+import {StorageProviderRegistry} from '@/storage/storage-provider.registry';
 import type {CreateSessionFileDto} from './dto/create-session.dto';
 import {
     mapChunkRow,

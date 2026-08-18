@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {toPaystackSubunit} from '../../lib/checkout.api';
+import {toPaystackSubunit} from '@/lib/checkout.api';
 
 describe('toPaystackSubunit', () => {
   it('converts a whole-dollar amount to the correct subunit', () => {

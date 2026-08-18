@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import type {AdminUser} from '../../lib/auth.api';
-import {computeHasPermission} from '../../lib/auth.api';
+import type {AdminUser} from '@/lib/auth.api';
+import {computeHasPermission} from '@/lib/auth.api';
 
 function user(overrides: Partial<AdminUser> = {}): AdminUser {
   return { userId: 'u1', email: 'admin@example.com', roles: 'SUPER_ADMIN', ...overrides };

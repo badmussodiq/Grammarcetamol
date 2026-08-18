@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {buildStudentsQuery, DEFAULT_STUDENT_FILTERS} from '../../lib/students.api';
+import {buildStudentsQuery, DEFAULT_STUDENT_FILTERS} from '@/lib/students.api';
 
 describe('buildStudentsQuery', () => {
   it('always scopes to role=STUDENT and sets page/limit', () => {

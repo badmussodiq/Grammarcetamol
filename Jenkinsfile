@@ -44,7 +44,7 @@ pipeline {
         stage('Print Out') {
             steps{
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-                    sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
+                    sh 'echo "$DH_PASS" and username "$DH_USER"'
                 }
             }
         }
@@ -63,7 +63,7 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/maven --strip-components=1
                     fi
 
-                    # --- Node 24 (LTS) — version-checked so upgrades are picked up ---
+                    # --- Node 24 (LTS) ---
                     NODE_VERSION="v24.15.0"
                     if [ ! -x "${TOOLS_DIR}/node/bin/node" ] || [ "$(${TOOLS_DIR}/node/bin/node -v)" != "$NODE_VERSION" ]; then
                         echo "Downloading Node $NODE_VERSION..."
@@ -81,11 +81,21 @@ pipeline {
                             | tar -xzf - -C ${TOOLS_DIR}/docker --strip-components=1
                     fi
 
+                    # --- Docker Compose plugin (required for 'docker compose' command) ---
+                    if [ ! -x "${HOME}/.docker/cli-plugins/docker-compose" ]; then
+                        echo "Downloading Docker Compose plugin..."
+                        mkdir -p ${HOME}/.docker/cli-plugins
+                        curl -fsSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+                            -o ${HOME}/.docker/cli-plugins/docker-compose
+                        chmod +x ${HOME}/.docker/cli-plugins/docker-compose
+                    fi
+
                     # Verify
                     echo "=== Tool versions ==="
                     mvn -v | head -1
                     node -v
                     docker --version
+                    docker compose version
                 '''
             }
         }
@@ -270,9 +280,9 @@ pipeline {
                 // not created by hand on the server — add a Jenkins "Secret file"
                 // credential named prod-env-file whose content is the full .env this
                 // service needs (see .env.example for the variable list).
+                //                        mkdir -p ${DEPLOY_DIR}
                 withCredentials([file(credentialsId: 'prod-env-file', variable: 'PROD_ENV_FILE')]) {
                     sh """
-                        mkdir -p ${DEPLOY_DIR}
                         cp docker-compose.yml ${DEPLOY_DIR}/
                         cp -r docker ${DEPLOY_DIR}/
                         cp "\$PROD_ENV_FILE" ${DEPLOY_DIR}/.env

@@ -1,6 +1,6 @@
 import {Controller, Delete, Get, Param, Patch, Query} from '@nestjs/common';
-import {CurrentUser, type CurrentUserPayload, requireAuthenticated} from '../common/current-user.decorator';
-import {ApiResponse} from '../common/api-response';
+import {CurrentUser, type CurrentUserPayload, requireAuthenticated} from '@/common/current-user.decorator';
+import {ApiResponse} from '@/common/api-response';
 import {NotificationsService} from './notifications.service';
 
 /** The in-app notification inbox — always scoped to the authenticated caller's own userId,

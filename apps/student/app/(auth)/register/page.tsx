@@ -3,8 +3,8 @@
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, Mapping, useFormState, useGenericState, useToast} from '@grammarcetamol/utilities';
-import {authApi} from '../../../lib/auth.api';
-import type {ChangeEvent, FormEvent} from 'react';
+import {authApi} from '@/lib/auth.api';
+import type {ChangeEvent, SubmitEvent} from 'react';
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
   let score = 0;
@@ -43,7 +43,7 @@ export default function RegisterPage() {
     return ok;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);

@@ -1,5 +1,5 @@
 import {Module} from '@nestjs/common';
-import {SenderModule} from '../sender/sender.module';
+import {SenderModule} from '@/sender/sender.module';
 import {NotificationConsumerService} from './notification-consumer.service';
 
 @Module({

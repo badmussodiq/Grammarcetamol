@@ -5,7 +5,7 @@ import {
     hasEnrollmentFor,
     type LearnLesson,
     type LearnModule
-} from '../../lib/enrollment.api';
+} from '@/lib/enrollment.api';
 
 function enrollment(courseId: string): Enrollment {
   return {

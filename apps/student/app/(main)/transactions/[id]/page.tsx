@@ -16,7 +16,7 @@ const STATUS_BADGE: Record<PaymentStatus, { variant: 'success' | 'warning' | 'er
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-b-0">
+    <div className="flex items-center justify-between py-3 border-border last:border-b-0">
       <span className="text-sm text-text-secondary">{label}</span>
       <span className="text-sm font-medium text-text-primary">{value}</span>
     </div>

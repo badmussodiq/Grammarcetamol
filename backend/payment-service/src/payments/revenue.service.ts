@@ -1,6 +1,6 @@
 import {Inject, Injectable} from '@nestjs/common';
 import type {Pool} from 'pg';
-import {PG_POOL} from '../config/database.module';
+import {PG_POOL} from '@/config/database.module';
 import {
     BestSeller,
     REVENUE_PERIOD_CONFIG,

@@ -1,11 +1,11 @@
 ﻿'use client';
 
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 import {Suspense} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
-import {authApi} from '../../../lib/auth.api';
+import {authApi} from '@/lib/auth.api';
 
 export default function ResetPasswordPage() {
   return (
@@ -23,7 +23,7 @@ function ResetPasswordForm() {
   const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
     useFormState({ email: emailFromQuery, otp: '', password: '', confirmPassword: '' });
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!values.email) { setError('email', 'Email is required'); return; }
     if (!/^\d{6}$/.test(values.otp)) { setError('otp', 'Enter the 6-digit code from your email'); return; }
