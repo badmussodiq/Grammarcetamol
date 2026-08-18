@@ -1,6 +1,6 @@
 'use client';
 
-import type {FormEvent} from 'react';
+import type {SubmitEvent} from 'react';
 import {useState} from 'react';
 import {Button, Input, Mapping, useFetch, useGenericState} from '@grammarcetamol/utilities';
 import {type Category, type CourseFormValues, validateCourseForm} from '@/lib/courses.api';
@@ -33,7 +33,7 @@ export function CourseForm({
         updateValue('learningObjectives', values.learningObjectives.filter((_, i) => i !== index));
     }
 
-    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
         const validationErrors = validateCourseForm(values);
         setErrors(validationErrors);

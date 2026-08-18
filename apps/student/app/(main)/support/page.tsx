@@ -1,6 +1,6 @@
 'use client';
 
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState} from '@grammarcetamol/utilities';
@@ -30,7 +30,7 @@ export default function SupportPage() {
     return ok;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);

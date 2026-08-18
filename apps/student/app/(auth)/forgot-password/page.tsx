@@ -4,7 +4,7 @@ import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
 import {authApi} from '@/lib/auth.api';
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   const { values, errors, isSubmitting, setValue, setError, setSubmitting } =
     useFormState({ email: '' });
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!values.email) { setError('email', 'Email is required'); return; }
     setSubmitting(true);

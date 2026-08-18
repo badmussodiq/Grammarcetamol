@@ -1,6 +1,6 @@
 'use client';
 
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 import {useEffect, useState} from 'react';
 import {ApiError, Button, Input, Skeleton, Tabs, useFetch, useFormState, useToast} from '@grammarcetamol/utilities';
 import {useAuth} from '@/contexts/AuthContext';
@@ -39,7 +39,7 @@ function ProfileTab() {
 
   const isDirty = initial ? (Object.keys(initial) as (keyof typeof initial)[]).some((key) => initial[key] !== values[key]) : false;
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!values.fullName.trim()) { setError('fullName', 'Full name is required'); return; }
     setSubmitting(true);
@@ -121,7 +121,7 @@ function AccountTab() {
     return ok;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);

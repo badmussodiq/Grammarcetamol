@@ -4,7 +4,7 @@ import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {ApiError, Button, Input, useFormState, useToast} from '@grammarcetamol/utilities';
 import {useAuth} from '@/contexts/AuthContext';
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
     return ok;
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);

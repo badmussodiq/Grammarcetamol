@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import type {ChangeEvent, FormEvent} from 'react';
+import type {ChangeEvent, SubmitEvent} from 'react';
 import {Suspense, useEffect} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ function VerifyEmailContent() {
     return () => clearTimeout(t);
   }, [cooldown, setCooldown]);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!values.email) { setError('email', 'Email is required'); return; }
     if (!/^\d{6}$/.test(values.otp)) { setError('otp', 'Enter the 6-digit code from your email'); return; }
