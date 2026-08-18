@@ -297,6 +297,7 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 - Implement gRPC server on port `9091`:
   - Define `auth.proto` with:
     ```protobuf
+import "auth.proto";
     service AuthService {
       rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
       rpc GetUserById(GetUserByIdRequest) returns (UserResponse);
@@ -872,7 +873,7 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 ### PHASE 3.5 — MVP Completion
 
-> **Current status (2026-08-09):** Planned and **in progress** — see Tasks 31–37 below. Inserted between Phase 3 and Phase 4 on explicit user direction: a real production MVP (guest/student flows for pre-recorded courses, admin course management + analytics + support) ships *before* Live Classes, not after. Phase 4's own Tasks 31–37 are renumbered to 38–44 below to make room, and Phase 4's former "Notification Service" task is reduced to an *extension* task (39) since the service now gets built here instead.
+> **Current status (2026-08-18):** Tasks 31–36 done, confirmed via code review — see each task's own status note below. **Task 37 (MVP integration & verification) is the only remaining item in this phase** — nothing has been proven end-to-end against the real stack yet, and `backend/integration-tests` has no notification-flow spec file. Inserted between Phase 3 and Phase 4 on explicit user direction: a real production MVP (guest/student flows for pre-recorded courses, admin course management + analytics + support) ships *before* Live Classes, not after. Phase 4's own Tasks 31–37 are renumbered to 38–44 below to make room, and Phase 4's former "Notification Service" task is reduced to an *extension* task (39) since the service now gets built here instead.
 >
 > **Resolved decisions** (do not revisit): "services" for MVP purposes means courses only, no Phase 5 Service Request Catalog pulled forward. OTP covers email verification + password reset; login 2FA is explicitly deferred to later. Account auto-lockout was found **already built** in `AuthService.login()` (`MAX_FAILED_ATTEMPTS=5`, `LOCK_DURATION_MINUTES=15`, publishes `user.locked`) — the gap is just wiring an email to that existing event, not new lockout logic. `EmailProvider` is pluggable with a log-only default, same shape as `PaymentProvider`/`StorageProvider` — no real SMTP/SendGrid/SES credentials yet. Support/enquiry is a deliberately thin two-state (`open`→`closed`) ticket flow — **admin never sends email through the platform**, they reply directly via their own email client (Gmail etc.) after seeing the submitter's email in the admin console; the platform only sends the automatic "submitted" and "closed" emails. Every other service publishes `{service, templateName, to, toName, variables}` to its **own existing exchange** (no new shared exchange) — Notification Service binds queues to the specific routing keys it cares about. Every email attempt gets exactly one row in an **immutable, insert-only `notification_logs`** collection — no update/delete path exists anywhere in the code for it. Brand color becomes `#F44336` (Material Red 500) with `-light`/`-dark` shades from Material's own adjacent Red palette (`#EF5350`/`#D32F2F`).
 >
@@ -881,6 +882,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 31: Notification Service — Bootstrap, Templates, Cross-Service Consumer, Immutable Logs, Support Tickets**
+
+> **Status: ✅ Done**, confirmed via code review (not yet live-verified end-to-end against the real running stack — that's Task 37 below). `backend/notification-service` (NestJS + MongoDB, no ORM) is fully built: 9 `email_templates` seeded on startup via idempotent upsert-by-name (`templates.seed.ts`), an insert-only `notification_logs` collection with no update/delete path, a RabbitMQ consumer (`consumer/notification-consumer.service.ts`) bound to `user.exchange`/`payment.exchange`/`enrollment.exchange`, an `EmailProviderRegistry` with both `LogEmailProvider` (default) and a real `SmtpEmailProvider` registered, and the full support-ticket module (`support/`: create/list/detail/close) wired to the submitted/closed template sends. Gateway routing for `/api/support/**` is present.
 
 **Objective:** Stand up `backend/notification-service/` (NestJS + MongoDB, port `9008`) as the one place outbound email happens, consuming events from auth/payment/enrollment-service, rendering named templates with dynamic variables, logging every attempt immutably, and hosting the lightweight support-ticket module.
 
@@ -901,6 +904,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 32: Auth Service — OTP-Based Email Verification & Password Reset**
 
+> **Status: ✅ Done**, confirmed via code review. `AuthService`/`AuthController`/`VerifyEmailRequest`/`ResetPasswordRequest` all carry OTP fields — the silent UUID-token flow described in this task's own Objective (`forgotPassword()`'s literal `// In production, send email here` comment) is gone, replaced with the 6-digit code flow as planned.
+
 **Objective:** Replace the current silent UUID-token flow (verified live: sends nothing — `forgotPassword()` literally has the comment `// In production, send email here via mail service`) with real 6-digit OTP codes, emailed via the new Notification Service.
 
 **Implementation guidance:**
@@ -917,6 +922,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 33: Payment & Enrollment Events — Enrich Payloads for Email**
 
+> **Status: ✅ Done**, confirmed via code review, implemented as a slightly different mechanism than this task's literal wording ("enrich `payment.completed`'s payload") but the same end result: `payment-service` publishes a dedicated `payment.notification` event via a new `PaymentEventPublisher.publishNotification(templateName, to, toName, variables)` method — called from `payments.service.ts` with a real `auth-service` user lookup, firing both `course-purchase-confirmation` and `payment-receipt` off one successful payment — rather than adding `to`/`toName` fields directly onto `payment.completed` itself (which still carries only its original domain payload for `enrollment-service`'s own consumer). `enrollment-service`'s `EnrollmentEventPublisher` does the equivalent for `enrollment-confirmation`. Notification Service still never does its own lookup, matching the objective.
+
 **Objective:** Give Notification Service everything it needs without it looking anything up itself — the *publishing* service supplies `to`/`toName`/`variables` directly, per the user's own spec.
 
 **Implementation guidance:**
@@ -930,6 +937,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 34: Student Frontend — OTP Verification/Reset UI & Support Enquiry Form**
+
+> **Status: ✅ Done**, confirmed via code review. `/verify-email` and `/reset-password` are code-entry forms; a `/support` page exists with `lib/support.api.ts` posting to Task 31's endpoint.
 
 **Objective:** Update verification/reset from link-based to code-entry; give guests/students a support enquiry form.
 
@@ -946,6 +955,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 
 **Task 35: Admin Frontend — Support Tickets & Real Dashboard Analytics**
 
+> **Status: ✅ Done**, confirmed via code review. Admin `/support` (list + status filter + detail + close, no reply UI, per the resolved decision) exists. `/dashboard` (`apps/admin/app/(dashboard)/dashboard/page.tsx`) now fetches real data via `useFetch` — student count, published-course count, `/revenue`'s summary, and open-ticket count — replacing the static four-box skeleton this task's Objective describes as the starting point.
+
 **Objective:** Give admins the support-ticket list/detail/close workflow, and replace the current static-skeleton `/dashboard` (verified live: four hardcoded skeleton placeholders, zero data fetching) with real aggregated numbers.
 
 **Implementation guidance:**
@@ -959,6 +970,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 36: Brand Color Rollout — `#F44336`**
+
+> **Status: ⚠️ Mostly done**, confirmed via code review. Both apps' `globals.css` `@theme` blocks carry `--color-primary: #F44336`, `--color-primary-light: #EF5350`, `--color-primary-dark: #D32F2F`, and the orphaned `apps/utilities/src/tokens/tokens.ts`/`tokens.css` are no longer exported from the package's `index.ts` (cleaned up). **Not done:** `apps/utilities/src/components/Button/Button.tsx` still has the two hardcoded arbitrary-hex classes this task calls out by name — `text-[#64748B]` (ghost variant) and `hover:bg-[#DC2626]` (destructive hover) — neither replaced with a semantic token.
 
 **Objective:** Replace the current navy (`#1E3A5F`) primary with the new orange-red across both frontends' buttons/hover/nav/sidebar.
 
@@ -976,6 +989,8 @@ Build in vertical slices, dependency-first. Each task produces a working, demoab
 ---
 
 **Task 37: MVP Integration & Verification**
+
+> **Status: 🔲 Not started (as of 2026-08-18).** Tasks 31–36 are all individually done (see their status notes above) but none of it has been proven end-to-end against the real running stack, and `backend/integration-tests/` still only has the 6 Phase-3 spec files — no `notification-flow.integration.spec.ts` exists yet. This is the one real remaining gap before Phase 3.5 closes and Phase 4 starts.
 
 **Objective:** Confirm the full MVP loop end-to-end through the gateway across both frontends, same discipline as Task 30 closed out Phase 3.
 
