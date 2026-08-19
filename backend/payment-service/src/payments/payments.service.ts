@@ -8,6 +8,7 @@ import {AuthServiceClient} from '@/course-client/auth-service.client';
 import {CourseServiceClient, CourseSummary} from '@/course-client/course-service.client';
 import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
+import {SubscriptionsService} from '@/subscriptions/subscriptions.service';
 import {mapPaymentRow, mapRefundRow, Payment, Refund} from './payment.types';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class PaymentsService {
     private readonly authServiceClient: AuthServiceClient,
     private readonly eventPublisher: PaymentEventPublisher,
     private readonly config: ConfigService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   private activeProvider() {
@@ -109,6 +111,28 @@ export class PaymentsService {
 
     if (event.event === 'refund.processed') {
       await this.handleReversal(event.data);
+      return;
+    }
+
+    // Task 38: subscription-lifecycle events extend this same webhook rather than getting a
+    // second endpoint.
+    if (
+      event.event === 'subscription.create' ||
+      event.event === 'subscription.disable' ||
+      event.event === 'invoice.payment_failed' ||
+      event.event === 'invoice.create'
+    ) {
+      await this.subscriptionsService.handleWebhookEvent(event);
+      return;
+    }
+
+    // charge.success is shared between one-time payments and subscription charges — Paystack
+    // fires the identical event type for both, distinguished only by whether `data.plan` is
+    // present. A subscription charge's reference (`sub_...`) never exists in this service's own
+    // `payments` table, so routing it to SubscriptionsService and stopping here avoids an extra,
+    // pointless findByReference lookup below that would just no-op anyway.
+    if (event.event === 'charge.success' && event.data?.plan) {
+      await this.subscriptionsService.handleWebhookEvent(event);
       return;
     }
 

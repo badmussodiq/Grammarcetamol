@@ -53,6 +53,13 @@ public class RouteConfig {
             .route("payment-service", r -> r
                 .path("/api/payments/**")
                 .uri(appGatewayProperties.getPaymentServiceUrl()))
+            // Subscription billing (Task 38, Phase 4) — same service/host/port as payments
+            // above, just a distinct resource path. Fully authenticated, no public routes;
+            // the Paystack webhook for subscription events reuses /api/payments/webhook,
+            // already public — see JwtAuthFilter's PUBLIC_ROUTES.
+            .route("subscriptions-service", r -> r
+                .path("/api/subscriptions/**")
+                .uri(appGatewayProperties.getPaymentServiceUrl()))
             // Review service routes (course-reviews above already claims /api/courses/*/reviews)
             .route("review-service", r -> r
                 .path("/api/reviews/**")

@@ -5,6 +5,7 @@ import {AuthServiceClient} from '@/course-client/auth-service.client';
 import {CourseServiceClient} from '@/course-client/course-service.client';
 import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
+import {SubscriptionsService} from '@/subscriptions/subscriptions.service';
 import {PaymentsService} from '@/payments/payments.service';
 
 function paymentRow(overrides: Partial<Record<string, unknown>> = {}) {
@@ -44,6 +45,7 @@ describe('PaymentsService', () => {
     publishNotification: jest.Mock;
   };
   let config: ConfigService;
+  let subscriptionsService: { handleWebhookEvent: jest.Mock };
   let service: PaymentsService;
 
   beforeEach(() => {
@@ -66,6 +68,7 @@ describe('PaymentsService', () => {
       publishNotification: jest.fn(),
     };
     config = { get: jest.fn((key: string, fallback?: unknown) => fallback) } as unknown as ConfigService;
+    subscriptionsService = { handleWebhookEvent: jest.fn() };
 
     service = new PaymentsService(
       pool as any,
@@ -74,6 +77,7 @@ describe('PaymentsService', () => {
       authServiceClient as unknown as AuthServiceClient,
       eventPublisher as unknown as PaymentEventPublisher,
       config,
+      subscriptionsService as unknown as SubscriptionsService,
     );
   });
 

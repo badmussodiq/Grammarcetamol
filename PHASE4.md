@@ -22,7 +22,7 @@ trusting it, same rule as everywhere else in this project.
 
 | #  | Task                                                                                              | Status                                          | Depends on                           |
 |----|---------------------------------------------------------------------------------------------------|-------------------------------------------------|--------------------------------------|
-| 38 | **Payment Service — Subscription Billing** (new, split out 2026-08-19)                            | 🔲 Not started                                  | Phase 3.5 (done)                     |
+| 38 | **Payment Service — Subscription Billing** (new, split out 2026-08-19)                            | ✅ Done (2026-08-19), live-verified              | Phase 3.5 (done)                     |
 | 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | 🔲 Not started                                  | Task 38 (for RECURRING classes only) |
 | 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | 🟡 Partially done (found, not built, this task) | Phase 3.5 Task 31 (done)             |
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | 🔲 Not started                                  | Task 39                              |
@@ -136,7 +136,7 @@ never means the class ended** — those are two independent lifecycles (see belo
 |---|---|
 | `userId`, `itemType`, `itemId` | generic — `itemType='live-class'`, `itemId=classId`, same `itemType`/`itemId` shape already needed for one-time paid-class registration |
 | `paystackSubscriptionCode`, `paystackCustomerCode`, `planCode` | |
-| `status` | `ACTIVE` → (renewal charge fails) → `PAYMENT_FAILED` → (Paystack's own retries succeed) → back to `ACTIVE`, or (retries exhausted) → `PAST_DUE` (short grace window) → `EXPIRED`. Separately, `ACTIVE` → (student cancels) → `CANCELLED` immediately, but **enrollment access doesn't end until `accessUntil`** — see above. |
+| `status` | **`PENDING`** (added during Task 38's real implementation, not in the original five-state list here — Paystack's initialize-with-plan flow is asynchronous, so a row legitimately exists before the `subscription.create` webhook confirms it's real, same async gap the `payments` table already bridges with its own `pending` status) → `ACTIVE` → (renewal charge fails) → `PAYMENT_FAILED` → (Paystack's own retries succeed) → back to `ACTIVE`, or (retries exhausted) → `PAST_DUE` (short grace window, 3 days) → `EXPIRED`. Separately, `ACTIVE` → (student cancels) → `CANCELLED` immediately, but **enrollment access doesn't end until `accessUntil`** — see above. |
 | `amount`, `interval`, `currentPeriodEnd` | `currentPeriodEnd` is what `enrollments.accessUntil` gets set from on cancellation |
 
 ### Scheduling conflict detection
@@ -278,3 +278,12 @@ Dependency-first, matching how every prior phase in this project was built:
   what happens after a class ends (disposable/deleted vs. archived/retained) and resolved it
   as "access expires, data is archived, never hard-deleted" — see the Domain Model's
   Retention & Archival note; revisit if that reading is wrong.
+- **2026-08-19 (Task 38 built)** — Payment Service Subscription Billing done and live-verified
+  against the real Paystack test-mode API and a real running instance of the service (not just
+  unit tests): arbitrary-amount Plan creation, initialize-with-plan, real HMAC-signed
+  `charge.success`/`subscription.create` webhook simulation correctly activating and
+  backfilling a subscription by exact `gateway_ref` match, and the cancel error path. Added a
+  `PENDING` status not in the original Domain Model list (see the `subscriptions.status` row
+  above) — a real, necessary adaptation to how Paystack's async subscription creation actually
+  works, not a scope guess. 41/41 tests pass, `tsc --noEmit` clean. Full detail in `PLAN.md`
+  Task 38's own status note. Next up: Task 39 (Live Class Service).

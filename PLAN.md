@@ -1041,6 +1041,28 @@ import "auth.proto";
 
 **Task 38: Payment Service — Subscription Billing**
 
+> **Status: ✅ Done (2026-08-19), live-verified against the real Paystack test-mode API and the
+> real running service** — not just unit tests. Confirmed live: creating an arbitrary-amount
+> Plan works (Paystack Plans aren't restricted to dashboard-predefined pricing, resolving this
+> task's own flagged risk), initializing a transaction with `plan` attached returns the same
+> shape as a normal initialize, the `subscription/disable` endpoint's `{code,token}` shape is
+> correct, and a real `POST /api/subscriptions` → simulated `charge.success` webhook (real HMAC
+> signature) → `subscription.create` webhook round-trip correctly activates a subscription,
+> backfills `paystack_subscription_code`/`paystack_email_token`, and matches the exact
+> `gateway_ref` row rather than a broader update (confirmed by running two concurrent
+> subscribe requests and checking only the targeted one activated). Cancel's error path was
+> live-verified too (a fake subscription code correctly surfaces a clean 503, not a crash); a
+> full successful cancel needs a genuinely completed real checkout (paying via the
+> `authorizationUrl` in a browser), left for Task 45's fuller pass. 41/41 tests pass
+> (27 existing + 14 new), `tsc --noEmit` clean.
+>
+> One deviation from `PHASE4.md`'s Domain Model, made necessary by how Paystack actually works:
+> added a `pending` status not in the original five-state list — Paystack's
+> initialize-with-plan flow is asynchronous (the real subscription only exists once
+> `subscription.create` arrives), so a row can legitimately exist before it's `active`, the
+> same async gap the existing one-time `payments` table already bridges with its own `pending`
+> status. `PHASE4.md` updated to match.
+
 **Objective:** Extend the already-built `backend/payment-service` (Paystack, pluggable `PaymentProvider`, Task 21) with recurring billing, so Task 39's Live Class Service can offer `RECURRING` classes — both a 50-student group class billing everyone monthly and a single negotiated-price private tutoring arrangement — without either owning any Paystack-specific logic itself. See `PHASE4.md`'s Domain Model for the full `subscriptions` entity and lifecycle this task implements.
 
 **Implementation guidance:**
