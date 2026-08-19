@@ -23,6 +23,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +51,8 @@ class AuthServiceTest {
     private UserEventPublisher eventPublisher;
     @Mock
     private UserProfileService userProfileService;
+    @Mock
+    private LoginAttemptService loginAttemptService;
 
     @InjectMocks
     private AuthService authService;
@@ -159,9 +162,10 @@ class AuthServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void login_invalidPassword_incrementsFailedAttempts() {
+    void login_invalidPassword_recordsFailedAttempt_notYetLocked() {
+        // Recording the attempt itself is LoginAttemptService's job now (see its own test
+        // class) — AuthService only decides what to throw based on what that call returns.
         User user = createActiveUser();
-        user.setFailedAttempts(3);
 
         LoginRequest req = new LoginRequest();
         req.setEmail("user@example.com");
@@ -169,18 +173,19 @@ class AuthServiceTest {
 
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+        when(loginAttemptService.recordFailedAttempt(user.getId())).thenReturn(null);
 
         assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(InvalidTokenException.class);
 
-        assertThat(user.getFailedAttempts()).isEqualTo(4);
-        verify(userRepository).save(user);
+        verify(loginAttemptService).recordFailedAttempt(user.getId());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
     void login_5thFailure_locksAccount() {
         User user = createActiveUser();
-        user.setFailedAttempts(4);
+        Instant lockedUntil = Instant.now().plusSeconds(900);
 
         LoginRequest req = new LoginRequest();
         req.setEmail("user@example.com");
@@ -188,12 +193,13 @@ class AuthServiceTest {
 
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+        when(loginAttemptService.recordFailedAttempt(user.getId())).thenReturn(lockedUntil);
 
         assertThatThrownBy(() -> authService.login(req, null))
-                .isInstanceOf(AccountLockedException.class);
+                .isInstanceOf(AccountLockedException.class)
+                .extracting(ex -> ((AccountLockedException) ex).getLockedUntil())
+                .isEqualTo(lockedUntil);
 
-        assertThat(user.getLockedUntil()).isNotNull();
-        assertThat(user.getLockedUntil()).isAfter(Instant.now());
         verify(eventPublisher).publishUserLocked(user.getId());
         verify(eventPublisher).publishNotification(eq("account-locked"), eq("user@example.com"), anyString(), anyMap(), eq(user.getId()));
     }
@@ -204,7 +210,6 @@ class AuthServiceTest {
         // must not take the lockout response down with it.
         User user = createActiveUser();
         user.setFullName(null);
-        user.setFailedAttempts(4);
 
         LoginRequest req = new LoginRequest();
         req.setEmail("user@example.com");
@@ -212,6 +217,7 @@ class AuthServiceTest {
 
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+        when(loginAttemptService.recordFailedAttempt(user.getId())).thenReturn(Instant.now().plusSeconds(900));
 
         assertThatThrownBy(() -> authService.login(req, null))
                 .isInstanceOf(AccountLockedException.class);
@@ -325,6 +331,21 @@ class AuthServiceTest {
 
         assertThat(user.getPasswordHash()).isEqualTo("newHashed");
         verify(refreshTokenRepository).deleteAllByUserId(user.getId());
+    }
+
+    @Test
+    void resetPassword_correctOtp_clearsExistingLockout() {
+        User user = createActiveUser();
+        user.setFailedAttempts(5);
+        user.setLockedUntil(Instant.now().plus(Duration.ofMinutes(15)));
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(valueOps.get("otp:fp:user@example.com")).thenReturn("654321");
+        when(passwordEncoder.encode("NewPass123!")).thenReturn("newHashed");
+
+        authService.resetPassword("user@example.com", "654321", "NewPass123!");
+
+        assertThat(user.getFailedAttempts()).isZero();
+        assertThat(user.getLockedUntil()).isNull();
     }
 
     @Test

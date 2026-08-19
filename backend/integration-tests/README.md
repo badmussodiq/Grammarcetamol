@@ -14,7 +14,7 @@ project uses real Jest `describe`/`it`/`expect` so failures show up as normal te
 failures, and it's meant to grow — more cross-service checks belong here, not as more
 one-off scripts.
 
-## What's here (59 tests across 6 files)
+## What's here (82 tests across 7 files)
 
 - `auth-flow.integration.spec.ts` — register, duplicate-email 409, wrong-password 401,
   login succeeding before email verification (documented behavior, not a bug), fetching
@@ -41,6 +41,14 @@ one-off scripts.
   gets `401`, a request from a real logged-in STUDENT gets `403` on anything
   admin/moderator/SUPER_ADMIN-only, with a same-endpoint `200` sanity check using a real
   SUPER_ADMIN token alongside each `403`.
+- `notification-flow.integration.spec.ts` — the OTP email-verification round-trip (reading
+  the real code out of Redis, exactly where `AuthService.checkOtp()` reads it from), the
+  account-lockout → locked-email → OTP-reset recovery chain, a support-ticket create→close
+  lifecycle with `notification_logs` assertions on every template, and a 401/403 sweep on
+  `notification-service`'s own admin-gated endpoints. Added for `PLAN.md` Task 37 — found and
+  helped fix two real `auth-service` bugs along the way (account lockout never actually
+  persisting, and `resetPassword()` not clearing an existing lockout), see Task 37's own
+  status note for the full story.
 
 `helpers.ts` has the shared plumbing every spec file uses: `login`/`api` (cookie-based auth
 against the gateway), `registerAndLogin` (fresh throwaway student accounts),
@@ -52,9 +60,12 @@ an existing category is reused rather than creating a new one every run).
 ## Running it
 
 Needs the full local stack up: `gateway-service`, `auth-service`, `course-service`,
-`enrollment-service`, `payment-service`, `review-service` (see the root `README.md`'s
-"Running everything locally"), real Paystack test-mode keys configured in
-`payment-service/.env`, plus a seeded `SUPER_ADMIN` account.
+`enrollment-service`, `payment-service`, `review-service`, `notification-service` (see the
+root `README.md`'s "Running everything locally"), real Paystack test-mode keys configured in
+`payment-service/.env`, plus a seeded `SUPER_ADMIN` account. `notification-flow.integration.spec.ts`
+also needs a direct connection to Redis (`REDIS_HOST`/`REDIS_PORT`, default `localhost:9010`,
+no auth) to read OTP codes the same way `auth-service` itself does — they're never returned
+by any API response, only emailed.
 
 ```bash
 npm install
