@@ -3,6 +3,7 @@ import {Cron, CronExpression} from '@nestjs/schedule';
 import type {Collection, Db} from 'mongodb';
 import {ObjectId} from 'mongodb';
 import {MONGO_DB} from '@/config/database.module';
+import {EnrolledStudentNotifier} from '@/enrollments/enrolled-student-notifier.service';
 import {EnrollmentsService} from '@/enrollments/enrollments.service';
 import {LiveClassEventPublisher} from '@/messaging/live-class-event-publisher';
 import {VideoProviderRegistry} from '@/providers/video-provider.registry';
@@ -56,6 +57,7 @@ export class SessionsService implements OnApplicationBootstrap {
     private readonly videoProviderRegistry: VideoProviderRegistry,
     private readonly eventPublisher: LiveClassEventPublisher,
     private readonly enrollmentsService: EnrollmentsService,
+    private readonly studentNotifier: EnrolledStudentNotifier,
   ) {}
 
   private sessions(): Collection<LiveSession> {
@@ -247,6 +249,11 @@ export class SessionsService implements OnApplicationBootstrap {
     }
     await this.sessions().updateOne({ _id: session._id }, { $set: { status: 'LIVE', actualStartedAt: new Date(), updatedAt: new Date() } });
     this.eventPublisher.publishSessionStarted({ sessionId, classId: session.classId.toHexString() });
+
+    const classDoc = await this.classes().findOne({ _id: session.classId });
+    if (classDoc) {
+      void this.studentNotifier.notify(session.classId, classDoc.title, 'live-class-starting', {});
+    }
   }
 
   async end(sessionId: string, instructorId: string): Promise<void> {
@@ -333,20 +340,19 @@ export class SessionsService implements OnApplicationBootstrap {
 
   /** Every minute, finds sessions entering the 24h/1h/15min reminder windows that haven't
    * already had that tier sent — tracked as an array field on the session document so a
-   * mid-run restart can't double-fire. Publishes one event per active enrollment; the
-   * enrollments lookup itself lives in EnrollmentsService, so this only emits the per-session
-   * "who to remind" trigger — Task 40's consumer resolves recipients via a second query,
-   * kept here as a TODO resolved by EnrollmentsService.listActiveStudentIds below. */
+   * mid-run restart can't double-fire. Publishes both the per-session domain audit event AND
+   * a real per-student notifyEnrolledStudents fan-out (Task 40), each session's class title
+   * fetched once and reused across the whole fan-out rather than per-student. */
   @Cron(CronExpression.EVERY_MINUTE)
   async sendReminders(): Promise<void> {
     const now = Date.now();
-    const tiers: { tier: ReminderTier; ms: number }[] = [
-      { tier: '24h', ms: 24 * 60 * 60 * 1000 },
-      { tier: '1h', ms: 60 * 60 * 1000 },
-      { tier: '15min', ms: 15 * 60 * 1000 },
+    const tiers: { tier: ReminderTier; ms: number; label: string }[] = [
+      { tier: '24h', ms: 24 * 60 * 60 * 1000, label: '24 hours' },
+      { tier: '1h', ms: 60 * 60 * 1000, label: '1 hour' },
+      { tier: '15min', ms: 15 * 60 * 1000, label: '15 minutes' },
     ];
 
-    for (const { tier, ms } of tiers) {
+    for (const { tier, ms, label } of tiers) {
       // A 1-minute-wide window around the exact target time — this cron runs every minute, so
       // one pass is guaranteed to catch each session exactly once per tier.
       const windowStart = new Date(now + ms - 60_000);
@@ -363,6 +369,14 @@ export class SessionsService implements OnApplicationBootstrap {
           startTime: session.startTime,
         });
         await this.sessions().updateOne({ _id: session._id }, { $addToSet: { remindersSent: tier }, $set: { updatedAt: new Date() } });
+
+        const classDoc = await this.classes().findOne({ _id: session.classId });
+        if (classDoc) {
+          void this.studentNotifier.notify(session.classId, classDoc.title, 'live-class-reminder', {
+            reminderLabel: label,
+            startTime: session.startTime,
+          });
+        }
       }
     }
   }

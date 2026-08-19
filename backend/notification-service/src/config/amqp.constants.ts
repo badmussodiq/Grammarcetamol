@@ -7,6 +7,12 @@ export const AMQP_CHANNEL = 'AMQP_CHANNEL';
 export const USER_EXCHANGE = 'user.exchange';
 export const PAYMENT_EXCHANGE = 'payment.exchange';
 export const ENROLLMENT_EXCHANGE = 'enrollment.exchange';
+// Task 40 (Phase 4): Live Class Service (Task 39) publishes its own generic notification
+// requests here, same shape as every other domain — subscription-charged/-payment-failed
+// notifications deliberately do NOT get a new binding here, since SubscriptionsService
+// (payment-service, Task 38) reuses the existing payment.exchange/payment.notification path
+// instead (it already has a PaymentEventPublisher on hand) rather than inventing a second one.
+export const LIVECLASS_EXCHANGE = 'liveclass.exchange';
 
 /** Routing-key convention for "please send an email" requests: `<domain>.notification` on the
  * domain's own existing exchange — distinct from that domain's other event routing keys (e.g.
@@ -19,6 +25,7 @@ export const NOTIFICATION_ROUTING_KEY = {
   user: 'user.notification',
   payment: 'payment.notification',
   enrollment: 'enrollment.notification',
+  liveclass: 'liveclass.notification',
 } as const;
 
 /** The exact payload shape every publisher sends on the routing keys above. */

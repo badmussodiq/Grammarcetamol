@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service-to-service lookup only — never routed through the gateway (its route table only
@@ -32,5 +34,15 @@ public class InternalUserController {
     public ApiResponse<InternalUserResponse> getUser(@PathVariable UUID id) {
         User user = userProfileService.getUserById(id);
         return ApiResponse.success(new InternalUserResponse(user.getId(), user.getEmail(), user.getFullName()));
+    }
+
+    /** Task 40 (Phase 4): backs Announcements' targetType='all' recipient fan-out in
+     * notification-service — every ACTIVE student, no pagination. */
+    @GetMapping("/students")
+    public ApiResponse<List<InternalUserResponse>> listActiveStudents() {
+        List<InternalUserResponse> students = userProfileService.listActiveStudents().stream()
+            .map(u -> new InternalUserResponse(u.getId(), u.getEmail(), u.getFullName()))
+            .collect(Collectors.toList());
+        return ApiResponse.success(students);
     }
 }

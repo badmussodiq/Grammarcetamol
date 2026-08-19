@@ -1,0 +1,3 @@
+Hi {{fullName}},
+
+Your class {{classTitle}} has ended. Any materials the instructor shared remain available in your classroom.

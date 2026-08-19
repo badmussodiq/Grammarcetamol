@@ -41,6 +41,7 @@ describe('SessionsService', () => {
   let videoProviderRegistry: { get: jest.Mock };
   let eventPublisher: Record<string, jest.Mock>;
   let enrollmentsService: { hasAccess: jest.Mock };
+  let studentNotifier: { notify: jest.Mock };
   let service: SessionsService;
 
   beforeEach(() => {
@@ -55,12 +56,14 @@ describe('SessionsService', () => {
       publishSessionReminder: jest.fn(),
     };
     enrollmentsService = { hasAccess: jest.fn() };
+    studentNotifier = { notify: jest.fn().mockResolvedValue(undefined) };
 
     service = new SessionsService(
       db as any,
       videoProviderRegistry as unknown as VideoProviderRegistry,
       eventPublisher as unknown as LiveClassEventPublisher,
       enrollmentsService as unknown as EnrollmentsService,
+      studentNotifier as any,
     );
   });
 
@@ -169,15 +172,17 @@ describe('SessionsService', () => {
   });
 
   describe('session lifecycle — ending a session never touches the class', () => {
-    it('start() and end() only ever query the live_sessions collection, never classes', async () => {
+    it('start() and end() never write to the classes collection (start reads it once, just for the notification fan-out\'s class title)', async () => {
       const sess = sessionDoc({ status: 'SCHEDULED' });
       sessions.findOne.mockResolvedValue(sess);
       sessions.updateOne.mockResolvedValue({});
+      classes.findOne.mockResolvedValue(classDoc({ _id: sess.classId }));
 
       await service.start(sess._id.toHexString(), 'instructor-1');
       await service.end(sess._id.toHexString(), 'instructor-1');
 
-      expect(db.collection).not.toHaveBeenCalledWith('classes');
+      // The critical invariant: session lifecycle never mutates the parent class document.
+      expect(classes.updateOne).not.toHaveBeenCalled();
       expect(eventPublisher.publishSessionStarted).toHaveBeenCalled();
       expect(eventPublisher.publishSessionEnded).toHaveBeenCalled();
     });
@@ -185,6 +190,20 @@ describe('SessionsService', () => {
     it('rejects start/end from anyone other than the session\'s instructor', async () => {
       sessions.findOne.mockResolvedValue(sessionDoc({ instructorId: 'instructor-1' }));
       await expect(service.start('507f1f77bcf86cd799439011', 'someone-else')).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('start() fans out a live-class-starting notification via the shared student notifier', async () => {
+      const sess = sessionDoc({ status: 'SCHEDULED' });
+      sessions.findOne.mockResolvedValue(sess);
+      sessions.updateOne.mockResolvedValue({});
+      const cls = classDoc({ _id: sess.classId, title: 'Saturday Revision' });
+      classes.findOne.mockResolvedValue(cls);
+
+      await service.start(sess._id.toHexString(), 'instructor-1');
+      // notify() is fire-and-forget (void) inside start() — flush microtasks before asserting.
+      await Promise.resolve();
+
+      expect(studentNotifier.notify).toHaveBeenCalledWith(sess.classId, 'Saturday Revision', 'live-class-starting', {});
     });
   });
 
@@ -213,6 +232,23 @@ describe('SessionsService', () => {
       expect(sessions.updateOne).toHaveBeenCalledWith(
         { _id: due._id },
         expect.objectContaining({ $addToSet: { remindersSent: '24h' } }),
+      );
+    });
+
+    it('fans out a live-class-reminder notification for a due session, with the tier label', async () => {
+      const due = sessionDoc({ remindersSent: [] });
+      sessions.__cursor.toArray.mockResolvedValueOnce([due]).mockResolvedValue([]);
+      sessions.updateOne.mockResolvedValue({});
+      classes.findOne.mockResolvedValue(classDoc({ _id: due.classId, title: 'Primary 4 Mathematics' }));
+
+      await service.sendReminders();
+      await Promise.resolve();
+
+      expect(studentNotifier.notify).toHaveBeenCalledWith(
+        due.classId,
+        'Primary 4 Mathematics',
+        'live-class-reminder',
+        expect.objectContaining({ reminderLabel: '24 hours' }),
       );
     });
   });

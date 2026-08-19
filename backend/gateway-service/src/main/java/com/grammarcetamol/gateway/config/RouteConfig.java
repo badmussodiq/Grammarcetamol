@@ -83,6 +83,16 @@ public class RouteConfig {
             .route("support-service", r -> r
                 .path("/api/support/**")
                 .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Per-user in-app/email channel preferences (Task 40) — fully authenticated, scoped
+            // to the caller inside PreferencesController itself.
+            .route("notification-preferences-service", r -> r
+                .path("/api/notification-preferences")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Admin/moderator broadcast announcements (Task 40) — fully authenticated, role-gated
+            // inside AnnouncementsController itself.
+            .route("announcements-service", r -> r
+                .path("/api/announcements/**")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
             // Live Class Service (Task 39) — classes, sessions, enrollments, invitations,
             // instructor availability. Auth classification (public list/detail vs. fully
             // authenticated nested actions) lives in JwtAuthFilter's OPTIONALLY_AUTHENTICATED_ROUTES,

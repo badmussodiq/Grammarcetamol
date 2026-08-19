@@ -1,0 +1,3 @@
+Hi {{fullName}},
+
+Your live class {{classTitle}} is starting now — head to your classroom to join.

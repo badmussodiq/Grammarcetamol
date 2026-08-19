@@ -4,6 +4,7 @@ import {EmailProviderRegistry} from '@/providers/email-provider.registry';
 import {NotificationLogsService} from '@/notification-logs/notification-logs.service';
 import {NotificationsService} from '@/notifications/notifications.service';
 import {formatNotification} from '@/notifications/notification-formatter';
+import {PreferencesService} from '@/preferences/preferences.service';
 import {TemplatesService} from '@/templates/templates.service';
 import {renderTemplate} from '@/templates/template-renderer';
 import type {NotificationRequestedEvent} from '@/config/amqp.constants';
@@ -25,15 +26,26 @@ export class NotificationSenderService {
     private readonly templates: TemplatesService,
     private readonly logs: NotificationLogsService,
     private readonly notifications: NotificationsService,
+    private readonly preferences: PreferencesService,
   ) {}
 
   async send(event: NotificationRequestedEvent): Promise<void> {
+    const { type, title, message } = formatNotification(event.templateName, event.variables);
+
     // Alongside the email — not instead of it. Independent of whether the template resolves or
     // the email provider succeeds below: the in-app notification is about the underlying event
-    // (e.g. "your account was locked"), not about email delivery status.
-    if (event.userId) {
-      const { type, title, message } = formatNotification(event.templateName, event.variables);
+    // (e.g. "your account was locked"), not about email delivery status. Gated on the user's
+    // own preference (system-type notifications — OTP, account-locked — always pass, see
+    // PreferencesService.isEnabled).
+    if (event.userId && (await this.preferences.isEnabled(event.userId, type, 'inApp'))) {
       void this.notifications.create({ userId: event.userId, type, title, message, relatedId: null });
+    }
+
+    // A user who opted out of email for this type gets no email and no log row — a
+    // preference-skip is a deliberate non-attempt, not a send failure, so it doesn't belong in
+    // the append-only notification_logs audit trail (which only records real attempts).
+    if (event.userId && !(await this.preferences.isEnabled(event.userId, type, 'email'))) {
+      return;
     }
 
     const template = await this.templates.findByName(event.templateName);

@@ -1,12 +1,20 @@
 import {Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap} from '@nestjs/common';
 import type {Collection, Db} from 'mongodb';
 import {ObjectId} from 'mongodb';
+import {Subject} from 'rxjs';
+import {filter} from 'rxjs/operators';
 import {MONGO_DB} from '@/config/database.module';
 import type {Notification} from './notification.types';
 
 @Injectable()
 export class NotificationsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(NotificationsService.name);
+  // One process-wide stream, filtered per-subscriber by userId in the controller — simplest
+  // thing that works for a single-instance dev deployment. A multi-instance production
+  // deployment would need this fanned out via Redis pub/sub or similar so an SSE client
+  // connected to instance A still gets events written by instance B; out of scope here, flagged
+  // rather than silently assumed away.
+  private readonly stream$ = new Subject<{ userId: string; notification: Notification }>();
 
   constructor(@Inject(MONGO_DB) private readonly db: Db) {}
 
@@ -26,10 +34,18 @@ export class NotificationsService implements OnApplicationBootstrap {
    * NotificationLogsService.append. */
   async create(entry: Omit<Notification, '_id' | 'createdAt' | 'readAt'>): Promise<void> {
     try {
-      await this.collection().insertOne({ ...entry, readAt: null, createdAt: new Date() });
+      const notification: Notification = { ...entry, readAt: null, createdAt: new Date() };
+      await this.collection().insertOne(notification);
+      this.stream$.next({ userId: entry.userId, notification });
     } catch (err) {
       this.logger.error(`Failed to write notification row: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  /** Filters the process-wide stream down to one user's own events — every SSE subscriber
+   * gets its own filtered view of the same underlying Subject. */
+  streamFor(userId: string) {
+    return this.stream$.asObservable().pipe(filter((event) => event.userId === userId));
   }
 
   async listForUser(userId: string, filter: { type?: string; unreadOnly?: boolean } = {}, page = 1, limit = 20) {

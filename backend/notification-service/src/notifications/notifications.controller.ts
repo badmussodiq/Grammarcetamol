@@ -1,14 +1,29 @@
-import {Controller, Delete, Get, Param, Patch, Query} from '@nestjs/common';
+import {Controller, Delete, Get, MessageEvent, Param, Patch, Query, Sse} from '@nestjs/common';
+import {map, Observable} from 'rxjs';
 import {CurrentUser, type CurrentUserPayload, requireAuthenticated} from '@/common/current-user.decorator';
 import {ApiResponse} from '@/common/api-response';
 import {NotificationsService} from './notifications.service';
 
 /** The in-app notification inbox — always scoped to the authenticated caller's own userId,
- * never a client-supplied one. No SSE stream endpoint here (that's Phase 4/v2 work, see
- * PLAN.md Task 39) — the frontend polls/refetches instead. */
+ * never a client-supplied one. */
 @Controller('api/notifications')
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
+
+  /**
+   * Server-Sent Events — Task 40's own flagged risk: confirmed live (curl -N through the
+   * gateway) that Spring Cloud Gateway's Netty-based reactive proxy streams this cleanly
+   * without buffering the whole response before forwarding it. If that ever regresses, the
+   * documented fallback is client-side polling of GET /unread-count — Task 42's frontend
+   * client builds that in regardless of whether SSE works, not as an afterthought.
+   */
+  @Sse('stream')
+  stream(@CurrentUser() user: CurrentUserPayload): Observable<MessageEvent> {
+    requireAuthenticated(user);
+    return this.notifications.streamFor(user.id as string).pipe(
+      map((event) => ({ data: event.notification }) as MessageEvent),
+    );
+  }
 
   @Get()
   async list(

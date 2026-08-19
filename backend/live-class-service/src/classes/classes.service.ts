@@ -2,6 +2,7 @@ import {BadRequestException, ConflictException, ForbiddenException, Inject, Inje
 import type {Collection, Db} from 'mongodb';
 import {ObjectId} from 'mongodb';
 import {MONGO_DB} from '@/config/database.module';
+import {EnrolledStudentNotifier} from '@/enrollments/enrolled-student-notifier.service';
 import {LiveClassEventPublisher} from '@/messaging/live-class-event-publisher';
 import {SessionsService} from '@/sessions/sessions.service';
 import type {ClassSchedule, LiveClass, LiveClassDocument} from './class.types';
@@ -37,6 +38,7 @@ export class ClassesService implements OnApplicationBootstrap {
     @Inject(MONGO_DB) private readonly db: Db,
     private readonly sessionsService: SessionsService,
     private readonly eventPublisher: LiveClassEventPublisher,
+    private readonly studentNotifier: EnrolledStudentNotifier,
   ) {}
 
   private classes(): Collection<LiveClass> {
@@ -156,6 +158,7 @@ export class ClassesService implements OnApplicationBootstrap {
 
     await this.classes().updateOne({ _id: existing._id }, { $set: { status: 'ENDED', endedAt: new Date(), updatedAt: new Date() } });
     this.eventPublisher.publishClassEnded({ classId: id, instructorId: existing.instructorId });
+    void this.studentNotifier.notify(existing._id, existing.title, 'class-ended', {});
     return this.findById(id);
   }
 

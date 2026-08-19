@@ -7,6 +7,7 @@ describe('NotificationSenderService', () => {
   let templates: { findByName: jest.Mock };
   let logs: { append: jest.Mock };
   let notifications: { create: jest.Mock };
+  let preferences: { isEnabled: jest.Mock };
   let service: NotificationSenderService;
 
   const activeTemplate = {
@@ -25,7 +26,8 @@ describe('NotificationSenderService', () => {
     templates = { findByName: jest.fn() };
     logs = { append: jest.fn().mockResolvedValue(undefined) };
     notifications = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new NotificationSenderService(config as any, emailProviders as any, templates as any, logs as any, notifications as any);
+    preferences = { isEnabled: jest.fn().mockResolvedValue(true) };
+    service = new NotificationSenderService(config as any, emailProviders as any, templates as any, logs as any, notifications as any, preferences as any);
   });
 
   const event = { service: 'auth-service', templateName: 'welcome', to: 'a@b.com', toName: 'Jane', variables: { name: 'Jane' } };
@@ -100,5 +102,38 @@ describe('NotificationSenderService', () => {
     await service.send({ ...event, userId: 'user-1' });
 
     expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
+  });
+
+  describe('preference gating', () => {
+    it('skips the in-app write when the user opted out of the in-app channel for this type', async () => {
+      templates.findByName.mockResolvedValue(activeTemplate);
+      provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+      preferences.isEnabled.mockImplementation((_userId: string, _type: string, channel: string) => Promise.resolve(channel !== 'inApp'));
+
+      await service.send({ ...event, userId: 'user-1' });
+
+      expect(notifications.create).not.toHaveBeenCalled();
+      expect(provider.send).toHaveBeenCalled(); // email still sends independently
+    });
+
+    it('skips the email (and the log row) when the user opted out of the email channel, without touching the in-app write', async () => {
+      preferences.isEnabled.mockImplementation((_userId: string, _type: string, channel: string) => Promise.resolve(channel !== 'email'));
+
+      await service.send({ ...event, userId: 'user-1' });
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(logs.append).not.toHaveBeenCalled();
+      expect(notifications.create).toHaveBeenCalled(); // in-app still writes independently
+    });
+
+    it('never checks preferences for an event with no userId — there is nothing to look up', async () => {
+      templates.findByName.mockResolvedValue(activeTemplate);
+      provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+      await service.send(event);
+
+      expect(preferences.isEnabled).not.toHaveBeenCalled();
+      expect(provider.send).toHaveBeenCalled();
+    });
   });
 });

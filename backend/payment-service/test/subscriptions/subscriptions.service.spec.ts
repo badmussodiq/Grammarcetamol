@@ -1,6 +1,7 @@
 import {BadRequestException, ForbiddenException, NotFoundException} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {AuthServiceClient} from '@/course-client/auth-service.client';
+import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {SubscriptionEventPublisher} from '@/messaging/subscription-event-publisher';
 import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
 import {SubscriptionsService} from '@/subscriptions/subscriptions.service';
@@ -39,6 +40,7 @@ describe('SubscriptionsService', () => {
     publishSubscriptionCancelled: jest.Mock;
     publishSubscriptionExpired: jest.Mock;
   };
+  let notificationPublisher: { publishNotification: jest.Mock };
   let config: ConfigService;
   let service: SubscriptionsService;
 
@@ -51,13 +53,14 @@ describe('SubscriptionsService', () => {
       cancelSubscription: jest.fn(),
     };
     providerRegistry = { get: jest.fn().mockReturnValue(provider) };
-    authServiceClient = { getUser: jest.fn() };
+    authServiceClient = { getUser: jest.fn().mockResolvedValue({ id: 'user-1', email: 'user1@example.com', fullName: 'User One' }) };
     eventPublisher = {
       publishSubscriptionCreated: jest.fn(),
       publishSubscriptionCharged: jest.fn(),
       publishSubscriptionCancelled: jest.fn(),
       publishSubscriptionExpired: jest.fn(),
     };
+    notificationPublisher = { publishNotification: jest.fn() };
     config = { get: jest.fn((key: string, fallback?: unknown) => fallback) } as unknown as ConfigService;
 
     service = new SubscriptionsService(
@@ -65,6 +68,7 @@ describe('SubscriptionsService', () => {
       providerRegistry as unknown as PaymentProviderRegistry,
       authServiceClient as unknown as AuthServiceClient,
       eventPublisher as unknown as SubscriptionEventPublisher,
+      notificationPublisher as unknown as PaymentEventPublisher,
       config,
     );
   });
@@ -206,6 +210,27 @@ describe('SubscriptionsService', () => {
       expect(eventPublisher.publishSubscriptionCharged).toHaveBeenCalled();
       expect(eventPublisher.publishSubscriptionCreated).not.toHaveBeenCalled();
     });
+
+    it('sends a subscription-charged notification on both first activation and renewal (Task 40)', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rowCount: 1, rows: [subscriptionRow({ status: 'pending' })] })
+        .mockResolvedValueOnce({ rows: [subscriptionRow({ status: 'active', current_period_end: '2026-09-19T00:00:00.000Z' })] });
+
+      await service.handleWebhookEvent({
+        event: 'charge.success',
+        data: { reference: 'sub_ref_1', plan: { plan_code: 'PLN_abc' }, customer: { customer_code: 'CUS_1' } },
+      });
+      await Promise.resolve(); // flush the fire-and-forget notifyCharged() call
+
+      expect(authServiceClient.getUser).toHaveBeenCalledWith('user-1');
+      expect(notificationPublisher.publishNotification).toHaveBeenCalledWith(
+        'subscription-charged',
+        'user1@example.com',
+        'User One',
+        expect.objectContaining({ amount: 5000, currency: 'NGN' }),
+        'user-1',
+      );
+    });
   });
 
   describe('handleWebhookEvent — subscription.disable', () => {
@@ -236,6 +261,24 @@ describe('SubscriptionsService', () => {
       // payment_failed -> past_due is a silent state change (no consumer needs to react yet —
       // access hasn't ended); only the terminal expired transition is worth an event.
       expect(eventPublisher.publishSubscriptionCancelled).not.toHaveBeenCalled();
+    });
+
+    it('sends a subscription-payment-failed notification only for the terminal expired transition (Task 40)', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [subscriptionRow({ status: 'past_due' })] })
+        .mockResolvedValueOnce({ rows: [subscriptionRow({ status: 'expired' })] });
+
+      await service.sweepFailedSubscriptions();
+      await Promise.resolve(); // flush the fire-and-forget notifyExpired() call
+
+      expect(notificationPublisher.publishNotification).toHaveBeenCalledWith(
+        'subscription-payment-failed',
+        'user1@example.com',
+        'User One',
+        expect.anything(),
+        'user-1',
+      );
+      expect(notificationPublisher.publishNotification).toHaveBeenCalledTimes(1); // not fired for the payment_failed->past_due step
     });
 
     it('does not publish anything when nothing is overdue', async () => {

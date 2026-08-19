@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -141,6 +142,19 @@ public class UserProfileService {
             "page",  page,
             "limit", limit
         );
+    }
+
+    /** Task 40 (Phase 4): backs the internal-only bulk lookup Announcements' `targetType='all'`
+     * fan-out needs — every ACTIVE STUDENT's id/email/fullName, no pagination, since the whole
+     * point is "everyone," not a page of them. Minimal-exposure by design, same principle as
+     * InternalUserController's single-user lookup — this method itself only returns the three
+     * fields that lookup already exposes, never the full User entity. */
+    @Transactional(readOnly = true)
+    public List<User> listActiveStudents() {
+        Specification<User> spec = Specification.where(null);
+        spec = spec.and((root, cq, cb) -> cb.equal(root.get("role"), RoleName.STUDENT));
+        spec = spec.and((root, cq, cb) -> cb.equal(root.get("status"), User.Status.ACTIVE));
+        return userRepository.findAll(spec);
     }
 
     @Transactional(readOnly = true)

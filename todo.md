@@ -67,14 +67,13 @@ Inserted between Phase 3 and Phase 4 on explicit user direction — a real produ
 
 ### Phase 4 — Live Classes & Notifications (Tasks 38–45)
 **📍 Status tracking moved to [`PHASE4.md`](./PHASE4.md)** — the single source of truth for
-this phase's task-by-task status, findings, and update log. Not started as of 2026-08-19,
-except a real head start already found on Task 40/42's in-app notification center (backend
-inbox + student bell/`/notifications` page exist; nothing populates them yet). Redesigned the
-same day around a user-supplied domain spec — Class/Session split, group/private classes,
-open/invite-only access, free/one-time/recurring billing (recurring now needs a new Task 38:
-Payment Service Subscription Billing, ahead of Live Class Service itself) — see `PHASE4.md`'s
-Domain Model section for the full entity reference. Full task specs remain in `PLAN.md` Tasks
-38–45.
+this phase's task-by-task status, findings, and update log. As of 2026-08-19, Tasks 38
+(Payment Service Subscription Billing), 39 (Live Class Service), and 40 (Notification Service
+extension — in-app center, SSE, Announcements) are done and live-verified; Tasks 41–45
+(student/admin live-class + notification frontends, integration) are not started. Redesigned
+around a user-supplied domain spec — Class/Session split, group/private classes,
+open/invite-only access, free/one-time/recurring billing — see `PHASE4.md`'s Domain Model
+section for the full entity reference. Full task specs remain in `PLAN.md` Tasks 38–45.
 
 Past Phase 4, Phase 5 (service requests, support, business ops) isn't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
 

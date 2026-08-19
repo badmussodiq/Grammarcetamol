@@ -24,9 +24,9 @@ trusting it, same rule as everywhere else in this project.
 |----|---------------------------------------------------------------------------------------------------|-------------------------------------------------|--------------------------------------|
 | 38 | **Payment Service — Subscription Billing** (new, split out 2026-08-19)                            | ✅ Done (2026-08-19), live-verified              | Phase 3.5 (done)                     |
 | 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | ✅ Done (2026-08-19), live-verified              | Task 38 (for RECURRING classes only) |
-| 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | 🟡 Partially done (found, not built, this task) | Phase 3.5 Task 31 (done)             |
+| 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | ✅ Done (2026-08-19), live-verified              | Phase 3.5 Task 31 (done)             |
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | 🔲 Not started                                  | Task 39                              |
-| 42 | Student frontend — notification center & preferences                                              | 🟡 Partially done (found, not built, this task) | Task 40                              |
+| 42 | Student frontend — notification center & preferences                                              | 🔲 Not started                                  | Task 40                              |
 | 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | 🔲 Not started                                  | Task 39                              |
 | 44 | Admin frontend — announcement manager                                                             | 🔲 Not started                                  | Task 40                              |
 | 45 | Phase 4 integration & verification                                                                | 🔲 Not started                                  | Tasks 38–44                          |
@@ -217,15 +217,26 @@ Task 38 was written:
 
 ## Real risks flagged ahead of time (verify, don't assume)
 
-- **SSE through the gateway** — `GET /api/notifications/stream` needs to be confirmed live
-  with `curl -N` to actually stream through Spring Cloud Gateway's Netty-based reactive proxy
-  without being buffered by `JwtAuthFilter`/the rate-limit `GlobalFilter`s. Fallback if it
-  doesn't: client-side polling of `unread-count` (Task 42 should build this fallback into the
-  frontend client regardless of whether SSE works, not as an afterthought).
-- **Notification preferences enforcement** — Task 42's own demo criteria explicitly calls
-  out: confirm whether Task 40's consumer actually checks `user_notification_preferences`
-  before delivering. If it doesn't, that's a Task 40 gap to flag back, not something to paper
-  over with a UI toggle that quietly does nothing.
+- ~~**SSE through the gateway**~~ — **Resolved 2026-08-19, confirmed live.** `GET
+  /api/notifications/stream` streams cleanly through Spring Cloud Gateway with no buffering:
+  response headers show `Content-Type: text/event-stream`, `Cache-Control: no-cache`,
+  `X-Accel-Buffering: no`, chunked transfer-encoding, and a real event (published via an
+  admin-fired announcement, and separately via a live-class session `start()`) arrived on an
+  authenticated `curl -N` connection within ~2 seconds of being triggered. No polling fallback
+  needed at the backend level; Task 42 can still build one client-side as defense-in-depth.
+- ~~**Notification preferences enforcement**~~ — **Resolved 2026-08-19, confirmed live** —
+  and a real bug was caught doing it. `NotificationSenderService.send()` does check
+  `PreferencesService.isEnabled()` per channel before writing the in-app row / sending email
+  (`system`-type notifications always bypass this, by design — disabling OTP/lockout emails
+  would be a real lockout risk). But `PUT /api/notification-preferences` itself rejected any
+  partial update (`{"announcement":{"inApp":false,"email":true}}` alone) with a 400 — the four
+  `UpdatePreferencesDto` fields were validated as required despite being typed `?:` optional,
+  because `@IsOptional()` was missing from each. Fixed in
+  `backend/notification-service/src/preferences/dto/update-preferences.dto.ts`; added
+  `test/preferences/update-preferences.dto.spec.ts` (3 new tests) to lock it in. Re-verified
+  live end-to-end: disabled in-app announcement notifications for a test student, published a
+  second announcement, confirmed no new in-app row was created for that student while the
+  earlier one was still there — gating works correctly once the DTO bug was fixed.
 - **Paid live-class registration** needs a new `itemType`/`itemId` pair added to
   `payment-service`'s initialize DTO (Task 39) — touches a service outside Live Class Service
   itself, worth sequencing early rather than discovering the coupling late.
@@ -300,3 +311,35 @@ Dependency-first, matching how every prior phase in this project was built:
   `EnrollmentsService.createEnrollment` that the type-mismatch bug's retry exposed. Full
   detail in `PLAN.md` Task 39's own status note. Next up: Task 40 (Notification Service
   extension) or Tasks 41/43 (student/admin live-class frontends), both now unblocked.
+- **2026-08-19 (Task 40 built)** — Notification Service extension done and live-verified
+  against the real running stack (not just unit tests). Rather than teaching the consumer to
+  understand raw `liveclass`/`subscription` domain events itself (PLAN.md's literal wording),
+  reused the existing generic `<domain>.notification` pattern already proven by Task 31/38:
+  `live-class-service` and `payment-service` both publish through their own
+  `publishNotification()` helper onto `liveclass.exchange`/`subscription.exchange`
+  (`payment-service` reuses the *existing* `payment.exchange` it already had), so only one new
+  binding (`liveclass.notification`) was actually needed on the consumer side — a documented,
+  deliberate deviation, not scope drift. Built: `PreferencesModule` (per-user in-app/email
+  channel gating, `system`-type always bypasses it), `AnnouncementsModule` (full CRUD,
+  audience resolution for `all`/`courses` via two new minimal internal endpoints —
+  `GET /api/internal/users/students` on auth-service, `POST /api/enrollments/course-users` on
+  enrollment-service — `segments` stays a documented no-op), SSE (`GET
+  /api/notifications/stream` via RxJS `Subject`), 6 new email templates, and the
+  `EnrolledStudentNotifier` shared fan-out helper in live-class-service wiring
+  session-start/reminder/class-end into real notifications. Added gateway routes for
+  `/api/announcements/**` and `/api/notification-preferences` (missing from the original
+  Task 39 pass) — both fully authenticated by default, role-gated inside their own
+  controllers, no `JwtAuthFilter` public/optional-auth entries needed.
+  **Live-verified end-to-end against the real stack**, not just the 57/57 (notification-service)
+  + 44/44 (payment-service) + 38/38 (live-class-service) passing unit tests: published a real
+  `all`-targeted announcement and watched it fan out to a real activated test student
+  (`auth-service.listActiveStudents()` → 5 real recipients); confirmed the SSE stream
+  delivers a live event through the gateway with no buffering (see the resolved risk above);
+  created/published/started a real live class + session end-to-end and watched the
+  `live-class-starting` notification travel `live-class-service` → `liveclass.exchange` →
+  `notification-service`'s consumer → in-app write → SSE push, all live, in the resolved-risks
+  section above. **Found and fixed one real bug** during this pass: `UpdatePreferencesDto`
+  rejected partial preference updates because `@IsOptional()` was missing on all four fields
+  despite the code's own comment claiming partial updates were supported — see the resolved
+  risk entry above for the fix and live re-verification. Next up: Tasks 41–44 (student/admin
+  live-class + notification frontends) — none started yet, no explicit instruction received.

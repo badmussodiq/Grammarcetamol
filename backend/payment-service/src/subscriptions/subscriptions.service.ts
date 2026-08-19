@@ -6,6 +6,7 @@ import type {Pool} from 'pg';
 import {PG_POOL} from '@/config/database.module';
 import {CurrentUserPayload} from '@/common/current-user.decorator';
 import {AuthServiceClient} from '@/course-client/auth-service.client';
+import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {SubscriptionEventPublisher} from '@/messaging/subscription-event-publisher';
 import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
 import {mapSubscriptionRow, Subscription} from './subscription.types';
@@ -25,6 +26,7 @@ export class SubscriptionsService {
     private readonly providerRegistry: PaymentProviderRegistry,
     private readonly authServiceClient: AuthServiceClient,
     private readonly eventPublisher: SubscriptionEventPublisher,
+    private readonly notificationPublisher: PaymentEventPublisher,
     private readonly config: ConfigService,
   ) {}
 
@@ -239,6 +241,12 @@ export class SubscriptionsService {
         this.eventPublisher.publishSubscriptionCharged(eventPayload);
         this.logger.log(`Subscription ${updated.id} charged, period extended to ${updated.currentPeriodEnd}`);
       }
+      // Task 40: a real receipt-style notification, both for first activation and every
+      // renewal — reuses the EXISTING payment.exchange/payment.notification path (via
+      // PaymentEventPublisher, already injected into this service) rather than teaching
+      // Notification Service a new binding for subscription.exchange, since this service
+      // already has everything (AuthServiceClient) needed to resolve the recipient itself.
+      void this.notifyCharged(updated.userId, Number(updated.amount), updated.currency);
       return;
     }
 
@@ -341,7 +349,41 @@ export class SubscriptionsService {
         itemId: updated.itemId,
         currentPeriodEnd: updated.currentPeriodEnd,
       });
+      void this.notifyExpired(updated.userId);
       this.logger.log(`Subscription ${updated.id} expired after ${PAST_DUE_GRACE_DAYS} days past_due`);
+    }
+  }
+
+  /** Fires on every successful charge (first activation and every renewal) — a resolution
+   * failure here must never break the webhook handler that called it, so it's always used as
+   * a fire-and-forget void call, same discipline as PaymentsService.publishPurchaseEmails. */
+  private async notifyCharged(userId: string, amount: number, currency: string): Promise<void> {
+    try {
+      const user = await this.authServiceClient.getUser(userId);
+      this.notificationPublisher.publishNotification(
+        'subscription-charged',
+        user.email,
+        user.fullName ?? user.email,
+        { fullName: user.fullName ?? user.email, amount, currency },
+        userId,
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to send subscription-charged notification for user ${userId}: ${(err as Error).message}`);
+    }
+  }
+
+  private async notifyExpired(userId: string): Promise<void> {
+    try {
+      const user = await this.authServiceClient.getUser(userId);
+      this.notificationPublisher.publishNotification(
+        'subscription-payment-failed',
+        user.email,
+        user.fullName ?? user.email,
+        { fullName: user.fullName ?? user.email },
+        userId,
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to send subscription-payment-failed notification for user ${userId}: ${(err as Error).message}`);
     }
   }
 
