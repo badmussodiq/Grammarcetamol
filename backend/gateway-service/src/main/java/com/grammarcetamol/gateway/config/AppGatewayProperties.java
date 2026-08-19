@@ -16,5 +16,6 @@ public class AppGatewayProperties {
     private String reviewServiceUrl;
     private String uploadServiceUrl;
     private String notificationServiceUrl;
+    private String liveClassServiceUrl;
     private String internalToken;
 }

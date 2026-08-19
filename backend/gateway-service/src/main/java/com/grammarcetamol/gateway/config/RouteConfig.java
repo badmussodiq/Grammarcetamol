@@ -83,6 +83,13 @@ public class RouteConfig {
             .route("support-service", r -> r
                 .path("/api/support/**")
                 .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Live Class Service (Task 39) — classes, sessions, enrollments, invitations,
+            // instructor availability. Auth classification (public list/detail vs. fully
+            // authenticated nested actions) lives in JwtAuthFilter's OPTIONALLY_AUTHENTICATED_ROUTES,
+            // not here.
+            .route("live-class-service", r -> r
+                .path("/api/classes/**", "/api/invitations/**", "/api/instructors/**", "/api/sessions/**", "/api/enrollments/**")
+                .uri(appGatewayProperties.getLiveClassServiceUrl()))
             .build();
     }
 }

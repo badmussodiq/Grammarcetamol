@@ -59,7 +59,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         new String[]{"GET", "/api/categories/**"},
         // Guest or logged-in student can submit a support ticket; a present token just links
         // the ticket to that user (see SupportController) instead of leaving it anonymous.
-        new String[]{"POST", "/api/support/tickets"}
+        new String[]{"POST", "/api/support/tickets"},
+        // Task 39: browsing OPEN classes is public, same as the course catalog — but every
+        // nested action under a class (enroll, sessions, room, materials, messages) must stay
+        // fully authenticated by default, so these use `*` (exactly one path segment) rather
+        // than `**`, which would otherwise also match those nested, write-capable routes.
+        new String[]{"GET", "/api/classes"},
+        new String[]{"GET", "/api/classes/*"}
     );
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";

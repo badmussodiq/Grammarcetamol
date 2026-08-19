@@ -1081,6 +1081,45 @@ import "auth.proto";
 
 **Task 39: Live Class Service — Classes, Sessions, Enrollments, Chat, Scheduling & Join-Room**
 
+> **Status: ✅ Done (2026-08-19), live-verified against the real running stack** — not just
+> unit tests. `backend/live-class-service` boots clean on `:9007`, Mongo indexes create on
+> startup, all RabbitMQ bindings confirmed. Live-verified in full: a real overlapping-session
+> conflict correctly 409s; a recurring weekly schedule correctly generates exactly 10 real
+> `live_sessions` rows (bulk `insertMany` path, not just the single-session path); the
+> four-way room-authorization chain (not-enrolled → enroll → too-early → start → real `roomId`
+> revealed → end → parent class status untouched) proven end-to-end; chat lock → student 403 →
+> unlock → post succeeds → re-lock → 403 again, exactly matching the task's own demo criteria;
+> capacity boundary enforced (2/2 seats → 3rd enrollment 409); a `PRIVATE`/`INVITE_ONLY`/
+> `RECURRING` class fully round-tripped — uninvited self-enroll blocked, invite issued with a
+> negotiated price different from the class default, invitation accepted → a real Paystack
+> subscription created → a real HMAC-signed webhook simulation activates it → the RabbitMQ
+> consumer correctly flips the enrollment to `ACTIVE` → the student can post in chat, proving
+> `hasAccess` genuinely reads the activated enrollment, not a stub. 33/33 unit tests pass,
+> `tsc --noEmit` clean.
+>
+> **Three real bugs found and fixed during live verification, not caught by unit tests:**
+> 1. `POST /api/classes/{id}/sessions`'s response returned the raw session document, leaking
+>    `roomId`/`videoDomain` — the exact secret the whole room-reveal design exists to protect.
+>    Fixed to route through `toPublicSession()` like every other session-returning endpoint.
+> 2. `item_id` was typed strict Postgres `UUID` in both `payment-service`'s `subscriptions`
+>    (Task 38) and the new `payments.item_id` column — but Live Class Service's `classId` is a
+>    MongoDB ObjectId hex string, not a UUID, so every cross-service payment/subscription call
+>    failed outright. Fixed with a new `V4__item_id_as_string.sql` migration (Postgres
+>    migrations are immutable once applied in this project, so this is a follow-up ALTER, not
+>    an edit to V2/V3) and removed the incorrect `@IsUUID()` validator from
+>    `InitializeItemPaymentDto`.
+> 3. `EnrollmentsService.createEnrollment` had no idempotency check before inserting — if the
+>    payment-service call failed *after* the enrollment row was already written (exactly what
+>    bug #2 caused during testing), retrying crashed on the `{classId,studentId}` unique index
+>    instead of resuming. Fixed by moving the existing-enrollment check (already present in
+>    `enroll()`) into `createEnrollment` itself, so both `enroll()` and `acceptInvitation()`
+>    get idempotency for free.
+>
+> Not exercised live: a full successful subscription **cancel** against a real Paystack
+> subscription code (would need a completed real checkout via the `authorizationUrl` in a
+> browser) — the cancel error path was verified instead (Task 38's own note). `PHASE4.md`'s
+> status table and Update Log carry the same summary.
+
 **Objective:** Stand up `backend/live-class-service/` implementing the full domain model in `PHASE4.md` — persistent `Class`es (group or private, open or invite-only, free/one-time/recurring) each containing independent `LiveSession` occurrences, real-time moderated chat, materials, backend-enforced join-room authorization, and instructor scheduling conflict detection — not just a single-session booking system. This supersedes the lighter original draft of this task; read `PHASE4.md`'s Domain Model section first, it's the source of truth for every entity/field named below.
 
 **Implementation guidance:**

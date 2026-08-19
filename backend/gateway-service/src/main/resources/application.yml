@@ -35,6 +35,7 @@ gateway:
   review-service-url: ${REVIEW_SERVICE_URL:http://localhost:9004}
   upload-service-url: ${UPLOAD_SERVICE_URL:http://localhost:9006}
   notification-service-url: ${NOTIFICATION_SERVICE_URL:http://localhost:9008}
+  live-class-service-url: ${LIVE_CLASS_SERVICE_URL:http://localhost:9007}
   internal-token: ${INTERNAL_TOKEN:dev-internal-secret-change-in-prod}
 
 grpc:

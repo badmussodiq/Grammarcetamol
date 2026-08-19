@@ -179,7 +179,7 @@ describe('SubscriptionsService', () => {
       expect(pool.query).not.toHaveBeenCalled();
     });
 
-    it('activates a matching pending subscription row and publishes subscription.charged', async () => {
+    it('activates a matching pending subscription row (first charge) and publishes subscription.created, not .charged', async () => {
       pool.query
         .mockResolvedValueOnce({ rowCount: 1, rows: [subscriptionRow({ status: 'pending' })] }) // findByGatewayRef
         .mockResolvedValueOnce({ rows: [subscriptionRow({ status: 'active', current_period_end: '2026-09-19T00:00:00.000Z' })] }); // UPDATE
@@ -189,7 +189,22 @@ describe('SubscriptionsService', () => {
         data: { reference: 'sub_ref_1', plan: { plan_code: 'PLN_abc' }, customer: { customer_code: 'CUS_1' } },
       });
 
+      expect(eventPublisher.publishSubscriptionCreated).toHaveBeenCalled();
+      expect(eventPublisher.publishSubscriptionCharged).not.toHaveBeenCalled();
+    });
+
+    it('extends an already-active subscription (renewal) and publishes subscription.charged, not .created', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rowCount: 1, rows: [subscriptionRow({ status: 'active' })] }) // findByGatewayRef
+        .mockResolvedValueOnce({ rows: [subscriptionRow({ status: 'active', current_period_end: '2026-10-19T00:00:00.000Z' })] }); // UPDATE
+
+      await service.handleWebhookEvent({
+        event: 'charge.success',
+        data: { reference: 'sub_ref_1', plan: { plan_code: 'PLN_abc' }, customer: { customer_code: 'CUS_1' } },
+      });
+
       expect(eventPublisher.publishSubscriptionCharged).toHaveBeenCalled();
+      expect(eventPublisher.publishSubscriptionCreated).not.toHaveBeenCalled();
     });
   });
 

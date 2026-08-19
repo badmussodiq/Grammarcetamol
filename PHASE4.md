@@ -23,7 +23,7 @@ trusting it, same rule as everywhere else in this project.
 | #  | Task                                                                                              | Status                                          | Depends on                           |
 |----|---------------------------------------------------------------------------------------------------|-------------------------------------------------|--------------------------------------|
 | 38 | **Payment Service — Subscription Billing** (new, split out 2026-08-19)                            | ✅ Done (2026-08-19), live-verified              | Phase 3.5 (done)                     |
-| 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | 🔲 Not started                                  | Task 38 (for RECURRING classes only) |
+| 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | ✅ Done (2026-08-19), live-verified              | Task 38 (for RECURRING classes only) |
 | 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | 🟡 Partially done (found, not built, this task) | Phase 3.5 Task 31 (done)             |
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | 🔲 Not started                                  | Task 39                              |
 | 42 | Student frontend — notification center & preferences                                              | 🟡 Partially done (found, not built, this task) | Task 40                              |
@@ -287,3 +287,16 @@ Dependency-first, matching how every prior phase in this project was built:
   above) — a real, necessary adaptation to how Paystack's async subscription creation actually
   works, not a scope guess. 41/41 tests pass, `tsc --noEmit` clean. Full detail in `PLAN.md`
   Task 38's own status note. Next up: Task 39 (Live Class Service).
+- **2026-08-19 (Task 39 built)** — Live Class Service done and live-verified against the real
+  running stack: conflict detection (single + bulk recurring-generated sessions), the
+  four-way room-authorization chain, chat lock/unlock/re-lock, capacity boundary, and a full
+  `PRIVATE`/`INVITE_ONLY`/`RECURRING` round-trip including a real Paystack subscription,
+  a real HMAC-signed webhook, and cross-service enrollment activation via RabbitMQ — all
+  proven with real requests against real running services, not mocks. 33/33 unit tests pass.
+  Found and fixed three real bugs during verification: a `roomId` leak in the manual
+  session-creation response, a Postgres `UUID`-vs-Mongo-ObjectId type mismatch on `item_id`
+  in `payment-service` (new `V4__item_id_as_string.sql` migration — a real, necessary
+  correction to Task 38's own schema, not scope creep), and a missing idempotency check in
+  `EnrollmentsService.createEnrollment` that the type-mismatch bug's retry exposed. Full
+  detail in `PLAN.md` Task 39's own status note. Next up: Task 40 (Notification Service
+  extension) or Tasks 41/43 (student/admin live-class frontends), both now unblocked.

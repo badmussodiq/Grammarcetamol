@@ -213,20 +213,32 @@ export class SubscriptionsService {
 
     const existing = reference ? await this.findByGatewayRef(reference) : null;
     if (existing) {
+      // Distinguishing first-activation from renewal matters to consumers (Task 39's Live
+      // Class Service binds subscription.created to flip a brand-new enrollment from
+      // PENDING_PAYMENT -> ACTIVE, and subscription.charged separately to just extend an
+      // already-active enrollment's accessUntil) — treating every charge.success as "charged"
+      // left nothing to ever fire the first-activation event, a real gap fixed here.
+      const wasPending = existing.status === 'pending';
       const result = await this.pool.query(
         `UPDATE subscriptions SET status = 'active', current_period_end = $1, paystack_customer_code = COALESCE(paystack_customer_code, $2)
          WHERE id = $3 RETURNING *`,
         [nextPaymentDate, customer?.customer_code ?? null, existing.id],
       );
       const updated = mapSubscriptionRow(result.rows[0]);
-      this.eventPublisher.publishSubscriptionCharged({
+      const eventPayload = {
         subscriptionId: updated.id,
         userId: updated.userId,
         itemType: updated.itemType,
         itemId: updated.itemId,
         currentPeriodEnd: updated.currentPeriodEnd,
-      });
-      this.logger.log(`Subscription ${updated.id} charged, period extended to ${updated.currentPeriodEnd}`);
+      };
+      if (wasPending) {
+        this.eventPublisher.publishSubscriptionCreated(eventPayload);
+        this.logger.log(`Subscription ${updated.id} activated (first charge), period end ${updated.currentPeriodEnd}`);
+      } else {
+        this.eventPublisher.publishSubscriptionCharged(eventPayload);
+        this.logger.log(`Subscription ${updated.id} charged, period extended to ${updated.currentPeriodEnd}`);
+      }
       return;
     }
 

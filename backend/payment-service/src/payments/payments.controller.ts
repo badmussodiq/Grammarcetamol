@@ -13,6 +13,7 @@ import {
 import type {Request} from 'express';
 import {ApiResponse} from '@/common/api-response';
 import {CurrentUser, CurrentUserPayload, requireAuthenticated} from '@/common/current-user.decorator';
+import {InitializeItemPaymentDto} from './dto/initialize-item-payment.dto';
 import {InitializePaymentDto} from './dto/initialize-payment.dto';
 import {RefundPaymentDto} from './dto/refund-payment.dto';
 import {PaymentsService} from './payments.service';
@@ -25,6 +26,22 @@ export class PaymentsController {
   async initialize(@Body() dto: InitializePaymentDto, @CurrentUser() user: CurrentUserPayload) {
     requireAuthenticated(user);
     const result = await this.paymentsService.initialize(user.id as string, dto.courseId, dto.email ?? '');
+    return ApiResponse.success(result);
+  }
+
+  /** Generic counterpart to /initialize — for one-time items that aren't a course (Task 39's
+   * Live Class Service). See InitializeItemPaymentDto / PaymentsService.initializeItem. */
+  @Post('initialize-item')
+  async initializeItem(@Body() dto: InitializeItemPaymentDto, @CurrentUser() user: CurrentUserPayload) {
+    requireAuthenticated(user);
+    const result = await this.paymentsService.initializeItem(
+      user.id as string,
+      dto.itemType,
+      dto.itemId,
+      dto.amount,
+      dto.currency ?? 'NGN',
+      dto.email,
+    );
     return ApiResponse.success(result);
   }
 
