@@ -1170,6 +1170,15 @@ import "auth.proto";
 
 **Task 41: Student Frontend — Live Classes, Classroom & Join Flow**
 
+> **Status: see [`PHASE4.md`](./PHASE4.md).** Short version: done and live-verified
+> (2026-08-19), with one deliberate deviation from the guidance below — class chat uses real
+> Socket.IO sockets, not polling, per explicit later user direction. Three real backend bugs
+> found and fixed along the way (no student-enrollment-listing endpoint existed at all, a
+> pre-existing gateway route collision with course-enrollment-service, and a missing invitation-
+> preview endpoint), plus a fourth found building the socket work (`ChatService.post()`
+> returned a raw Mongo document instead of the public shape `list()` returns). Full detail in
+> `PHASE4.md`'s own Task 41 Update Log entry — don't duplicate it here.
+
 **Objective:** Let students browse/enroll in classes (free, one-time-paid, or subscription), accept private-class invitations, live inside a class's persistent classroom (moderated chat + materials), and join the actual video call only when a session is live and only through the embedded, never-exposed-link flow — all backend-enforced per `PHASE4.md`'s Domain Model, not just gated in the UI.
 
 **Implementation guidance:**

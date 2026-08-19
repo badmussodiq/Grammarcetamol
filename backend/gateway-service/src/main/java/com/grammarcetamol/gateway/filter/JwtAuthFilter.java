@@ -65,7 +65,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         // fully authenticated by default, so these use `*` (exactly one path segment) rather
         // than `**`, which would otherwise also match those nested, write-capable routes.
         new String[]{"GET", "/api/classes"},
-        new String[]{"GET", "/api/classes/*"}
+        new String[]{"GET", "/api/classes/*"},
+        // Task 41: an invitation preview must be viewable before the recipient logs in, same
+        // reasoning as browsing a class/course before enrolling — only accepting it (the POST
+        // below, not covered by this list) needs a real identity.
+        new String[]{"GET", "/api/invitations/*"}
     );
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";

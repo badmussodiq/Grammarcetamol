@@ -1,4 +1,4 @@
-import {BadRequestException, ConflictException, ForbiddenException} from '@nestjs/common';
+import {BadRequestException, ConflictException, ForbiddenException, NotFoundException} from '@nestjs/common';
 import {ObjectId} from 'mongodb';
 import {AuthServiceClient} from '@/clients/auth-service.client';
 import {PaymentServiceClient} from '@/clients/payment-service.client';
@@ -205,6 +205,47 @@ describe('EnrollmentsService', () => {
     });
   });
 
+  describe('listMine', () => {
+    it('resolves each enrollment to its class and soonest upcoming/live session', async () => {
+      const cls = classDoc({ title: 'Saturday Chemistry' });
+      const enrollment = {
+        _id: new ObjectId(),
+        classId: cls._id,
+        studentId: 'student-1',
+        status: 'ACTIVE',
+        accessUntil: new Date('2100-01-01T00:00:00.000Z'),
+        negotiatedPrice: null,
+        subscriptionId: null,
+        paymentId: null,
+        invitationId: null,
+        enrolledAt: new Date(),
+      };
+      const liveSessions = mockCollection();
+      db.collection.mockImplementation((name: string) => (name === 'live_sessions' ? liveSessions : ({ enrollments, invitations, classes } as Record<string, any>)[name]));
+      enrollments.__cursor.toArray.mockResolvedValueOnce([enrollment]);
+      classes.findOne.mockResolvedValueOnce(cls);
+      const session = { _id: new ObjectId(), classId: cls._id, startTime: new Date('2026-09-01T15:00:00Z'), status: 'SCHEDULED' };
+      liveSessions.__cursor.toArray.mockResolvedValueOnce([session]);
+
+      const result = await service.listMine('student-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].class.title).toBe('Saturday Chemistry');
+      expect(result[0].nextSession?.id).toBe(session._id.toHexString());
+    });
+
+    it('skips an enrollment whose class no longer resolves rather than throwing', async () => {
+      const enrollment = { _id: new ObjectId(), classId: new ObjectId(), studentId: 'student-1', status: 'ACTIVE' };
+      const liveSessions = mockCollection();
+      db.collection.mockImplementation((name: string) => (name === 'live_sessions' ? liveSessions : ({ enrollments, invitations, classes } as Record<string, any>)[name]));
+      enrollments.__cursor.toArray.mockResolvedValueOnce([enrollment]);
+      classes.findOne.mockResolvedValueOnce(null);
+
+      const result = await service.listMine('student-1');
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('invitations', () => {
     it('rejects inviting into an OPEN class', async () => {
       classes.findOne.mockResolvedValueOnce(classDoc({ accessMode: 'OPEN' }));
@@ -214,6 +255,31 @@ describe('EnrollmentsService', () => {
     it('rejects accepting an invitation issued to a different account', async () => {
       invitations.findOne.mockResolvedValueOnce({ _id: new ObjectId(), token: 'tok', status: 'pending', studentId: 'someone-else', classId: new ObjectId() });
       await expect(service.acceptInvitation('tok', 'student-1')).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('preview returns the class and price but never the invited student\'s identity', async () => {
+      const cls = classDoc({ accessMode: 'INVITE_ONLY', paymentModel: 'ONE_TIME', defaultPrice: 15000 });
+      invitations.findOne.mockResolvedValueOnce({
+        _id: new ObjectId(),
+        token: 'tok',
+        status: 'pending',
+        studentId: 'the-invited-student',
+        negotiatedPrice: 12000,
+        classId: cls._id,
+      });
+      classes.findOne.mockResolvedValueOnce(cls);
+
+      const result = await service.getInvitationPreview('tok');
+
+      expect(result.status).toBe('pending');
+      expect(result.negotiatedPrice).toBe(12000);
+      expect(result.class.id).toBe(cls._id.toHexString());
+      expect(JSON.stringify(result)).not.toContain('the-invited-student');
+    });
+
+    it('preview 404s for an unknown token', async () => {
+      invitations.findOne.mockResolvedValueOnce(null);
+      await expect(service.getInvitationPreview('nope')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

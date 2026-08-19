@@ -7,7 +7,10 @@ import {MONGO_DB} from '@/config/database.module';
 import {AuthServiceClient} from '@/clients/auth-service.client';
 import {PaymentServiceClient} from '@/clients/payment-service.client';
 import {LiveClassEventPublisher} from '@/messaging/live-class-event-publisher';
-import type {LiveClass} from '@/classes/class.types';
+import type {LiveClass, LiveClassDocument} from '@/classes/class.types';
+import {toPublicClass} from '@/classes/class.types';
+import type {LiveSession, LiveSessionDocument} from '@/sessions/session.types';
+import {toPublicSession} from '@/sessions/session.types';
 import type {Enrollment, EnrollmentDocument, Invitation, InvitationDocument} from './enrollment.types';
 import {toPublicEnrollment} from './enrollment.types';
 
@@ -228,6 +231,29 @@ export class EnrollmentsService implements OnApplicationBootstrap {
   }
 
   /**
+   * Public, unauthenticated preview for the invitation-accept page — a visitor needs to see
+   * the class/instructor/schedule/price before deciding whether to log in and accept, same as
+   * browsing a course before enrolling. Deliberately omits the invited student's identity
+   * (`studentId`) from the response — the token itself is the capability, not proof of who
+   * it's for; acceptInvitation still checks the caller's real identity against it.
+   */
+  async getInvitationPreview(token: string): Promise<{ status: Invitation['status']; negotiatedPrice: number | null; class: ReturnType<typeof toPublicClass> }> {
+    const invitation = await this.invitations().findOne({ token });
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found or already used');
+    }
+    const classDoc = await this.classes().findOne({ _id: invitation.classId });
+    if (!classDoc) {
+      throw new NotFoundException('The class for this invitation no longer exists');
+    }
+    return {
+      status: invitation.status,
+      negotiatedPrice: invitation.negotiatedPrice,
+      class: toPublicClass(classDoc as LiveClassDocument),
+    };
+  }
+
+  /**
    * Student self-cancel. For a RECURRING enrollment, cancels the underlying subscription
    * first, then — per PHASE4.md's access-vs-billing rule — leaves status ACTIVE with
    * accessUntil untouched (already set to the current period end from the last
@@ -266,6 +292,42 @@ export class EnrollmentsService implements OnApplicationBootstrap {
     );
     this.eventPublisher.publishEnrollmentCancelled({ enrollmentId, classId: enrollment.classId.toHexString(), studentId, accessUntil: now });
     return this.findById(enrollmentId);
+  }
+
+  /**
+   * The one thing missing for the whole student-facing "my classes" surface (Task 41): there
+   * was no way at all to list a student's own enrollments — `GET /api/classes?mine=true`
+   * filters by *instructor*, not student (it's for an instructor viewing classes they teach).
+   * Resolves each enrollment's class and soonest upcoming/live session in parallel; N+1 here is
+   * deliberate and fine at this scale (a student's own enrollment count), same simplicity
+   * tradeoff already made elsewhere in this service (e.g. per-recipient auth-service calls in
+   * notification fan-out) rather than a Mongo aggregation pipeline for a handful of rows.
+   * Enrollments whose class no longer resolves (defensive — classes are archived, never hard-
+   * deleted, so this shouldn't happen in practice) are silently skipped rather than erroring.
+   */
+  async listMine(studentId: string): Promise<
+    { enrollment: ReturnType<typeof toPublicEnrollment>; class: ReturnType<typeof toPublicClass>; nextSession: ReturnType<typeof toPublicSession> | null }[]
+  > {
+    const docs = await this.enrollments().find({ studentId, status: { $ne: 'REMOVED' } }).sort({ enrolledAt: -1 }).toArray();
+    const resolved = await Promise.all(
+      docs.map(async (enrollment) => {
+        const classDoc = await this.classes().findOne({ _id: enrollment.classId });
+        if (!classDoc) return null;
+        const upcoming = await this.db
+          .collection<LiveSession>('live_sessions')
+          .find({ classId: enrollment.classId, status: { $in: ['SCHEDULED', 'LIVE'] } })
+          .sort({ startTime: 1 })
+          .limit(1)
+          .toArray();
+        const nextSessionDoc = upcoming[0] ?? null;
+        return {
+          enrollment: toPublicEnrollment(enrollment as EnrollmentDocument),
+          class: toPublicClass(classDoc as LiveClassDocument),
+          nextSession: nextSessionDoc ? toPublicSession(nextSessionDoc as LiveSessionDocument) : null,
+        };
+      }),
+    );
+    return resolved.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 
   async findById(id: string): Promise<EnrollmentDocument> {

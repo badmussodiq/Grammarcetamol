@@ -1,5 +1,6 @@
 import {ForbiddenException} from '@nestjs/common';
 import {ObjectId} from 'mongodb';
+import {ChatGateway} from '@/chat/chat.gateway';
 import {ChatService} from '@/chat/chat.service';
 import {EnrollmentsService} from '@/enrollments/enrollments.service';
 import {mockCollection, mockDb} from '../mock-collection';
@@ -9,6 +10,7 @@ describe('ChatService — chat-lock gating', () => {
   let classes: ReturnType<typeof mockCollection>;
   let db: ReturnType<typeof mockDb>;
   let enrollmentsService: { hasAccess: jest.Mock };
+  let chatGateway: { broadcastMessage: jest.Mock };
   let service: ChatService;
   const classId = new ObjectId();
 
@@ -17,7 +19,8 @@ describe('ChatService — chat-lock gating', () => {
     classes = mockCollection();
     db = mockDb({ class_chat_messages: messages, classes });
     enrollmentsService = { hasAccess: jest.fn() };
-    service = new ChatService(db as any, enrollmentsService as unknown as EnrollmentsService);
+    chatGateway = { broadcastMessage: jest.fn() };
+    service = new ChatService(db as any, enrollmentsService as unknown as EnrollmentsService, chatGateway as unknown as ChatGateway);
   });
 
   it('rejects a student posting while chat is locked', async () => {
@@ -68,5 +71,22 @@ describe('ChatService — chat-lock gating', () => {
     messages.__cursor.toArray.mockResolvedValueOnce([]);
 
     await expect(service.list(classId.toHexString(), 'student-1', false)).resolves.toEqual([]);
+  });
+
+  it('post() returns the same public shape as list() (id/classId as hex strings, no raw _id) and broadcasts it', async () => {
+    // Regression test: post() used to return the raw Mongo document instead of running it
+    // through toPublicMessage() like list() does, so a freshly-posted message had `_id`/an
+    // ObjectId `classId` instead of `id`/a hex-string `classId` — found live-verifying Task 41.
+    const insertedId = new ObjectId();
+    classes.findOne.mockResolvedValueOnce({ _id: classId, chatLocked: false });
+    enrollmentsService.hasAccess.mockResolvedValueOnce({ status: 'ACTIVE' });
+    messages.insertOne.mockResolvedValueOnce({ insertedId });
+
+    const result = await service.post(classId.toHexString(), 'student-1', 'student', 'hello');
+
+    expect(result.id).toBe(insertedId.toHexString());
+    expect(result.classId).toBe(classId.toHexString());
+    expect((result as any)._id).toBeUndefined();
+    expect(chatGateway.broadcastMessage).toHaveBeenCalledWith(classId.toHexString(), result);
   });
 });

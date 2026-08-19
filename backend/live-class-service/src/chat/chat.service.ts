@@ -4,6 +4,7 @@ import {ObjectId} from 'mongodb';
 import {MONGO_DB} from '@/config/database.module';
 import {EnrollmentsService} from '@/enrollments/enrollments.service';
 import type {LiveClass} from '@/classes/class.types';
+import {ChatGateway} from './chat.gateway';
 import type {ClassChatMessage, ClassChatMessageDocument} from './chat-message.types';
 import {toPublicMessage} from './chat-message.types';
 
@@ -12,6 +13,7 @@ export class ChatService implements OnApplicationBootstrap {
   constructor(
     @Inject(MONGO_DB) private readonly db: Db,
     private readonly enrollmentsService: EnrollmentsService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   private messages(): Collection<ClassChatMessage> {
@@ -54,7 +56,7 @@ export class ChatService implements OnApplicationBootstrap {
   /** Gated on classes.chatLocked + the sender's enrollment status/accessUntil — independent of
    * whether a session is currently live, per PHASE4.md's Domain Model. Instructors/admins can
    * always post, even while locked (they're the ones controlling the lock). */
-  async post(classId: string, senderId: string, senderRole: 'instructor' | 'student' | 'admin', body: string): Promise<ClassChatMessageDocument> {
+  async post(classId: string, senderId: string, senderRole: 'instructor' | 'student' | 'admin', body: string): Promise<ReturnType<typeof toPublicMessage>> {
     const classDoc = await this.findClass(classId);
 
     if (senderRole === 'student') {
@@ -69,6 +71,11 @@ export class ChatService implements OnApplicationBootstrap {
 
     const doc: ClassChatMessage = { classId: classDoc._id, senderId, senderRole, body, createdAt: new Date() };
     const result = await this.messages().insertOne(doc as any);
-    return { ...doc, _id: result.insertedId };
+    // A real bug found live-verifying Task 41: this previously returned the raw Mongo document
+    // (_id as ObjectId, classId as ObjectId) instead of the same public shape list() already
+    // returns — the frontend's message.id was silently undefined for anything just posted.
+    const publicMessage = toPublicMessage({ ...doc, _id: result.insertedId });
+    this.chatGateway.broadcastMessage(classId, publicMessage);
+    return publicMessage;
   }
 }

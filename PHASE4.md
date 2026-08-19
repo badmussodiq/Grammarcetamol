@@ -25,7 +25,7 @@ trusting it, same rule as everywhere else in this project.
 | 38 | **Payment Service — Subscription Billing** (new, split out 2026-08-19)                            | ✅ Done (2026-08-19), live-verified              | Phase 3.5 (done)                     |
 | 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | ✅ Done (2026-08-19), live-verified              | Task 38 (for RECURRING classes only) |
 | 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | ✅ Done (2026-08-19), live-verified              | Phase 3.5 Task 31 (done)             |
-| 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | 🔲 Not started                                  | Task 39                              |
+| 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | ✅ Done (2026-08-19), live-verified              | Task 39                              |
 | 42 | Student frontend — notification center & preferences                                              | 🔲 Not started                                  | Task 40                              |
 | 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | 🔲 Not started                                  | Task 39                              |
 | 44 | Admin frontend — announcement manager                                                             | 🔲 Not started                                  | Task 40                              |
@@ -212,6 +212,13 @@ Task 38 was written:
 5. **Recurring billing is not private-class-only** — group classes can bill recurring too,
    each enrolled student with their own independent subscription (one student cancelling
    doesn't affect the others or the class itself).
+6. **Class chat uses real sockets, not polling** — overrides PLAN.md Task 41's original "No
+   WebSocket in this task... polling is fine for chat" note. Explicit user direction
+   (2026-08-19) during Task 41's build. Writes still go through the existing REST endpoint
+   (`POST /api/classes/{id}/messages`) so `ChatService`'s validation/locking logic stays in one
+   place; a new `ChatGateway` (Socket.IO, `backend/live-class-service/src/chat/chat.gateway.ts`)
+   broadcasts the created message to everyone in that class's room. See Task 41's Update Log
+   entry below for the full implementation and the routing details this required.
 
 ---
 
@@ -373,3 +380,73 @@ Dependency-first, matching how every prior phase in this project was built:
   to `log` instead of `smtp` (config-only change, `SMTP_*` credentials untouched) until Gmail's
   throttling cools down — revert that one line, not any code, when ready to send real email
   again.
+- **2026-08-19 (Task 41 built)** — Student Frontend for live classes done and live-verified
+  against the real running stack. `lib/classes.api.ts` (types + API client + pure helpers:
+  `formatScheduleSummary`, `formatCapacity`, `formatClassPrice`, `resolveClassCardAction`),
+  `hooks/useSessionLiveStatus.ts` (the shared "is a session live right now" polling hook — a
+  pure `classifyRoomError()` maps the room-reveal endpoint's four denial-message strings to a
+  state machine, since the shared `AllExceptionsFilter` doesn't serialize a machine-readable
+  `reason` field, only `message`), `/live-classes` (Upcoming/Past/Mine tabs — "Upcoming" reads
+  the class's own lifecycle `status` since the list endpoint has no session-date filtering),
+  `/live-classes/invitations/[token]`, `/live-classes/[id]` (the classroom: session strip,
+  chat, materials, Jitsi join via a bespoke full-bleed `VideoCallOverlay` rather than the
+  shared `Modal` component, which isn't built for chrome-less full-bleed content), and a
+  dashboard widget reusing the same live-status hook. Paid enrollment (`ONE_TIME`/`RECURRING`)
+  redirects to the `authorizationUrl` the enroll endpoint already returns — Paystack's hosted
+  checkout page, not the course flow's inline popup, since `enrollInClass`/`acceptInvitation`
+  never return a `publicKey`/`amount`/`reference` triple to build a popup from.
+
+  **Found and fixed three real backend bugs building this, all live-class-service/gateway
+  issues no prior task's testing had exercised:**
+  1. **No endpoint existed to list a student's own class enrollments at all.** `GET
+     /api/classes?mine=true` filters by *instructor*, not student — genuinely a different
+     feature. Added `EnrollmentsService.listMine()` + `GET /api/classes/enrollments/mine`
+     (resolves each enrollment's class and soonest upcoming/live session in parallel).
+  2. **A real gateway route collision, pre-existing since Task 39.** Adding that endpoint
+     surfaced that `enrollment-service`'s `/api/enrollments/**` catch-all was registered before
+     live-class-service's own `/api/enrollments/**`, so Spring Cloud Gateway's first-match
+     routing silently swallowed everything live-class-service had there — including the
+     already-shipped `DELETE /api/enrollments/{id}` cancel endpoint, which had likely never
+     been reachable through the real gateway at all. Worse, the natural endpoint name
+     (`GET /api/enrollments/mine`) collides with course-enrollment-service's own already-shipped
+     endpoint of the same name — a genuine domain collision, not just an ordering bug. Fixed by
+     nesting live-class-service's enrollment endpoints under `/api/classes/enrollments/**`
+     (a prefix it already exclusively owns), verified with a new
+     `backend/integration-tests/liveclass-enrollments.integration.spec.ts` (6 tests) proving
+     both routes now resolve to the correct service and neither shadows the other.
+  3. **No way to preview an invitation before accepting it**, despite PLAN.md's own spec
+     calling for exactly that. Added `GET /api/invitations/:token` (public, no auth — a visitor
+     must see the class/instructor/schedule/price before logging in — but deliberately never
+     exposes the invited student's identity), classified as optionally-authenticated in
+     `JwtAuthFilter` since `POST :token/accept` under the same prefix still needs a real
+     session. Covered by the same integration spec above (3 more tests).
+
+  **Then, mid-build, the user gave explicit new direction: class chat uses real sockets, not
+  polling** (overriding PLAN.md's original "no WebSocket in this task" note — see Resolved
+  Scope Decisions above). Added a Socket.IO `ChatGateway` to live-class-service (writes stay
+  REST, the gateway only broadcasts), a new `ws://` gateway route for `/socket.io/**`
+  (Spring Cloud Gateway needs a scheme-switched route for WebSocket proxying, distinct from the
+  `http://` one — confirmed live that `JwtAuthFilter`'s injected `X-User-Id`/`X-User-Role`
+  headers *do* survive the WS upgrade proxy, same as any other route), and a
+  `useClassChat`/`socket.io-client` hook on the frontend replacing the polling `ChatPanel` had
+  before. Building this surfaced a fourth real bug: `ChatService.post()` returned the *raw*
+  Mongo document (`_id`, an ObjectId `classId`) instead of the same public shape `list()`
+  already returns, so a freshly-posted message's `id` was silently `undefined` — caught via a
+  real React "list should have a unique key prop" warning during live browser verification, not
+  by any test. Fixed to call `toPublicMessage()` like `list()` does; added a regression test
+  asserting the exact shape and that `broadcastMessage()` is called with it. Also live-verified
+  and initially misdiagnosed as a bug: Socket.IO's "WebSocket is closed before the connection is
+  established" console warning turned out to be React 19 Strict Mode's expected dev-mode
+  double-invoke of `useEffect` (mount → cleanup → remount) discarding the first of two socket
+  connections — confirmed benign by checking the server only ever logs one successful
+  `handleConnection` per real page load, and by verifying an actually-sent chat message arrives
+  correctly via the second (surviving) connection.
+
+  44/44 live-class-service tests, 92/92 student-app tests, and `tsc --noEmit` clean across both
+  pass. Live-verified end-to-end in a real browser against the real stack: enrolled free in a
+  `GROUP` class, saw it on the dashboard widget, opened the classroom, read instructor messages
+  while locked, posted after an admin unlocked chat — delivered live via the socket, not a
+  manual page refresh — and separately accepted a real `PRIVATE`/`INVITE_ONLY` invitation
+  end-to-end into its classroom. The live join-a-real-Jitsi-call portion of the demo criteria
+  was not exercised (would need a session actually in its live window, not just built and
+  code-reviewed) — flagged here rather than silently claimed as verified.
