@@ -43,4 +43,10 @@ export interface NotificationRequestedEvent {
    * src/notifications/) alongside the email; when absent (e.g. a future publisher that only
    * knows an email address), only the email send happens, same as before this field existed. */
   userId?: string;
+  /** Optional — an id the frontend can deep-link from (a classId for live-class events, an
+   * announcementId for announcements, etc.). Absent means no deep-link target, same as before
+   * this field existed — NotificationSenderService.send() used to hardcode this to null for
+   * every notification, which silently broke Task 41's "click a live-class notification to
+   * open that class's classroom" requirement (a real bug found building Task 42). */
+  relatedId?: string;
 }

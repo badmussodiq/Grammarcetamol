@@ -104,6 +104,27 @@ describe('NotificationSenderService', () => {
     expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
   });
 
+  it('passes the event\'s relatedId through to the in-app notification, for frontend deep-linking', async () => {
+    // Regression test: this used to be hardcoded to null for every notification, which
+    // silently broke click-to-navigate for live-class notifications and high-priority
+    // announcements — found building Task 42.
+    templates.findByName.mockResolvedValue(activeTemplate);
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+    await service.send({ ...event, userId: 'user-1', relatedId: 'class-123' });
+
+    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ relatedId: 'class-123' }));
+  });
+
+  it('defaults relatedId to null when the event does not carry one', async () => {
+    templates.findByName.mockResolvedValue(activeTemplate);
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+    await service.send({ ...event, userId: 'user-1' });
+
+    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ relatedId: null }));
+  });
+
   describe('preference gating', () => {
     it('skips the in-app write when the user opted out of the in-app channel for this type', async () => {
       templates.findByName.mockResolvedValue(activeTemplate);

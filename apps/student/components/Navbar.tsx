@@ -3,8 +3,9 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import {usePathname, useRouter} from 'next/navigation';
-import {Badge, Button, cn, Dropdown, useFetch} from '@grammarcetamol/utilities';
+import {Button, cn, Dropdown} from '@grammarcetamol/utilities';
 import {useAuth} from '@/contexts/AuthContext';
+import {NotificationBell} from '@/components/NotificationBell';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
@@ -19,10 +20,6 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const { data: unread } = useFetch<{ count: number }>(
-    isAuthenticated ? '/api/notifications/unread-count' : null,
-  );
 
   const displayName = user?.fullName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'Student';
   const initials = displayName.slice(0, 1).toUpperCase();
@@ -57,19 +54,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-4 flex-shrink-0">
           {isAuthenticated ? (
             <>
-              <Link href="/notifications" className="relative p-2 text-text-secondary hover:text-text-primary" aria-label="Notifications">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                {!!unread?.count && (
-                  <span className="absolute -top-0.5 -right-0.5">
-                    <Badge variant="error" size="sm" dot={false}>
-                      {unread.count > 9 ? '9+' : unread.count}
-                    </Badge>
-                  </span>
-                )}
-              </Link>
+              <NotificationBell enabled={isAuthenticated} />
               <Dropdown
                 align="right"
                 trigger={
@@ -124,7 +109,7 @@ export function Navbar() {
               <Link href="/settings" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-text-primary">Settings</Link>
               <Link href="/transactions" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-text-primary">Transactions</Link>
               <Link href="/notifications" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-text-primary">
-                Notifications{!!unread?.count && ` (${unread.count})`}
+                Notifications
               </Link>
               <button type="button" onClick={handleLogout} className="text-sm font-medium text-error text-left">Logout</button>
             </>

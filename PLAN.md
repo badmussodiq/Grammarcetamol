@@ -1198,6 +1198,15 @@ import "auth.proto";
 
 **Task 42: Student Frontend — Notification Center & Preferences**
 
+> **Status: see [`PHASE4.md`](./PHASE4.md).** Short version: done and live-verified
+> (2026-08-19). Most of the underlying inbox already existed from Task 31; this task closed the
+> real gaps — a real bell dropdown (not just a bare link), SSE wiring with a polling fallback,
+> a shared deep-link-route helper, and the preferences tab. Found and fixed a real cross-cutting
+> bug along the way: `NotificationSenderService.send()` hardcoded `relatedId: null` for every
+> notification, silently breaking deep-linking for live-class notifications *and*
+> high-priority announcements. Full detail in `PHASE4.md`'s own Task 42 Update Log entry —
+> don't duplicate it here.
+
 **Objective:** Give students the bell-icon notification center (student-frontend.md §4.2/§5.4) and a preferences tab wired to `user_notification_preferences`, closing the loop on every event type Tasks 39/40 now emit — including subscription and session lifecycle events, not just the original enrollment/payment/reminder set.
 
 **Implementation guidance:**

@@ -38,7 +38,7 @@ export class NotificationSenderService {
     // own preference (system-type notifications — OTP, account-locked — always pass, see
     // PreferencesService.isEnabled).
     if (event.userId && (await this.preferences.isEnabled(event.userId, type, 'inApp'))) {
-      void this.notifications.create({ userId: event.userId, type, title, message, relatedId: null });
+      void this.notifications.create({ userId: event.userId, type, title, message, relatedId: event.relatedId ?? null });
     }
 
     // A user who opted out of email for this type gets no email and no log row — a

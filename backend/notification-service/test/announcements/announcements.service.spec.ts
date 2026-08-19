@@ -135,6 +135,16 @@ describe('AnnouncementsService', () => {
       expect(sender.send).toHaveBeenCalledWith(expect.objectContaining({ templateName: 'announcement', to: 'a@b.com', userId: 'u1' }));
       expect(notifications.create).not.toHaveBeenCalled(); // sender.send handles the in-app write itself for high/critical
     });
+
+    it('passes relatedId through for high/critical priority too — regression, previously only the low/normal branch set it (Task 42)', async () => {
+      const announcement = announcementDoc({ priority: 'high', targetType: 'all' });
+      collection.findOne.mockResolvedValue(announcement);
+      authServiceClient.listActiveStudents.mockResolvedValue([{ id: 'u1', email: 'a@b.com', fullName: 'A' }]);
+
+      await service.publish('507f1f77bcf86cd799439011');
+
+      expect(sender.send).toHaveBeenCalledWith(expect.objectContaining({ relatedId: announcement._id.toHexString() }));
+    });
   });
 
   describe('publish — draft/scheduled state machine', () => {

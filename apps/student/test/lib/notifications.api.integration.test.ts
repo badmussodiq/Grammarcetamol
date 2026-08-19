@@ -61,4 +61,30 @@ describe('notificationsApi (integration — real fetch wiring, mocked network)',
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:9000/api/notifications/unread-count');
     expect(result.data.count).toBe(3);
   });
+
+  it('getPreferences — GETs /api/notification-preferences', async () => {
+    const preferences = {
+      course: { inApp: true, email: true },
+      payment: { inApp: true, email: true },
+      live_class: { inApp: true, email: true },
+      announcement: { inApp: true, email: true },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, data: preferences, error: null, timestamp: '' }));
+
+    const result = await notificationsApi.getPreferences();
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:9000/api/notification-preferences');
+    expect(result.data).toEqual(preferences);
+  });
+
+  it('updatePreferences — PUTs a partial patch to /api/notification-preferences', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, data: {}, error: null, timestamp: '' }));
+
+    await notificationsApi.updatePreferences({ live_class: { inApp: false, email: true } });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://localhost:9000/api/notification-preferences');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ live_class: { inApp: false, email: true } });
+  });
 });

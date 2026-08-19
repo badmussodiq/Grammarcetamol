@@ -57,7 +57,7 @@ export class LiveClassEventPublisher {
   /** "liveclass.notification" — the generic {service, templateName, to, toName, variables}
    * shape notification-service's consumer binds to, same convention as payment-service's
    * PaymentEventPublisher.publishNotification. */
-  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>, userId?: string): void {
+  publishNotification(templateName: string, to: string, toName: string, variables: Record<string, unknown>, userId?: string, relatedId?: string): void {
     this.publish('liveclass.notification', {
       service: 'live-class-service',
       templateName,
@@ -65,6 +65,7 @@ export class LiveClassEventPublisher {
       toName,
       variables,
       ...(userId ? { userId } : {}),
+      ...(relatedId ? { relatedId } : {}),
     });
   }
 

@@ -26,7 +26,7 @@ trusting it, same rule as everywhere else in this project.
 | 39 | Live Class Service — classes, sessions, enrollments, chat, scheduling, join-room                  | ✅ Done (2026-08-19), live-verified              | Task 38 (for RECURRING classes only) |
 | 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | ✅ Done (2026-08-19), live-verified              | Phase 3.5 Task 31 (done)             |
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | ✅ Done (2026-08-19), live-verified              | Task 39                              |
-| 42 | Student frontend — notification center & preferences                                              | 🔲 Not started                                  | Task 40                              |
+| 42 | Student frontend — notification center & preferences                                              | ✅ Done (2026-08-19), live-verified              | Task 40                              |
 | 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | 🔲 Not started                                  | Task 39                              |
 | 44 | Admin frontend — announcement manager                                                             | 🔲 Not started                                  | Task 40                              |
 | 45 | Phase 4 integration & verification                                                                | 🔲 Not started                                  | Tasks 38–44                          |
@@ -450,3 +450,43 @@ Dependency-first, matching how every prior phase in this project was built:
   end-to-end into its classroom. The live join-a-real-Jitsi-call portion of the demo criteria
   was not exercised (would need a session actually in its live window, not just built and
   code-reviewed) — flagged here rather than silently claimed as verified.
+- **2026-08-19 (Task 42 built)** — Student Frontend Notification Center done and live-verified.
+  Most of the plumbing already existed from Task 31 (list/mark-read/mark-all-read/delete, a bell
+  link, a `/notifications` page) — this task closed the real gaps: a proper bell **dropdown**
+  (previously just a bare link to `/notifications`, no inline preview) showing the latest 5 with
+  live SSE updates and inline mark-read; `getPreferences`/`updatePreferences`/`subscribeToStream`
+  added to `lib/notifications.api.ts`; a `subscribeToStream()` wrapper around the Task 40 SSE
+  endpoint with a real polling fallback after repeated reconnect failures; a `resolveNotificationRoute()`
+  pure helper (shared by the bell and the `/notifications` page, so the two can't drift on what
+  clicking a given type means) that deep-links `live_class` notifications into that class's
+  classroom and `payment` ones into their transaction; a missing `Live Class` filter tab and
+  infinite-scroll pagination added to `/notifications`; and a new **Notifications tab** on
+  `/profile` (per-type × per-channel checkboxes, partial updates, persists across reload).
+
+  **Found and fixed one real bug that blocked the whole deep-linking requirement**:
+  `NotificationSenderService.send()` — the single funnel almost every notification in this
+  system goes through — hardcoded `relatedId: null` unconditionally, so PLAN.md's explicit
+  "a live-class notification deep-links straight into that class's classroom" requirement was
+  silently unbuildable no matter what the frontend did. Worse, this wasn't Task 42-only: it also
+  broke deep-linking for high/critical-priority announcements specifically (the low/normal
+  branch, which bypasses the sender entirely, already set `relatedId` correctly — the two
+  branches had quietly drifted). Fixed by adding an optional `relatedId` to the
+  `NotificationRequestedEvent` envelope, threading it through `NotificationSenderService.send()`,
+  both `LiveClassEventPublisher.publishNotification()` and the `EnrolledStudentNotifier` call
+  site (now passes the real `classId`), and the announcement service's high-priority branch (now
+  passes the real `announcementId`, matching what the low/normal branch already did). Added a
+  dedicated `EnrolledStudentNotifier` unit test file (none existed before, despite it being
+  shared by `SessionsService`/`ClassesService` since Task 40) plus regression tests in both
+  `notification-sender.service.spec.ts` and `announcements.service.spec.ts`.
+
+  60/60 notification-service tests (was 57), 47/47 live-class-service tests (was 44), 101/101
+  student-app tests (was 92), `tsc --noEmit` clean across all three. Live-verified end-to-end
+  against the real stack, not just unit tests: triggered a real live-class-starting notification
+  and a real high-priority announcement, confirmed both carried the correct `relatedId` via the
+  real API, then confirmed clicking each in both the bell dropdown and the `/notifications` page
+  navigated to the right place in the real browser. Also live-verified the preferences tab:
+  toggled a channel off, reloaded the page fresh, confirmed it stayed off (real persistence, not
+  just optimistic local state) — and incidentally re-discovered, live, that Task 40's own
+  preference-gating fan-out test data (`announcement.inApp: false` set on the shared test
+  account during Task 40's own verification) was still in effect, which is exactly the kind of
+  cross-task state leakage worth calling out rather than silently working around.

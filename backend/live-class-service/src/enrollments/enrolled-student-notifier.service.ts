@@ -36,6 +36,7 @@ export class EnrolledStudentNotifier {
             user.fullName ?? user.email,
             { fullName: user.fullName ?? user.email, classTitle, ...variables },
             studentId,
+            classId.toHexString(),
           );
         } catch (err) {
           this.logger.warn(`Failed to resolve/notify student ${studentId} for ${templateName}: ${(err as Error).message}`);

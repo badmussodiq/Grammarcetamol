@@ -1,21 +1,25 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
-import {useState} from 'react';
-import {ApiError, Button, Mapping, Skeleton, useFetch, useToast} from '@grammarcetamol/utilities';
+import {useEffect, useState} from 'react';
+import {ApiError, Button, Mapping, Skeleton, useToast} from '@grammarcetamol/utilities';
 import {
-    buildNotificationsQuery,
     type Notification,
     notificationsApi,
     type NotificationType,
-    type Paged
+    resolveNotificationRoute,
+    subscribeToStream
 } from '@/lib/notifications.api';
 import {NotificationItem} from '@/components/NotificationItem';
+
+const PAGE_SIZE = 20;
+const POLL_FALLBACK_INTERVAL_MS = 20000;
 
 const TYPE_FILTERS: { label: string; value: NotificationType | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Course', value: 'course' },
   { label: 'Payment', value: 'payment' },
+  { label: 'Live Class', value: 'live_class' },
   { label: 'Announcement', value: 'announcement' },
   { label: 'System', value: 'system' },
 ];
@@ -25,14 +29,64 @@ export default function NotificationsPage() {
   const { addToast } = useToast();
   const [type, setType] = useState<NotificationType | 'all'>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [items, setItems] = useState<Notification[] | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const query = buildNotificationsQuery({ type: type === 'all' ? undefined : type, unreadOnly, limit: 50 });
-  const { data, loading, refetch } = useFetch<Paged<Notification>>(`/api/notifications${query}`);
+  async function load(targetPage: number, append: boolean) {
+    append ? setLoadingMore(true) : setLoading(true);
+    try {
+      const { data } = await notificationsApi.list({
+        type: type === 'all' ? undefined : type,
+        unreadOnly,
+        page: targetPage,
+        limit: PAGE_SIZE,
+      });
+      setItems((prev) => (append ? [...(prev ?? []), ...data.items] : data.items));
+      setPage(data.page);
+      setTotalPages(data.totalPages);
+    } catch {
+      // Non-fatal — the list just stays on its last-known state.
+    } finally {
+      append ? setLoadingMore(false) : setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load(1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, unreadOnly]);
+
+  // Live delivery — a new notification (matching the current filter) is prepended immediately
+  // rather than waiting for the next manual refresh; falls back to re-polling page 1 if the SSE
+  // connection can't be kept alive (repeated reconnect failures).
+  useEffect(() => {
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    const unsubscribe = subscribeToStream(
+      (notification) => {
+        const matchesType = type === 'all' || notification.type === type;
+        const matchesUnread = !unreadOnly || !notification.readAt;
+        if (matchesType && matchesUnread) {
+          setItems((prev) => [notification, ...(prev ?? [])]);
+        }
+      },
+      () => {
+        pollTimer = setInterval(() => void load(1, false), POLL_FALLBACK_INTERVAL_MS);
+      },
+    );
+    return () => {
+      unsubscribe();
+      if (pollTimer) clearInterval(pollTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, unreadOnly]);
 
   async function handleMarkAllRead() {
     try {
       await notificationsApi.markAllRead();
-      refetch();
+      await load(1, false);
     } catch (err) {
       addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Failed to mark all as read' });
     }
@@ -40,16 +94,11 @@ export default function NotificationsPage() {
 
   async function handleItemClick(notification: Notification) {
     if (!notification.readAt) {
-      try {
-        await notificationsApi.markRead(notification._id);
-        refetch();
-      } catch {
-        // Non-fatal — item just stays marked unread until the next refresh.
-      }
+      setItems((prev) => (prev ?? []).map((n) => (n._id === notification._id ? { ...n, readAt: new Date().toISOString() } : n)));
+      notificationsApi.markRead(notification._id).catch(() => {});
     }
-    if (notification.type === 'payment' && notification.relatedId) {
-      router.push(`/transactions/${notification.relatedId}`);
-    }
+    const route = resolveNotificationRoute(notification);
+    if (route) router.push(route);
   }
 
   return (
@@ -88,12 +137,21 @@ export default function NotificationsPage() {
           <div className="flex flex-col gap-2">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rect" height={72} />)}
           </div>
-        ) : data && data.items.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <Mapping array={data.items} keyExtractor={(n) => n._id}>
-              {(n) => <NotificationItem notification={n} onClick={handleItemClick} />}
-            </Mapping>
-          </div>
+        ) : items && items.length > 0 ? (
+          <>
+            <div className="flex flex-col gap-2">
+              <Mapping array={items} keyExtractor={(n) => n._id}>
+                {(n) => <NotificationItem notification={n} onClick={handleItemClick} />}
+              </Mapping>
+            </div>
+            {page < totalPages && (
+              <div className="flex justify-center mt-6">
+                <Button variant="secondary" loading={loadingMore} onClick={() => load(page + 1, true)}>
+                  Load more
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-text-secondary text-sm text-center py-12">You&apos;re all caught up.</p>
         )}

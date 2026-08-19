@@ -159,6 +159,7 @@ export class AnnouncementsService implements OnApplicationBootstrap {
           toName: recipient.fullName ?? recipient.email,
           variables: { fullName: recipient.fullName ?? recipient.email, title: announcement.title, body: announcement.body },
           userId: recipient.id,
+          relatedId: announcement._id.toHexString(),
         });
       } else {
         // low/normal priority: in-app only, no email — still respects the in-app preference.
