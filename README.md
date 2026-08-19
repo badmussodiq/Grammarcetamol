@@ -24,26 +24,30 @@ Grammarcetamol/
 │   └── docker-compose.dev.yml   Local Postgres, Redis, RabbitMQ, MinIO
 ├── PLAN.md                          Task-by-task implementation plan
 ├── implementation-phases.md         Phase roadmap and exit criteria
+├── PHASE4.md                        Phase 4 (Live Classes & Notifications) status tracker
 ├── admin-frontend.md                Admin UI/UX design spec
 ├── student-frontend.md              Student UI/UX design spec
 ├── database-schema-and-migrations.md Full target schema for every planned service
 └── user-stories.md                  Full product backlog
 ```
 
-## Current state (Phase 1 & 2 done; actively in Phase 3)
+## Current state (Phases 0–3.5 done; Phase 4 not started)
 
-**Phase 1 — Identity, Access & User Management** is implemented and working end-to-end for both portals:
+**Phase 0 — Foundation** is done: the gateway, `apps/utilities` shared component/hook library, and the monorepo layout (deliberately no root npm project — see `PLAN.md` Task 1).
 
-- **Backend**: registration, email verification, login/logout, refresh, forgot/reset password, gRPC token validation, profile management, admin user (moderator/support) provisioning. Google OAuth is **intentionally deferred** — see `PLAN.md`.
-- **Frontend**: both portals have working login/register/forgot-password/reset-password flows, and the admin portal has a working `/users` list + `/users/create` page. Cross-portal login is rejected — a student's credentials don't grant access to the admin site and vice versa.
+**Phase 1 — Identity, Access & User Management** is done end-to-end for both portals: registration, email verification (now OTP-based, see Phase 3.5), login/logout/refresh, forgot/reset password, gRPC token validation, profile management, admin user (moderator/support) provisioning, and a real `/profile` page on the student side. Cross-portal login is rejected — a student's credentials don't grant access to the admin site and vice versa. Google OAuth is **intentionally deferred** — see `PLAN.md`.
 
-**Phase 2 — Course Content & Discovery** is implemented and verified end-to-end, live: `course-service` (categories, courses with draft/review/published/archived lifecycle + versioning, modules, lessons, public catalog with search/filter/sort), the student catalog/detail pages + landing hero, and the admin course-management pages (list, create, per-course Overview/Edit/Content/Versions tabs). `upload-service` (Task 16) is now done and live-verified (2026-08-06) — resumable chunked upload as real S3/MinIO multipart uploads, presigned PUT URLs, a pluggable `StorageProvider` abstraction supporting MinIO and S3 at once; lessons still take a plain admin-pasted `video_url` for now since the admin upload UI itself hasn't been built. Media Service (Task 17) remains **intentionally deferred** — no MongoDB is provisioned yet.
+**Phase 2 — Course Content & Discovery** is done: `course-service` (categories, courses with draft/review/published/archived lifecycle + versioning, modules, lessons, public catalog with search/filter/sort), the student catalog/detail pages + landing hero, and the admin course-management pages (list, create, per-course Overview/Edit/Content/Versions tabs, plus a real chunked-upload UI driving `upload-service` end-to-end). Media Service (Task 17) remains **intentionally deferred** — no MongoDB was provisioned when Phase 2 shipped (Phase 3.5 later provisioned one for Notification Service — Media Service just hasn't been revisited since).
 
-**Phase 3 — Enrollment, Payments & Learning Loop**: backend (`enrollment-service`, `payment-service` — the repo's first NestJS service, `review-service`) and the student frontend (checkout, dashboard, my-courses, the learning interface) are done and live-verified — including a real browser-driven loop: register → enroll free → watch → mark complete → cross the 50% review-eligibility threshold → see it reflected on "My Courses", all against the real running stack, not mocks. Two known gaps, deliberately not fixed yet: the Paystack test account only supports NGN, not the USD all seeded courses are priced in (the user's actual plan is geo/currency-based pricing, explicitly deferred — checkout renders correctly and fails gracefully rather than silently); and `course-service`'s denormalized `enrollment_count`/`avg_rating`/`review_count` columns aren't incremented by the new services yet. Admin frontend now has a real shell (`Sidebar`/`TopHeader`/`Breadcrumb`, replacing the bare `<div>` since Phase 1), new shared `DataTable`/chart primitives in `apps/utilities`, and working `/revenue` + `/transactions` pages — all live-verified in the browser, including two real bugs found and fixed along the way (the sidebar collapse toggle scrolling out of view, and the collapsed sidebar showing truncated text instead of icons). `/revenue`/`/transactions` needed new `payment-service` admin endpoints that didn't exist before (`GET /api/payments` + a `RevenueService` for summary/trend/best-sellers/by-method). Review moderation and the student directory pages are next (`PLAN.md` Tasks 28–30).
+**Phase 3 — Enrollment, Payments & Learning Loop** is done: `enrollment-service`, `payment-service` (the repo's first NestJS service), `review-service`, the full student learning loop (checkout → enroll → watch → complete → review), and the full admin side (shell, `/revenue`, `/transactions`, review moderation, student directory). The old NGN/USD pricing mismatch is resolved — all courses are NGN-only by explicit user decision, not deferred. `backend/integration-tests` (7 spec files, 82 tests) proves the whole loop against the real running stack, not mocks.
 
-**Not yet built**: live classes, and everything else past what's listed above (`implementation-phases.md`).
+**Phase 3.5 — MVP Completion** is done: a real Notification Service (`backend/notification-service`, NestJS + MongoDB) sends real email via SMTP in this environment, not just logs it; OTP-based email verification and password reset; account lockout after 5 failed logins (a real bug here — the lockout never actually persisted due to a `@Transactional` rollback issue — was found and fixed during this phase's own integration pass); a support-ticket flow; a real admin `/dashboard` with live numbers; and the `#F44336` brand color across both apps. See `PLAN.md` Tasks 31–37 for the full per-task detail, including the other bugs found and fixed along the way.
 
-See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date status of every task and phase.
+**Phase 4 — Live Classes & Notifications** — **not started**, except a real head start already sitting in the codebase: a working in-app notification inbox (backend list/read/unread-count/delete endpoints, plus a student bell icon and `/notifications` page) exists from earlier Notification Service work, but nothing populates it yet. See [`PHASE4.md`](./PHASE4.md) for the living task-by-task tracker.
+
+**Not yet built**: live classes, and everything past Phase 4 (`implementation-phases.md`).
+
+See `PLAN.md` and `implementation-phases.md` for the authoritative, up-to-date status of every task and phase, `PHASE4.md` for Phase 4 specifically, and `todo.md` for a quick-scan summary.
 
 ## Running everything locally
 

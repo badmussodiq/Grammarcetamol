@@ -305,7 +305,32 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 > 🔴 **Hard Dependency:** Phase 1 (auth), Phase 3 (enrollment concept for class registration), Phase 3.5 (Notification Service must already exist)  
 > 🟡 **Soft Dependency:** Video conferencing can be external link (Zoom) initially, embedded SDK later  
 > ⭐ **Milestone:** First live class is scheduled, students register, and join via portal.  
-> **Current status (2026-08-09):** Planned — see `PLAN.md` Tasks 38–44 (renumbered from 31–37 to make room for Phase 3.5, which now ships first). Video conferencing embeds Jitsi Meet's free public server via their IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a middle path resolved with the user: real embedded in-page video with room-identifier access control, no new self-hosted infrastructure). Live Class Service is this project's **second** MongoDB-backed service (Notification Service, Phase 3.5, was the first) — reuses its `DatabaseModule` shape directly. Task 39 ("Notification Service") is now an extension task, not a bootstrap — it already exists by the time Phase 4 starts; this phase only adds the in-app notification center, SSE stream, and Announcements to it.
+> **📍 Status tracking for this phase has moved to [`PHASE4.md`](./PHASE4.md)** — the single
+> source of truth for what's done/in-progress/blocked across Tasks 38–45 (renumbered
+> 2026-08-19, see below). Video conferencing embeds Jitsi Meet's free public server via their
+> IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a
+> middle path resolved with the user: real embedded in-page video with room-identifier access
+> control, no new self-hosted infrastructure). Live Class Service is this project's **second**
+> MongoDB-backed service (Notification Service, Phase 3.5, was the first) — reuses its
+> `DatabaseModule` shape directly.
+>
+> **Redesigned 2026-08-19** around a full domain/business-rule spec the user wrote out
+> directly: a **Class is not a live Session** — a class is the persistent container (chat,
+> materials, membership, billing, lifecycle), a session is one scheduled occurrence inside it,
+> and a session ending never ends the class. Classes can be `GROUP` or `PRIVATE`, `OPEN`
+> (self-enroll) or `INVITE_ONLY`, and billed `FREE`/`ONE_TIME`/`RECURRING` — recurring billing
+> is **not** private-only, a 50-student group class can bill monthly too with each student on
+> an independent subscription. This pulled in a genuinely new task, **Task 38: Payment Service
+> — Subscription Billing** (Paystack Plans/Subscriptions), ahead of Live Class Service itself,
+> and renumbered every task after it by one. **`PHASE4.md`'s Domain Model section is the
+> canonical entity reference** — read it before touching any task below. Full task specs
+> remain in `PLAN.md` Tasks 38–45.
+
+> **The tables in §4.1–4.3 below are the original pre-redesign sketch** (single-session
+> booking, no Class/Session split, no Payment Service subscription task, no chat/materials/
+> invitations) — left as historical record rather than rewritten table-by-table. They're
+> **superseded by `PHASE4.md`'s Domain Model** for anything that conflicts; don't treat a gap
+> between this section and that one as a bug, treat `PHASE4.md` as correct.
 
 ### 4.1 Backend Services
 

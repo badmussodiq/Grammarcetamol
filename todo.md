@@ -1,10 +1,12 @@
 # Grammarcetamol — Todo / Status Tracker
 
 Quick-scan status. For full detail, decisions, and verification notes on any item, see `PLAN.md`
-(task-by-task) and `implementation-phases.md` (phase-level). This file exists just to answer "what's
-done, what's next, what's on hold" at a glance — update it as work lands rather than re-deriving it.
+(task-by-task) and `implementation-phases.md` (phase-level). For Phase 4 specifically, see
+[`PHASE4.md`](./PHASE4.md) — its own living status tracker, not duplicated here. This file exists
+just to answer "what's done, what's next, what's on hold" at a glance — update it as work lands
+rather than re-deriving it.
 
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-19
 
 ---
 
@@ -61,17 +63,18 @@ Inserted between Phase 3 and Phase 4 on explicit user direction — a real produ
 ## 🔲 Pending (not started)
 
 - **Task 36 leftover** — `Button.tsx`'s two hardcoded hex classes (`text-[#64748B]` ghost variant, `hover:bg-[#DC2626]` destructive hover) still aren't semantic tokens; small, but explicitly called out in the task's own guidance.
-- **Phase 4 already has real head start, undocumented until now** — found while working Task 37: `backend/notification-service/src/notifications/` is a complete in-app notification inbox backend (`GET /api/notifications`, `unread-count`, `read-all`, `:id/read`, `DELETE :id`, all real, gateway-routed, auth-gated), and the student frontend already has a bell icon + unread badge (`Navbar.tsx`) and a full `/notifications` page (103 lines) consuming it — this is Phase 4 Task 39/41 territory, not Phase 3.5. **The gap**: nothing actually populates the inbox — `NotificationConsumerService` only sends email, never writes an in-app notification document, so the inbox is real but permanently empty right now. No SSE endpoint either (the controller's own comment says so explicitly — "Phase 4/v2 work"). Worth scoping into Tasks 38–44 rather than re-building from scratch.
+- **Phase 4** — see [`PHASE4.md`](./PHASE4.md) for the full task-by-task tracker.
 
-### Phase 4 — Live Classes & Notifications (planned, renumbered to Tasks 38–44)
-Same content as before, renumbered to follow Phase 3.5. Task 39 ("Notification Service") is now an *extension* task, not a bootstrap — Phase 3.5's Task 31 already builds the service; Phase 4 only adds the in-app notification center, SSE stream, and Announcements to it. **Per the finding above, the in-app notification center's backend+frontend shell already exists — Task 39/41 now means wiring the consumer to create records and adding SSE, not building the inbox from zero.**
-- **Task 38** — Live Class Service (NestJS, second MongoDB-backed service — reuses Task 31's `DatabaseModule` shape): scheduling with instructor-conflict detection, free/paid registration, the room-reveal endpoint, in-process `@nestjs/schedule` reminders (no Kubernetes CronJobs), RabbitMQ publish.
-- **Task 39** — Notification Service extension: in-app notification center + SSE stream + `user_notification_preferences` + a new `announcements` collection with audience fan-out.
-- **Task 40** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
-- **Task 41** — Student notification center (bell + `/notifications` page) + profile preferences tab.
-- **Task 42** — Admin live-class scheduler (calendar view via **FullCalendar** — the first external UI library in this codebase, a deliberate exception to the "hand-roll everything visual" convention, since a hand-rolled month/week/day + drag-and-drop + conflict UI was judged too large/bug-prone versus a well-maintained library that already covers this exact feature set — + list + create/edit form).
-- **Task 43** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
-- **Task 44** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
+### Phase 4 — Live Classes & Notifications (Tasks 38–45)
+**📍 Status tracking moved to [`PHASE4.md`](./PHASE4.md)** — the single source of truth for
+this phase's task-by-task status, findings, and update log. Not started as of 2026-08-19,
+except a real head start already found on Task 40/42's in-app notification center (backend
+inbox + student bell/`/notifications` page exist; nothing populates them yet). Redesigned the
+same day around a user-supplied domain spec — Class/Session split, group/private classes,
+open/invite-only access, free/one-time/recurring billing (recurring now needs a new Task 38:
+Payment Service Subscription Billing, ahead of Live Class Service itself) — see `PHASE4.md`'s
+Domain Model section for the full entity reference. Full task specs remain in `PLAN.md` Tasks
+38–45.
 
 Past Phase 4, Phase 5 (service requests, support, business ops) isn't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
 
