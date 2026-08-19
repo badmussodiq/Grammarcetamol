@@ -101,6 +101,19 @@ describe('SessionsService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
       expect(sessions.findOne).not.toHaveBeenCalled();
     });
+
+    it('only SCHEDULED/LIVE sessions count as a conflict — CANCELLED and, critically, ENDED are excluded from the query itself', async () => {
+      // Regression test: endTime isn't updated when a session ends early (only
+      // actualEndedAt is), so an ENDED session's original window must never keep blocking new
+      // bookings — this can only be verified against the query sent to Mongo, since the mock
+      // can't reproduce real server-side filtering.
+      sessions.findOne.mockResolvedValueOnce(null);
+      sessions.insertOne.mockResolvedValueOnce({ insertedId: new ObjectId() });
+
+      await service.createManual(classDoc(), new Date('2026-09-01T15:00:00Z'), new Date('2026-09-01T16:00:00Z'), 'UTC');
+
+      expect(sessions.findOne).toHaveBeenCalledWith(expect.objectContaining({ status: { $in: ['SCHEDULED', 'LIVE'] } }));
+    });
   });
 
   describe('generateFromSchedules — conflict detection across recurring-generated sessions', () => {

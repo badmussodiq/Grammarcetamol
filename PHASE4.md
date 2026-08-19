@@ -141,7 +141,7 @@ never means the class ended** — those are two independent lifecycles (see belo
 
 ### Scheduling conflict detection
 
-The **generated `live_sessions` collection is the single source of truth for conflict-checking** — not the `schedules[]` templates directly. When a schedule is created/edited, immediately generate a rolling window of upcoming sessions (e.g. next 8–12 weeks) from it; a cron extends the window forward over time. This avoids two separate conflict-detection code paths (one for templates, one for one-off sessions) — every check is just "does `instructorId` have another non-cancelled session whose `[startTime, endTime)` overlaps this one." Adjacent-but-not-overlapping (ends exactly when the next starts) is allowed; any real overlap is rejected with the conflicting session's own detail in the error, same shape as the original Task 38 draft's 409 response.
+The **generated `live_sessions` collection is the single source of truth for conflict-checking** — not the `schedules[]` templates directly. When a schedule is created/edited, immediately generate a rolling window of upcoming sessions (e.g. next 8–12 weeks) from it; a cron extends the window forward over time. This avoids two separate conflict-detection code paths (one for templates, one for one-off sessions) — every check is just "does `instructorId` have another `SCHEDULED`/`LIVE` session whose `[startTime, endTime)` overlaps this one." Adjacent-but-not-overlapping (ends exactly when the next starts) is allowed; any real overlap is rejected with the conflicting session's own detail in the error, same shape as the original Task 38 draft's 409 response. **Both `CANCELLED` and `ENDED` sessions are excluded** — not just `CANCELLED` as originally written here (fixed 2026-08-19, see PHASE4.md's Update Log): `endTime` isn't updated when a session ends early, only `actualEndedAt` is, so a session ended 10 minutes into a scheduled 2-hour block would otherwise keep blocking new bookings against its original, now-vacated window indefinitely.
 
 ### Retention & archival — reconciling two things the user said
 
@@ -343,3 +343,33 @@ Dependency-first, matching how every prior phase in this project was built:
   despite the code's own comment claiming partial updates were supported — see the resolved
   risk entry above for the fix and live re-verification. Next up: Tasks 41–44 (student/admin
   live-class + notification frontends) — none started yet, no explicit instruction received.
+- **2026-08-19 (Task 40 — automated integration coverage added, one more real bug found)** —
+  the manual `curl`-based verification above was real but not regression-proof: nothing kept
+  it proven. Added `backend/integration-tests/liveclass-notification-flow.integration.spec.ts`
+  (9 tests) following the project's established `*.integration.spec.ts`-against-the-real-stack
+  pattern: the preferences partial-update regression, announcement fan-out + a real SSE capture
+  (not just header inspection), preference-gating suppression, and a full live-class
+  create→publish→enroll→session→start round-trip asserting the `live-class-starting`
+  notification actually lands. **Found and fixed a second real bug** while writing it:
+  `SessionsService.findConflict()` (`backend/live-class-service/src/sessions/sessions.service.ts`)
+  only excluded `CANCELLED` sessions from conflict detection, not `ENDED` — matching this
+  file's own Scheduling section as originally written, which turns out to have been wrong.
+  Since `endTime` is never updated when a session ends early (only `actualEndedAt` is), an
+  instructor who ends a session ahead of schedule stays "conflicted" against that session's
+  original, now-vacated time window forever, blocking any new booking in it. Fixed to
+  `status: { $in: ['SCHEDULED', 'LIVE'] }`; the Scheduling section above is corrected to match;
+  added a unit test asserting the actual query sent to Mongo (`test/sessions/sessions.service.spec.ts`)
+  since the bug is only observable in the query shape, not in a mock's return value. 39/39
+  live-class-service tests, 57/57 notification-service tests, and — after the fix — 9/9 new +
+  91/91 full `backend/integration-tests` suite all pass together against the real stack.
+  **Also found (not a code bug):** the full integration suite's cumulative email volume this
+  session (many real registrations/OTPs/announcements sent through Gmail SMTP across today's
+  manual verification and automated tests) got Gmail's SMTP server to throttle and drop
+  connections (`Unexpected socket close`), failing several pre-existing, unrelated
+  `notification-flow.integration.spec.ts` assertions and one of this file's own SSE tests when
+  run as part of the full suite — confirmed by re-running the same specs in isolation
+  immediately after (still failing) versus after switching providers (all passing). Per the
+  user's direction, `backend/notification-service/.env`'s `EMAIL_PROVIDER` is temporarily set
+  to `log` instead of `smtp` (config-only change, `SMTP_*` credentials untouched) until Gmail's
+  throttling cools down — revert that one line, not any code, when ready to send real email
+  again.

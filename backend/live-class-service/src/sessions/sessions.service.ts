@@ -79,6 +79,12 @@ export class SessionsService implements OnApplicationBootstrap {
    * manual one-off creation, and (implicitly) any future reschedule. Adjacent-but-not-
    * overlapping (one ends exactly when the next starts) is allowed; any real overlap on the
    * half-open [startTime, endTime) interval is rejected.
+   *
+   * Only SCHEDULED/LIVE sessions count — CANCELLED and ENDED are both terminal states that no
+   * longer represent a real commitment. ENDED matters here specifically because `endTime`
+   * isn't updated when a session ends early (only `actualEndedAt` is) — without excluding it,
+   * an instructor who ends a 2-hour session after 10 minutes stays "conflicted" against that
+   * session's original, now-vacated 2-hour window forever, blocking any new booking in it.
    */
   private async findConflict(
     instructorId: string,
@@ -88,7 +94,7 @@ export class SessionsService implements OnApplicationBootstrap {
   ): Promise<ConflictDetail | null> {
     const query: Record<string, unknown> = {
       instructorId,
-      status: { $ne: 'CANCELLED' },
+      status: { $in: ['SCHEDULED', 'LIVE'] },
       startTime: { $lt: endTime },
       endTime: { $gt: startTime },
     };
