@@ -360,5 +360,17 @@ describe('SessionsService', () => {
       const query = sessions.find.mock.calls[0][0];
       expect(query.classId).toBeUndefined();
     });
+
+    it('matches findConflict\'s own status filter exactly (SCHEDULED/LIVE only) — a real divergence found live in Task 45', async () => {
+      // Previously `status: { $ne: 'CANCELLED' }`, so an ENDED session (which findConflict
+      // correctly ignores — it's no longer blocking anything) still showed up as a
+      // false-positive conflict in the admin form's real-time hint.
+      sessions.__cursor.toArray.mockResolvedValue([]);
+
+      await service.getInstructorAvailability('instructor-1', new Date('2026-09-01T00:00:00Z'), new Date('2026-09-30T00:00:00Z'));
+
+      const query = sessions.find.mock.calls[0][0];
+      expect(query.status).toEqual({ $in: ['SCHEDULED', 'LIVE'] });
+    });
   });
 });

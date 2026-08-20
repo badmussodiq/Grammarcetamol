@@ -76,7 +76,10 @@ describe('EnrollmentsService', () => {
 
       const result = await service.enroll(cls._id.toHexString(), 'student-1');
 
-      expect(result.enrollment).toBe(existing);
+      // Public shape (id, not _id) — same "never return the raw Mongo doc" convention every
+      // other list/get response in this service follows; this enroll()/acceptInvitation() path
+      // was a real bug found live-verifying Task 45 (leaked `_id` instead of `id`).
+      expect(result.enrollment).toEqual({ id: existing._id.toHexString(), status: 'ACTIVE', classId: cls._id.toHexString(), studentId: 'student-1' });
       expect(enrollments.insertOne).not.toHaveBeenCalled();
     });
   });
@@ -356,6 +359,114 @@ describe('EnrollmentsService', () => {
     it('preview 404s for an unknown token', async () => {
       invitations.findOne.mockResolvedValueOnce(null);
       await expect(service.getInvitationPreview('nope')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // Task 45 — the RabbitMQ consumer handlers dispatched from LiveClassConsumerService and the
+  // hourly expiry cron had zero coverage before this: every existing test in this file mocks
+  // the enrollment's own service methods, never the billing-event side of the access-vs-billing
+  // split. Live-verified once via a real HTTP + real webhook + real RabbitMQ round trip in
+  // liveclass-subscription-lifecycle.integration.spec.ts; these are the fast, exhaustive
+  // edge-case coverage that a live round trip can't practically provide (wrong itemType, no
+  // matching row, the cron's own filter shape).
+  describe('subscription/payment event consumers (dispatched from LiveClassConsumerService)', () => {
+    describe('handleSubscriptionCreated / handlePaymentCompleted — activateFromBilling', () => {
+      it('ignores an event for a different itemType', async () => {
+        await service.handleSubscriptionCreated({ userId: 's1', itemType: 'course', itemId: 'c1', subscriptionId: 'sub1', currentPeriodEnd: new Date().toISOString() });
+        expect(enrollments.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('activates a PENDING_PAYMENT RECURRING enrollment, setting accessUntil and subscriptionId', async () => {
+        const classId = new ObjectId();
+        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        enrollments.updateOne.mockResolvedValueOnce({ matchedCount: 1 });
+
+        await service.handleSubscriptionCreated({ userId: 'student-1', itemType: 'live-class', itemId: classId.toHexString(), subscriptionId: 'sub-abc', currentPeriodEnd: periodEnd });
+
+        const [filter, update] = enrollments.updateOne.mock.calls[0];
+        expect(filter).toMatchObject({ studentId: 'student-1', status: 'PENDING_PAYMENT' });
+        expect(update.$set).toMatchObject({ status: 'ACTIVE', subscriptionId: 'sub-abc', accessUntil: new Date(periodEnd) });
+        expect(eventPublisher.publishEnrollmentCreated).toHaveBeenCalledWith(expect.objectContaining({ paymentModel: 'RECURRING' }));
+      });
+
+      it('activates a PENDING_PAYMENT ONE_TIME enrollment via handlePaymentCompleted, with NEVER_EXPIRES accessUntil and no subscriptionId', async () => {
+        enrollments.updateOne.mockResolvedValueOnce({ matchedCount: 1 });
+
+        await service.handlePaymentCompleted({ userId: 'student-1', itemType: 'live-class', itemId: new ObjectId().toHexString(), paymentId: 'pay-abc' });
+
+        const [, update] = enrollments.updateOne.mock.calls[0];
+        expect(update.$set.status).toBe('ACTIVE');
+        expect(update.$set.paymentId).toBe('pay-abc');
+        expect(update.$set.subscriptionId).toBeUndefined();
+        expect(update.$set.accessUntil.getUTCFullYear()).toBe(2100); // NEVER_EXPIRES
+        expect(eventPublisher.publishEnrollmentCreated).toHaveBeenCalledWith(expect.objectContaining({ paymentModel: 'ONE_TIME' }));
+      });
+
+      it('logs and does not publish when no PENDING_PAYMENT enrollment matches (a lost/delayed insert)', async () => {
+        enrollments.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+
+        await service.handleSubscriptionCreated({ userId: 'student-1', itemType: 'live-class', itemId: new ObjectId().toHexString(), subscriptionId: 'sub-abc', currentPeriodEnd: new Date().toISOString() });
+
+        expect(eventPublisher.publishEnrollmentCreated).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('handleSubscriptionCharged — renewal extends accessUntil without touching status', () => {
+      it('ignores an event for a different itemType', async () => {
+        await service.handleSubscriptionCharged({ userId: 's1', itemType: 'course', itemId: 'c1', currentPeriodEnd: new Date().toISOString() });
+        expect(enrollments.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('extends accessUntil for an ACTIVE or PENDING_PAYMENT enrollment, no status change', async () => {
+        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        enrollments.updateOne.mockResolvedValueOnce({ matchedCount: 1 });
+
+        await service.handleSubscriptionCharged({ userId: 'student-1', itemType: 'live-class', itemId: new ObjectId().toHexString(), currentPeriodEnd: periodEnd });
+
+        const [filter, update] = enrollments.updateOne.mock.calls[0];
+        expect(filter.status).toEqual({ $in: ['ACTIVE', 'PENDING_PAYMENT'] });
+        expect(update.$set.accessUntil).toEqual(new Date(periodEnd));
+        expect(update.$set.status).toBeUndefined();
+      });
+    });
+
+    describe('handleSubscriptionExpired — a failed-payment escalation, distinct from voluntary cancel', () => {
+      it('ignores an event for a different itemType', async () => {
+        await service.handleSubscriptionExpired({ userId: 's1', itemType: 'course', itemId: 'c1' });
+        expect(enrollments.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('flips a non-EXPIRED enrollment to EXPIRED with endedReason payment_failed', async () => {
+        enrollments.updateOne.mockResolvedValueOnce({ matchedCount: 1 });
+
+        await service.handleSubscriptionExpired({ userId: 'student-1', itemType: 'live-class', itemId: new ObjectId().toHexString() });
+
+        const [filter, update] = enrollments.updateOne.mock.calls[0];
+        expect(filter.status).toEqual({ $ne: 'EXPIRED' });
+        expect(update.$set).toMatchObject({ status: 'EXPIRED', endedReason: 'payment_failed' });
+      });
+    });
+
+    describe('expireLapsedEnrollments — the hourly cron that catches up the status field', () => {
+      it('flips every ACTIVE enrollment whose accessUntil has passed to EXPIRED, excluding NEVER_EXPIRES rows', async () => {
+        enrollments.updateMany.mockResolvedValueOnce({ modifiedCount: 3 });
+
+        await service.expireLapsedEnrollments();
+
+        const [filter, update] = enrollments.updateMany.mock.calls[0];
+        expect(filter.status).toBe('ACTIVE');
+        expect(filter.accessUntil.$lt).toBeInstanceOf(Date);
+        // NEVER_EXPIRES (2100-01-01) is explicitly excluded — a FREE/ONE_TIME enrollment must
+        // never be swept into EXPIRED just because it's "in the past" relative to some future
+        // NEVER_EXPIRES-adjacent bug; accessUntil.$ne pins the exclusion to the exact sentinel.
+        expect(filter.accessUntil.$ne).toEqual(new Date('2100-01-01T00:00:00.000Z'));
+        expect(update.$set.status).toBe('EXPIRED');
+      });
+
+      it('is a no-op when nothing has lapsed', async () => {
+        enrollments.updateMany.mockResolvedValueOnce({ modifiedCount: 0 });
+        await expect(service.expireLapsedEnrollments()).resolves.toBeUndefined();
+      });
     });
   });
 });

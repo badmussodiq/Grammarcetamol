@@ -218,6 +218,30 @@ describe('Live class + notification extension flow — real running stack (Task 
       expect(row?.message).toBe('Fan-out coverage for Task 40.');
     }, 30000);
 
+    // Task 45's own third chain: "the recipient-count estimate matches the actual fan-out
+    // count" — the pre-publish GET .../recipient-count preview and doPublish()'s own resolved
+    // recipient list call the exact same resolveRecipients() under the hood, so this is really
+    // proving they haven't drifted apart (a low priority announcement, deliberately — no real
+    // email is sent for it, keeping this test independent of the SMTP-volume timing concern the
+    // high/critical-priority tests above are already subject to).
+    it('the pre-publish recipient-count estimate matches the real fan-out count on publish', async () => {
+      const title = `Integration test recipient-count parity ${Date.now()}`;
+      const { body: created } = await api<{ id: string }>('/api/announcements', {
+        method: 'POST',
+        token: adminToken,
+        body: { title, body: 'Recipient-count parity coverage for Task 45.', targetType: 'all', priority: 'low' },
+      });
+      const id = created!.data.id;
+
+      const { status: countStatus, body: estimate } = await api<{ count: number }>(`/api/announcements/${id}/recipient-count`, { token: adminToken });
+      expect(countStatus).toBe(200);
+
+      const { status: publishStatus, body: published } = await api<{ recipientCount: number }>(`/api/announcements/${id}/publish`, { method: 'POST', token: adminToken });
+      expect(publishStatus).toBe(201);
+
+      expect(published!.data.recipientCount).toBe(estimate!.data.count);
+    }, 30000);
+
     it('SSE stream delivers that same event live through the gateway, with no buffering', async () => {
       const title = `Integration test SSE announcement ${Date.now()}`;
       const ssePromise = captureSseEvent(student.token, 10000);
@@ -300,8 +324,13 @@ describe('Live class + notification extension flow — real running stack (Task 
       });
       expect(enrollStatus).toBe(201);
 
-      const startTime = new Date(Date.now() + 5 * 60_000).toISOString();
-      const endTime = new Date(Date.now() + 65 * 60_000).toISOString();
+      // Randomized far-future window (SessionsService.start() has no time-window check — only
+      // status === SCHEDULED matters) rather than a fixed near-term offset, so this doesn't
+      // collide with any other test's or manual-testing's session for this same shared
+      // SUPER_ADMIN instructor — a real, repeatedly-observed flakiness source (Task 45).
+      const offsetMs = (30 + Math.floor(Math.random() * 300)) * 24 * 60 * 60 * 1000;
+      const startTime = new Date(Date.now() + offsetMs).toISOString();
+      const endTime = new Date(Date.now() + offsetMs + 60 * 60_000).toISOString();
       const { status: sessionStatus, body: session } = await api<{ id: string }>(`/api/classes/${classId}/sessions`, {
         method: 'POST',
         token: adminToken,

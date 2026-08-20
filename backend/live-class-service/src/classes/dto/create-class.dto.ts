@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  IsUUID,
   Length,
   Min,
   ValidateIf,
@@ -26,6 +27,16 @@ export class CreateClassDto {
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  // Optional — defaults to the caller in the controller. Lets a SUPER_ADMIN schedule a class
+  // on behalf of a different admin/moderator (the actual instructor), which the admin
+  // ClassForm's own "Instructor" selector already offered but silently had no effect until
+  // this field existed — same "audit-trail field, not a foreign key" trust model as every
+  // other cross-service id in this system (no live lookup against auth-service to confirm the
+  // given id really is an admin/moderator).
+  @IsOptional()
+  @IsUUID()
+  instructorId?: string;
 
   @IsIn(['GROUP', 'PRIVATE'])
   classType!: 'GROUP' | 'PRIVATE';

@@ -3,12 +3,18 @@
  * real running stack through the gateway via `fetch`, never mocks. Centralized here so
  * each spec file only contains the behavior it's actually asserting.
  */
+import {createHmac} from 'crypto';
 
 export const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:9000';
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@grammarcetamol.com';
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'ChangeMe123!';
 export const STUDENT_EMAIL = process.env.STUDENT_EMAIL ?? 'checkout.tester@example.com';
 export const STUDENT_PASSWORD = process.env.STUDENT_PASSWORD ?? 'TestPass123!';
+// A real Paystack test-mode secret key (sk_test_...) — same low-sensitivity local-dev-default
+// pattern as ADMIN_PASSWORD above. Needed to compute a signature payment-service's
+// verifyWebhookSignature() will actually accept, for tests that simulate a real webhook
+// delivery (Paystack has no test-mode way to trigger one against a non-public callback URL).
+export const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY ?? 'sk_test_627e02df4c7884bdf9161f0f613ba92c409ba1ea';
 
 // A syntactically valid UUID that doesn't exist — useful for checks that only care whether
 // a request is rejected before it reaches the point where the target resource matters.
@@ -203,4 +209,23 @@ export async function createPublishedCourse(
 
 export async function deleteCourse(adminToken: string, courseId: string): Promise<void> {
   await api(`/api/courses/${courseId}`, { method: 'DELETE', token: adminToken });
+}
+
+/**
+ * POSTs a real, validly-signed simulated Paystack webhook to POST /api/payments/webhook —
+ * the same route real webhook deliveries hit, public through the gateway (self-authenticates
+ * via the signature, no session token). This is the only way to exercise the
+ * subscription.create/charge.success/subscription.disable handlers in
+ * SubscriptionsService.handleWebhookEvent() without a publicly-reachable callback URL for
+ * Paystack to actually call — see that method's own doc comment.
+ */
+export async function sendPaystackWebhook(event: string, data: Record<string, unknown>): Promise<number> {
+  const rawBody = JSON.stringify({ event, data });
+  const signature = createHmac('sha512', PAYSTACK_SECRET_KEY).update(rawBody).digest('hex');
+  const res = await fetch(`${GATEWAY_URL}/api/payments/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-paystack-signature': signature },
+    body: rawBody,
+  });
+  return res.status;
 }

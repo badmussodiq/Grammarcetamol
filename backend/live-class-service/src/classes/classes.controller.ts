@@ -29,7 +29,9 @@ export class ClassesController {
   @Post()
   async create(@Body() dto: CreateClassDto, @CurrentUser() user: CurrentUserPayload) {
     requireAdminOrModerator(user);
-    const created = await this.classesService.create(user.id as string, dto as any);
+    // dto.instructorId lets a SUPER_ADMIN schedule a class on behalf of a different
+    // admin/moderator — falls back to the caller when omitted (self-instructor, the common case).
+    const created = await this.classesService.create(dto.instructorId ?? (user.id as string), dto as any);
     return ApiResponse.success(toPublicClass(created));
   }
 

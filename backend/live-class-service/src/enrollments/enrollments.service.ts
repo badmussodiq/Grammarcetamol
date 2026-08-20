@@ -20,7 +20,7 @@ import {toPublicEnrollment, toPublicInvitation} from './enrollment.types';
 const NEVER_EXPIRES = new Date('2100-01-01T00:00:00.000Z');
 
 export interface EnrollResult {
-  enrollment: EnrollmentDocument;
+  enrollment: ReturnType<typeof toPublicEnrollment>;
   authorizationUrl?: string;
 }
 
@@ -99,7 +99,7 @@ export class EnrollmentsService implements OnApplicationBootstrap {
     // 500 into a safe no-op.
     const existing = await this.enrollments().findOne({ classId: classDoc._id, studentId });
     if (existing && (existing.status === 'ACTIVE' || existing.status === 'PENDING_PAYMENT')) {
-      return { enrollment: existing as EnrollmentDocument };
+      return { enrollment: toPublicEnrollment(existing as EnrollmentDocument) };
     }
 
     if (classDoc.capacity != null) {
@@ -136,7 +136,7 @@ export class EnrollmentsService implements OnApplicationBootstrap {
       const result = await this.enrollments().insertOne(doc as any);
       const inserted = { ...doc, _id: result.insertedId };
       this.eventPublisher.publishEnrollmentCreated({ enrollmentId: inserted._id.toHexString(), classId: classDoc._id.toHexString(), studentId, paymentModel: 'FREE' });
-      return { enrollment: inserted };
+      return { enrollment: toPublicEnrollment(inserted) };
     }
 
     // ONE_TIME and RECURRING both need a real price to charge.
@@ -164,7 +164,7 @@ export class EnrollmentsService implements OnApplicationBootstrap {
 
     if (classDoc.paymentModel === 'ONE_TIME') {
       const payment = await this.paymentServiceClient.initializeOneTimePayment(studentId, classDoc._id.toHexString(), price, classDoc.currency, email);
-      return { enrollment: inserted, authorizationUrl: payment.authorizationUrl };
+      return { enrollment: toPublicEnrollment(inserted), authorizationUrl: payment.authorizationUrl };
     }
 
     // RECURRING
@@ -176,7 +176,7 @@ export class EnrollmentsService implements OnApplicationBootstrap {
       classDoc.billingInterval ?? 'monthly',
       email,
     );
-    return { enrollment: inserted, authorizationUrl: subscription.authorizationUrl };
+    return { enrollment: toPublicEnrollment(inserted), authorizationUrl: subscription.authorizationUrl };
   }
 
   /** INVITE_ONLY classes only, instructor/admin only. */

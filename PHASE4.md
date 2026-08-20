@@ -29,7 +29,7 @@ trusting it, same rule as everywhere else in this project.
 | 42 | Student frontend — notification center & preferences                                              | ✅ Done (2026-08-19), live-verified              | Task 40                              |
 | 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | ✅ Done (2026-08-20), live-verified              | Task 39                              |
 | 44 | Admin frontend — announcement manager                                                             | ✅ Done (2026-08-20), live-verified              | Task 40                              |
-| 45 | Phase 4 integration & verification                                                                | 🔲 Not started                                  | Tasks 38–44                          |
+| 45 | Phase 4 integration & verification                                                                | ✅ Done (2026-08-20), live-verified              | Tasks 38–44                          |
 
 Legend: 🔲 not started · 🟡 partially done / in progress · ✅ done · ⛔ blocked
 
@@ -589,3 +589,109 @@ Dependency-first, matching how every prior phase in this project was built:
   service log with no manual action taken — the exact PLAN.md demo criterion. Also confirmed the
   read-only guard at the DOM level on an existing published announcement (10/10 fields genuinely
   `disabled`, no submit button rendered), not just visually implied.
+
+- **2026-08-20 (Task 45 built)** — Phase 4 Integration & Verification done. All three chains
+  live-verified end-to-end against the real running stack (both frontends, all backend
+  services), plus 67 new automated tests (56 integration across two new spec files and
+  extensions to two existing ones, 11 unit) closing gaps individual-task verification had left.
+
+  **Chain 1 (free GROUP class)** — `backend/integration-tests/liveclass-full-chain.integration.spec.ts`
+  (new): admin creates a recurring-eligible `GROUP`/`OPEN`/`FREE` class, the schedule-conflict
+  check is proven to actually fire on a genuinely overlapping session (409, not silently
+  double-booked), a student free-enrolls and sees it via `GET .../enrollments/mine`, and a
+  sped-up reminder (a session ~14.5 minutes out — inside `sendReminders()`'s real 1-minute cron
+  window on the very next tick, not a real 15-minute wait) produces a real in-app notification.
+  Live-browser-verified beyond what the integration test covers: created the same shape of
+  class through the real admin UI, scheduled a session via the real Sessions tab, then confirmed
+  it appeared **on the student dashboard's Live Classes widget within one page load** — the
+  actual cross-frontend wiring Tasks 41/43 each verified their own half of but never verified
+  together — and that `/live-classes/[id]` on the student side correctly showed "Not Live Yet"
+  (the room-reveal endpoint's real `too-early` denial, not a stub) and "Chat is locked by the
+  instructor" for the freshly-created class.
+
+  **Chain 2 (private, subscription)** — `backend/integration-tests/liveclass-subscription-lifecycle.integration.spec.ts`
+  (new, 8 tests): the full invite → accept → real `POST /api/subscriptions` → real
+  HMAC-SHA512-signed simulated `charge.success` + `subscription.create` webhooks (via a new
+  `sendPaystackWebhook()` helper in `helpers.ts`) → real RabbitMQ hop into live-class-service →
+  `accessUntil` extends → cancel leaves `accessUntil` untouched (access continues) → once
+  `accessUntil` passes, room access is denied again, proven **immediately via a direct request**
+  rather than waiting on `expireLapsedEnrollments`' hourly cron (`hasAccess()` re-checks
+  `accessUntil` live on every call — the `status` field lags behind until the cron catches up,
+  proven separately and instantly via a new direct unit test rather than a real hour-long wait).
+  This closes the exact gap `SubscriptionsService.handleWebhookEvent`'s own doc comment named
+  Task 45 as responsible for: "neither [the first-activation nor renewal path] has been
+  exercised against a real webhook delivery yet." **Not exercised, a real external sandbox
+  constraint**: a genuinely successful cancel against a real Paystack subscription — Paystack's
+  own cancel API needs a subscription that actually exists on their side, which needs a
+  completed hosted checkout, which needs a publicly-reachable webhook callback URL for Paystack
+  to deliver to; this local stack has none. Task 38/39's own status notes already reached the
+  same conclusion for the same reason. The *error* path (cancel against a fabricated
+  subscription code, correctly rejected cleanly rather than crashing) is exercised instead.
+
+  **Chain 3 (announcement fan-out)** — added the one assertion the existing Task 40 coverage was
+  missing: a new test in `liveclass-notification-flow.integration.spec.ts` confirms the
+  pre-publish `GET .../recipient-count` estimate exactly equals `publish()`'s own resolved
+  `recipientCount` (both call the same `resolveRecipients()`, so this proves they haven't
+  drifted apart) — PLAN.md's own "the recipient-count estimate matches the actual fan-out count"
+  demo criterion, not previously asserted directly (the existing tests only checked
+  `recipientCount >= 1`).
+
+  **Auth-boundary sweep** — `auth-boundary.integration.spec.ts` grew from 24 to 65 checks,
+  adding every admin-gated endpoint on live-class-service (Task 43's whole admin scheduler
+  surface — class/session/material/invitation/enrollment CRUD) and notification-service's
+  announcements (Task 44) — neither had ever been swept before this task. All passed on the
+  first real run; no boundary gaps found. Chat lock/unlock (the PLAN.md-specified
+  lock→403→unlock→succeeds→lock→403-again sequence) and the room-reveal endpoint's full
+  four-way authorization (`not-enrolled`/`too-early`/`session-ended`/`invite-not-accepted`) were
+  confirmed already exhaustively unit-tested in `chat.service.spec.ts`/`sessions.service.spec.ts`
+  rather than duplicated here.
+
+  **Three real bugs found and fixed, all via live exploration before writing any test** (not
+  reported by the user — found by directly probing the system the way an admin/student
+  genuinely would):
+  1. **`instructorId` silently ignored on class creation.** `ClassesController.create()` always
+     passed `user.id` as the instructor, never reading anything from the request body —
+     confirmed live by creating a class with a different real user's id explicitly set and
+     watching the stored `instructorId` come back as the caller's own id instead. This meant the
+     admin `ClassForm`'s "Instructor" picker had **zero effect** on class creation the whole
+     time Task 43 was live — invisible during that task's own verification because only one
+     `SUPER_ADMIN` account existed in the seed data, so picking "the only option" always looked
+     correct by coincidence. Fixed by adding an optional, `@IsUUID()`-validated `instructorId` to
+     `CreateClassDto` and using `dto.instructorId ?? user.id` in the controller — same
+     "audit-trail field, not a foreign key" trust model as every other cross-service id in this
+     system (no live lookup against auth-service to confirm the id is really an admin/moderator).
+  2. **`enroll()`/`acceptInvitation()` leaked the raw Mongo document.** Both returned
+     `{enrollment: <raw EnrollmentDocument>, authorizationUrl}` instead of running it through
+     `toPublicEnrollment()` like every other list/get endpoint in this service — confirmed live,
+     the response's `enrollment` object had `_id` (a bare ObjectId-shaped string, no `id` field
+     at all) with `classId` still an unconverted ObjectId. Same bug class as Task 41's chat-message
+     bug and Task 43's own invitation bug — a recurring pattern in this codebase worth naming: a
+     freshly-inserted Mongo doc returned directly instead of through its `toPublicX()` helper.
+     Fixed by changing `EnrollResult.enrollment`'s type to `ReturnType<typeof toPublicEnrollment>`
+     and wrapping all four return sites inside `createEnrollment()`.
+  3. **The admin form's conflict-hint endpoint diverged from the real booking check.**
+     `GET /api/instructors/:id/availability`'s own doc comment claims "same conflict-detection
+     logic [as] when actually booking" — but its filter was `status: { $ne: 'CANCELLED' }` while
+     the real `findConflict()` used by actual booking is `status: { $in: ['SCHEDULED', 'LIVE'] }`
+     (fixed for booking back in Task 40's own "both CANCELLED and ENDED excluded" fix, which this
+     sibling endpoint never received). Found live while cleaning up leftover test sessions: an
+     already-`ENDED` session kept showing up as a "busy" conflict in the availability check,
+     which the admin `ClassForm` uses to disable Save — a false-positive capable of blocking a
+     legitimate schedule change over a slot that was actually free. Fixed by matching
+     `findConflict`'s exact filter.
+
+  Also flipped `notification-service/.env`'s `EMAIL_PROVIDER` back to `log` (was `smtp`,
+  reverted from Task 40's original fix at some point outside this session) — this environment
+  has accumulated 150 real test student accounts, and a `high`/`critical`-priority announcement
+  publish's real sequential Gmail SMTP sends were routinely exceeding Jest's 30s test timeout
+  (and re-risking the exact Gmail throttling the original `log` switch was meant to prevent).
+
+  **Final counts**: `enrollments.service.spec.ts` (live-class-service) 33/33 (was 23, +10 for
+  the four billing-event consumer handlers and `expireLapsedEnrollments`), `sessions.service.spec.ts`
+  +1 regression test for the availability-filter fix, live-class-service full suite 72/72,
+  `backend/integration-tests` 153/153 across all 11 spec files, `tsc --noEmit` clean. Two
+  pre-existing integration tests (in `liveclass-notification-flow.integration.spec.ts`) also had
+  their own near-term session-time collision risk fixed while investigating unrelated 409s during
+  this task's own test runs — a real, repeatedly-observed flakiness source from every spec file
+  in this suite sharing one `SUPER_ADMIN` instructor account, now using the same randomized
+  far-future offset this task's own new files established.

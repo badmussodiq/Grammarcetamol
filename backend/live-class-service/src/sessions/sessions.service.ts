@@ -347,7 +347,13 @@ export class SessionsService implements OnApplicationBootstrap {
   /** `excludeClassId` lets the admin edit form check an instructor's availability without the
    * class being edited flagging a conflict against its own already-scheduled sessions. */
   async getInstructorAvailability(instructorId: string, from: Date, to: Date, excludeClassId?: string): Promise<ConflictDetail[]> {
-    const filter: Record<string, unknown> = { instructorId, status: { $ne: 'CANCELLED' }, startTime: { $lt: to }, endTime: { $gt: from } };
+    // Must match findConflict()'s own status filter exactly — this endpoint's whole purpose is
+    // to preview what findConflict() would reject. A real, live-found divergence (Task 45):
+    // this used to say `$ne: 'CANCELLED'`, so an ENDED session (which findConflict — and every
+    // real booking — correctly treats as no longer blocking anything) still showed up as a
+    // false-positive conflict in the admin form, capable of disabling Save over a slot that was
+    // actually free.
+    const filter: Record<string, unknown> = { instructorId, status: { $in: ['SCHEDULED', 'LIVE'] }, startTime: { $lt: to }, endTime: { $gt: from } };
     if (excludeClassId) {
       filter.classId = { $ne: new ObjectId(excludeClassId) };
     }

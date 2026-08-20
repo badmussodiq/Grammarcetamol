@@ -1257,6 +1257,23 @@ import "auth.proto";
 
 **Task 45: Phase 4 Integration & Verification**
 
+> **Status: ✅ Done (2026-08-20).** See `PHASE4.md`'s Update Log for the full write-up — all
+> three chains live-verified against the real running stack (both frontends, all backend
+> services), auth-boundary sweep extended to live-class-service and notification-service's
+> announcements, and 67 new automated tests added (56 integration, across two new spec files
+> plus extensions to two existing ones; 11 unit, covering the previously-untested RabbitMQ
+> billing-event consumers and the hourly expiry cron). Three real bugs found and fixed: an
+> admin-supplied
+> `instructorId` was silently ignored on class creation; `enroll()`/`acceptInvitation()`
+> returned the raw Mongo enrollment document instead of the public shape every other endpoint
+> uses; and the admin form's real-time conflict-check endpoint diverged from the actual booking
+> check, treating ENDED sessions as still blocking. The chat-lock/unlock cycle and the
+> room-reveal endpoint's four-way authorization (this task's own "Auth-boundary checks..." line
+> below) were confirmed already exhaustively unit-tested rather than duplicated at the
+> integration level. Not exercised (a real, external sandbox limitation, not an app gap): a
+> genuinely successful cancel against a real Paystack subscription, which needs a
+> publicly-reachable webhook callback URL Paystack can deliver to.
+
 **Objective:** Confirm the full class → enrollment/subscription → session → join → reminder → notification-received loop works end-to-end through the gateway across both frontends, and the announcement fan-out reaches real users, same verification discipline as Task 30 closed out Phase 3.
 
 **Implementation guidance:**
