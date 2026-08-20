@@ -8,6 +8,7 @@ import {AuthServiceClient} from '@/course-client/auth-service.client';
 import {CourseServiceClient, CourseSummary} from '@/course-client/course-service.client';
 import {PaymentEventPublisher} from '@/messaging/payment-event-publisher';
 import {PaymentProviderRegistry} from '@/providers/payment-provider.registry';
+import {SubscriptionsService} from '@/subscriptions/subscriptions.service';
 import {mapPaymentRow, mapRefundRow, Payment, Refund} from './payment.types';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class PaymentsService {
     private readonly authServiceClient: AuthServiceClient,
     private readonly eventPublisher: PaymentEventPublisher,
     private readonly config: ConfigService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   private activeProvider() {
@@ -81,6 +83,52 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * Generic one-time-item payment path, alongside the course-specific initialize() above —
+   * Task 39's Live Class Service (ONE_TIME classes) needs to pay for something that isn't a
+   * `courses` row, and this service has no business knowing what a "live class" is. Unlike
+   * initialize(), the amount is caller-supplied rather than looked up server-side — the same
+   * trust boundary Task 38's subscriptions endpoint already established for exactly this
+   * reason (this service can't resolve a price for an item type it doesn't understand).
+   */
+  async initializeItem(
+    userId: string,
+    itemType: string,
+    itemId: string,
+    amount: number,
+    currency: string,
+    email?: string,
+  ): Promise<{ reference: string; accessCode?: string; authorizationUrl?: string; publicKey: string; amount: number; currency: string }> {
+    const resolvedEmail = email ?? (await this.authServiceClient.getUser(userId)).email;
+    const reference = `pay_${randomUUID()}`;
+    const provider = this.activeProvider();
+
+    const init = await provider.initialize({
+      amount,
+      currency,
+      email: resolvedEmail,
+      reference,
+      metadata: { itemType, itemId, userId },
+    });
+
+    await this.pool.query(
+      `INSERT INTO payments (user_id, item_type, item_id, amount, currency, status, payment_method, gateway, gateway_ref, gateway_response)
+       VALUES ($1, $2, $3, $4, $5, 'pending', 'card', $6, $7, $8)`,
+      [userId, itemType, itemId, amount, currency, provider.name, init.reference, JSON.stringify(init.raw)],
+    );
+
+    this.eventPublisher.publishPaymentIntentCreated({ userId, itemType, itemId, amount, currency });
+
+    return {
+      reference: init.reference,
+      accessCode: init.accessCode,
+      authorizationUrl: init.authorizationUrl,
+      publicKey: this.config.get<string>('PAYSTACK_PUBLIC_KEY', ''),
+      amount,
+      currency,
+    };
+  }
+
   /** Called by the frontend right after the Paystack popup's client-side onSuccess, and
    * independently by the webhook — both converge on markCompleted/markFailed, which are
    * idempotent, so whichever arrives first wins and the second is a no-op. */
@@ -109,6 +157,28 @@ export class PaymentsService {
 
     if (event.event === 'refund.processed') {
       await this.handleReversal(event.data);
+      return;
+    }
+
+    // Task 38: subscription-lifecycle events extend this same webhook rather than getting a
+    // second endpoint.
+    if (
+      event.event === 'subscription.create' ||
+      event.event === 'subscription.disable' ||
+      event.event === 'invoice.payment_failed' ||
+      event.event === 'invoice.create'
+    ) {
+      await this.subscriptionsService.handleWebhookEvent(event);
+      return;
+    }
+
+    // charge.success is shared between one-time payments and subscription charges — Paystack
+    // fires the identical event type for both, distinguished only by whether `data.plan` is
+    // present. A subscription charge's reference (`sub_...`) never exists in this service's own
+    // `payments` table, so routing it to SubscriptionsService and stopping here avoids an extra,
+    // pointless findByReference lookup below that would just no-op anyway.
+    if (event.event === 'charge.success' && event.data?.plan) {
+      await this.subscriptionsService.handleWebhookEvent(event);
       return;
     }
 
@@ -265,10 +335,16 @@ export class PaymentsService {
       paymentId: updated.id,
       userId: updated.userId,
       courseId: updated.courseId,
+      itemType: updated.itemType,
+      itemId: updated.itemId,
       amount: Number(updated.amount),
       currency: updated.currency,
     });
-    this.logger.log(`Payment ${updated.id} completed for course ${updated.courseId}`);
+    this.logger.log(
+      updated.courseId
+        ? `Payment ${updated.id} completed for course ${updated.courseId}`
+        : `Payment ${updated.id} completed for ${updated.itemType ?? 'item'} ${updated.itemId}`,
+    );
     void this.publishPurchaseEmails(updated);
     return updated;
   }

@@ -1,0 +1,3 @@
+Hi {{fullName}},
+
+Your recurring subscription payment failed and your access has now ended. If you'd like to continue, please subscribe again from your account.

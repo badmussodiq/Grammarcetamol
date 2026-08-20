@@ -27,6 +27,9 @@ const DashboardIcon = () => (
 const CoursesIcon = () => (
   <svg {...iconProps()}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
 );
+const LiveClassesIcon = () => (
+  <svg {...iconProps()}><rect x="2" y="5" width="14" height="14" rx="2" /><path d="M22 8.5v7L16 12.5v-2z" /></svg>
+);
 const UsersIcon = () => (
   <svg {...iconProps()}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
 );
@@ -44,6 +47,9 @@ const ReviewsIcon = () => (
 );
 const SupportIcon = () => (
   <svg {...iconProps()}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+);
+const AnnouncementsIcon = () => (
+  <svg {...iconProps()}><path d="M3 11v3a1 1 0 0 0 1 1h2l3.5 5V6L6 10H4a1 1 0 0 0-1 1Z" /><path d="M15 8a4 4 0 0 1 0 8" /><path d="M18 5a8 8 0 0 1 0 14" /></svg>
 );
 
 interface NavItem {
@@ -63,7 +69,10 @@ interface NavGroup {
 // shown empty.
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard', icon: <DashboardIcon /> }] },
-  { label: 'Education', items: [{ label: 'Courses', href: '/courses', icon: <CoursesIcon /> }] },
+  { label: 'Education', items: [
+    { label: 'Courses', href: '/courses', icon: <CoursesIcon /> },
+    { label: 'Live Classes', href: '/live-classes', icon: <LiveClassesIcon /> },
+  ] },
   { label: 'People', items: [
     { label: 'Users', href: '/users', icon: <UsersIcon /> },
     { label: 'Students', href: '/students', icon: <StudentsIcon /> },
@@ -75,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
   { label: 'Feedback', items: [
     { label: 'Reviews', href: '/reviews', icon: <ReviewsIcon /> },
     { label: 'Support', href: '/support', icon: <SupportIcon /> },
+    { label: 'Announcements', href: '/announcements', icon: <AnnouncementsIcon /> },
   ] },
 ];
 

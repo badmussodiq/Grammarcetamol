@@ -1,0 +1,5 @@
+Hi {{fullName}},
+
+Your live class {{classTitle}} starts in {{reminderLabel}}, at {{startTime}}.
+
+See you there!

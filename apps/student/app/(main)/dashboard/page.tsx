@@ -8,6 +8,7 @@ import {useMyCourses} from '@/hooks/useMyCourses';
 import {EnrolledCourseCard} from '@/components/EnrolledCourseCard';
 import {CourseCard} from '@/components/CourseCard';
 import {NotificationsPanel} from '@/components/NotificationsPanel';
+import {LiveClassesPanel} from '@/components/LiveClassesPanel';
 import {greetingForHour} from '@/lib/dashboard';
 import type {Course, Paged} from '@/lib/course.api';
 
@@ -61,6 +62,8 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
+
+        <LiveClassesPanel />
 
         <NotificationsPanel />
 

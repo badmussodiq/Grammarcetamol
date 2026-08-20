@@ -208,6 +208,13 @@ public class EnrollmentService {
         return new CompletionResponse(true, pct, enrollment.getId());
     }
 
+    /** Task 40 (Phase 4): backs Announcements' targetType='courses' recipient fan-out in
+     * notification-service — distinct active-enrollment userIds across a set of courseIds. */
+    public List<UUID> getEnrolledUserIds(List<UUID> courseIds) {
+        if (courseIds.isEmpty()) return List.of();
+        return enrollmentRepository.findDistinctUserIdsByCourseIdInAndStatusActive(courseIds);
+    }
+
     /**
      * completion% < threshold AND enrolled more than N days ago AND still active. Course lookups
      * are batched by distinct courseId (not per-enrollment) to avoid an N+1 REST fan-out.

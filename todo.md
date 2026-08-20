@@ -1,10 +1,12 @@
 # Grammarcetamol — Todo / Status Tracker
 
 Quick-scan status. For full detail, decisions, and verification notes on any item, see `PLAN.md`
-(task-by-task) and `implementation-phases.md` (phase-level). This file exists just to answer "what's
-done, what's next, what's on hold" at a glance — update it as work lands rather than re-deriving it.
+(task-by-task) and `implementation-phases.md` (phase-level). For Phase 4 specifically, see
+[`PHASE4.md`](./PHASE4.md) — its own living status tracker, not duplicated here. This file exists
+just to answer "what's done, what's next, what's on hold" at a glance — update it as work lands
+rather than re-deriving it.
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-19
 
 ---
 
@@ -46,29 +48,32 @@ done, what's next, what's on hold" at a glance — update it as work lands rathe
 
 All of the above is live-verified in the browser (and now via `curl`, for the auth-boundary checks) against the real running stack — not just unit tests — and committed on `phase2`, see `git log` for the per-task commits. **Task 30, and Phase 3, are now fully complete.**
 
+### Phase 3.5 — MVP Completion (Tasks 31–37 done, confirmed 2026-08-19 — phase fully complete)
+Inserted between Phase 3 and Phase 4 on explicit user direction — a real production MVP ships *before* live classes, not after. Phase 4's old Tasks 31–37 got renumbered to 38–44 to make room (see Pending below). Resolved decisions: "services" for MVP = courses only, no Phase 5 Service Request Catalog pulled forward; OTP covers email verification + password reset only, login 2FA deferred; account auto-lockout was found **already built** in `AuthService.login()` (5 failed attempts → 15min lock, publishes `user.locked`) — just needed an email wired to it; `EmailProvider` is pluggable/log-only for now; support/enquiry is a thin two-state (`open`→`closed`) ticket flow — **admin replies via their own email client (Gmail etc.), never through the platform**; every service publishes `{service, templateName, to, toName, variables}` to its own existing exchange; every email attempt gets exactly one row in an **immutable, insert-only `notification_logs`** collection; brand color becomes `#F44336` (Material Red 500) with Material's own adjacent `-light`/`-dark` shades.
+- **Task 31** — Notification Service (`backend/notification-service`, NestJS + **MongoDB** — pivoted mid-build from the originally-planned Postgres, per explicit user direction, reusing the dedicated `grammarcetamol-mongo` instance on port `9015` already provisioned for Live Class Service): `email_templates` (9 seeded via idempotent upsert), immutable `notification_logs`, the first NestJS RabbitMQ *consumer* in the repo (bound to `user.exchange`/`payment.exchange`/`enrollment.exchange`), `EmailProviderRegistry` with both `LogEmailProvider` and a real `SmtpEmailProvider`, and the lightweight Support ticket module (create/list/detail/close, no in-platform reply). **Done** — live-verified end-to-end by Task 37 (real notification_logs rows for every template, real support-ticket lifecycle).
+- **Task 32** — Auth Service: switched email verification + password reset from silent UUID tokens (verified live: nothing was ever actually sent — `forgotPassword()` had a literal `// In production, send email here` comment) to real 6-digit OTP codes, published as events for Task 31 to email. **Done**, live-verified — see Task 37 for a real bug found in this area (account lockout never persisted) and fixed.
+- **Task 33** — `payment-service` and `enrollment-service` both give Notification Service everything it needs without a lookup — implemented as a dedicated `payment.notification`/equivalent event via `publishNotification(templateName, to, toName, variables)` (real `auth-service` user lookup) rather than literally adding fields onto `payment.completed`/`enrollment.created` themselves, same end effect. **Done**.
+- **Task 34** — Student frontend: OTP-based verify/reset UI, new `/support` enquiry form. **Done**.
+- **Task 35** — Admin frontend: `/support` ticket list/detail/close, and a real `/dashboard` (`apps/admin/app/(dashboard)/dashboard/page.tsx` now fetches real student/course/revenue/open-ticket numbers via `useFetch` — no longer the static 4-box skeleton). **Done**, live-verified: logged in as the real seeded super admin in an actual browser and confirmed real numbers (27 students, ₦0 revenue, 0 open tickets, all genuinely live not seeded).
+- **Task 36** — Brand color rollout to `#F44336` across both apps' `@theme` blocks. **Mostly done**: both `globals.css` files carry `--color-primary`/`-light`/`-dark` (confirmed live: `getComputedStyle` on both apps' real DOM returns `#f44336`), and the orphaned `apps/utilities/src/tokens/tokens.ts`/`tokens.css` are no longer exported. **Still open:** `Button.tsx`'s two hardcoded hex classes (`text-[#64748B]` ghost variant, `hover:bg-[#DC2626]` destructive hover) were never replaced with semantic tokens.
+- **Task 37** — MVP integration & verification. **Done (2026-08-19)** — full local stack (all 8 backend services + both frontends) brought up and live-verified, not just code-reviewed. Added `backend/integration-tests/notification-flow.integration.spec.ts` (23 new tests: OTP verify/reset round-trip, account-lockout→locked-email→OTP-reset recovery, support-ticket create→close with `notification_logs` assertions, notification-service 401/403 sweep). All 7 spec files / 82 tests pass together. **Found and fixed three real bugs**: (1) account lockout never actually persisted — `AuthService.login()`'s `@Transactional` rolled back the `failedAttempts`/`lockedUntil` update every time, since the method always ends a failed attempt by throwing; fixed by extracting it into `LoginAttemptService.recordFailedAttempt()` with `REQUIRES_NEW` propagation so it commits independently. This means the lockout feature — assumed "already built" since Phase 3.5 planning — had never actually worked. (2) `resetPassword()` didn't clear an existing lockout, so a correctly-reset account stayed locked anyway. (3) Admin's dev server (`apps/admin/package.json`) ran on port `3006` instead of `3001` (a regression from an unrelated nginx-config commit, `a1a0222`) — every other reference in the codebase (gateway CORS, `start` script, README) still assumed `3001`, so the mismatch silently broke browser login via CORS preflight rejection; also cleared a stale Turbopack `.next` cache on the same server (same class of bug as Task 30's `LockIcon` incident). See `PLAN.md` Task 37 for full detail.
+
 ---
 
 ## 🔲 Pending (not started)
 
-### Phase 3.5 — MVP Completion (in progress, started 2026-08-09)
-Inserted between Phase 3 and Phase 4 on explicit user direction — a real production MVP ships *before* live classes, not after. Phase 4's old Tasks 31–37 got renumbered to 38–44 to make room (see below). Resolved decisions: "services" for MVP = courses only, no Phase 5 Service Request Catalog pulled forward; OTP covers email verification + password reset only, login 2FA deferred; account auto-lockout was found **already built** in `AuthService.login()` (5 failed attempts → 15min lock, publishes `user.locked`) — just needed an email wired to it; `EmailProvider` is pluggable/log-only for now; support/enquiry is a thin two-state (`open`→`closed`) ticket flow — **admin replies via their own email client (Gmail etc.), never through the platform**; every service publishes `{service, templateName, to, toName, variables}` to its own existing exchange; every email attempt gets exactly one row in an **immutable, insert-only `notification_logs`** collection; brand color becomes `#F44336` (Material Red 500) with Material's own adjacent `-light`/`-dark` shades.
-- **Task 31** — Notification Service (`backend/notification-service`, NestJS + **MongoDB** — pivoted mid-build from the originally-planned Postgres, per explicit user direction, reusing the dedicated `grammarcetamol-mongo` instance on port `9015` already provisioned for Live Class Service): `email_templates`, immutable `notification_logs`, the first NestJS RabbitMQ *consumer* in the repo, `EmailProvider`/`LogEmailProvider`, and the lightweight Support ticket module (create/list/detail/close, no in-platform reply). **In progress** — scaffold underway.
-- **Task 32** — Auth Service: switch email verification + password reset from silent UUID tokens (verified live: nothing was ever actually sent — `forgotPassword()` had a literal `// In production, send email here` comment) to real 6-digit OTP codes, published as events for Task 31 to email.
-- **Task 33** — Enrich `payment.completed`/`enrollment.created` event payloads with recipient email/name so Notification Service never needs its own lookup.
-- **Task 34** — Student frontend: OTP-based verify/reset UI, new `/support` enquiry form.
-- **Task 35** — Admin frontend: `/support` ticket list/detail/close, and a real `/dashboard` (today: verified live as a static 4-box skeleton stub with zero data fetching) with real student/course/revenue/open-ticket numbers.
-- **Task 36** — Brand color rollout to `#F44336` across both apps' `@theme` blocks, `Button.tsx`'s two hardcoded hex classes, and cleanup of the orphaned/drifted `apps/utilities/src/tokens/tokens.ts`/`tokens.css`.
-- **Task 37** — MVP integration & verification, same discipline as Task 30 closed out Phase 3, extending `backend/integration-tests`.
+- **Task 36 leftover** — `Button.tsx`'s two hardcoded hex classes (`text-[#64748B]` ghost variant, `hover:bg-[#DC2626]` destructive hover) still aren't semantic tokens; small, but explicitly called out in the task's own guidance.
+- **Phase 4** — see [`PHASE4.md`](./PHASE4.md) for the full task-by-task tracker.
 
-### Phase 4 — Live Classes & Notifications (planned, renumbered to Tasks 38–44)
-Same content as before, renumbered to follow Phase 3.5. Task 39 ("Notification Service") is now an *extension* task, not a bootstrap — Phase 3.5's Task 31 already builds the service; Phase 4 only adds the in-app notification center, SSE stream, and Announcements to it.
-- **Task 38** — Live Class Service (NestJS, second MongoDB-backed service — reuses Task 31's `DatabaseModule` shape): scheduling with instructor-conflict detection, free/paid registration, the room-reveal endpoint, in-process `@nestjs/schedule` reminders (no Kubernetes CronJobs), RabbitMQ publish.
-- **Task 39** — Notification Service extension: in-app notification center + SSE stream + `user_notification_preferences` + a new `announcements` collection with audience fan-out.
-- **Task 40** — Student live-classes list + join page (real embedded Jitsi call, join-window state machine) + dashboard widget.
-- **Task 41** — Student notification center (bell + `/notifications` page) + profile preferences tab.
-- **Task 42** — Admin live-class scheduler (calendar view via **FullCalendar** — the first external UI library in this codebase, a deliberate exception to the "hand-roll everything visual" convention, since a hand-rolled month/week/day + drag-and-drop + conflict UI was judged too large/bug-prone versus a well-maintained library that already covers this exact feature set — + list + create/edit form).
-- **Task 43** — Admin announcement manager (list + create/edit + send-test + recipient-count preview).
-- **Task 44** — Phase 4 integration & verification, same shape as Task 30 closed out Phase 3, including extending `backend/integration-tests`.
+### Phase 4 — Live Classes & Notifications (Tasks 38–45)
+**📍 Status tracking moved to [`PHASE4.md`](./PHASE4.md)** — the single source of truth for
+this phase's task-by-task status, findings, and update log. As of 2026-08-19, Tasks 38
+(Payment Service Subscription Billing), 39 (Live Class Service), and 40 (Notification Service
+extension — in-app center, SSE, Announcements) are done and live-verified; Tasks 41–45
+(student/admin live-class + notification frontends, integration) are not started. Redesigned
+around a user-supplied domain spec — Class/Session split, group/private classes,
+open/invite-only access, free/one-time/recurring billing — see `PHASE4.md`'s Domain Model
+section for the full entity reference. Full task specs remain in `PLAN.md` Tasks 38–45.
 
 Past Phase 4, Phase 5 (service requests, support, business ops) isn't scoped into `PLAN.md` tasks yet, only sketched at the phase level in `implementation-phases.md`.
 

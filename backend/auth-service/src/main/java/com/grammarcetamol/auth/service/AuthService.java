@@ -46,8 +46,8 @@ public class AuthService {
     private final StringRedisTemplate     redisTemplate;
     private final UserEventPublisher      eventPublisher;
     private final UserProfileService      userProfileService;
+    private final LoginAttemptService     loginAttemptService;
 
-    private static final int MAX_FAILED_ATTEMPTS    = 5;
     private static final int LOCK_DURATION_MINUTES  = 15;
     private static final int OTP_TTL_MINUTES        = 15;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -99,17 +99,19 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            user.setFailedAttempts(user.getFailedAttempts() + 1);
-            if (user.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
-                user.setLockedUntil(Instant.now().plus(Duration.ofMinutes(LOCK_DURATION_MINUTES)));
-                userRepository.save(user);
+            // Recorded in its own REQUIRES_NEW transaction — this method always ends by
+            // throwing, and Spring's default @Transactional rolls back on any unchecked
+            // exception, which would otherwise silently discard the failed-attempt count (and
+            // any lock it triggers) the instant it was written. See LoginAttemptService's own
+            // Javadoc for the full story.
+            Instant lockedUntil = loginAttemptService.recordFailedAttempt(user.getId());
+            if (lockedUntil != null) {
                 eventPublisher.publishUserLocked(user.getId());
                 eventPublisher.publishNotification("account-locked", user.getEmail(), displayName(user),
                     Map.of("fullName", displayName(user), "lockDurationMinutes", String.valueOf(LOCK_DURATION_MINUTES)),
                     user.getId());
-                throw new AccountLockedException(user.getLockedUntil());
+                throw new AccountLockedException(lockedUntil);
             }
-            userRepository.save(user);
             throw new InvalidTokenException("Invalid credentials");
         }
 
@@ -191,6 +193,11 @@ public class AuthService {
             .orElseThrow(() -> new InvalidTokenException("Reset code is invalid or expired"));
         checkOtp("fp", email, otp);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        // A successful OTP-verified reset is itself proof of identity — it should lift any
+        // active lockout, not leave the account locked for up to 15 more minutes despite the
+        // account owner now holding the only valid password.
+        user.setFailedAttempts(0);
+        user.setLockedUntil(null);
         userRepository.save(user);
         refreshTokenRepository.deleteAllByUserId(user.getId());
         redisTemplate.delete("otp:fp:" + email);

@@ -3,12 +3,18 @@
  * real running stack through the gateway via `fetch`, never mocks. Centralized here so
  * each spec file only contains the behavior it's actually asserting.
  */
+import {createHmac} from 'crypto';
 
 export const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:9000';
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@grammarcetamol.com';
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'ChangeMe123!';
 export const STUDENT_EMAIL = process.env.STUDENT_EMAIL ?? 'checkout.tester@example.com';
 export const STUDENT_PASSWORD = process.env.STUDENT_PASSWORD ?? 'TestPass123!';
+// A real Paystack test-mode secret key (sk_test_...) — same low-sensitivity local-dev-default
+// pattern as ADMIN_PASSWORD above. Needed to compute a signature payment-service's
+// verifyWebhookSignature() will actually accept, for tests that simulate a real webhook
+// delivery (Paystack has no test-mode way to trigger one against a non-public callback URL).
+export const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY ?? 'sk_test_627e02df4c7884bdf9161f0f613ba92c409ba1ea';
 
 // A syntactically valid UUID that doesn't exist — useful for checks that only care whether
 // a request is rejected before it reaches the point where the target resource matters.
@@ -22,11 +28,18 @@ export interface ApiEnvelope<T> {
 }
 
 export async function login(email: string, password: string): Promise<string> {
-  const res = await fetch(`${GATEWAY_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  // Same 429-retry rationale as api() below — /api/auth/login shares the gateway's
+  // suite-wide rate-limit bucket with every other /api/auth/** call.
+  let res: Response;
+  for (let attempt = 1; ; attempt++) {
+    res = await fetch(`${GATEWAY_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.status !== 429 || attempt >= 4) break;
+    await sleep(1100);
+  }
   if (!res.ok) {
     throw new Error(`Login failed for ${email}: ${res.status} ${await res.text()}`);
   }
@@ -38,25 +51,47 @@ export async function login(email: string, password: string): Promise<string> {
   return accessToken;
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function api<T = unknown>(
   path: string,
   options: { method?: string; token?: string | null; body?: unknown } = {},
 ): Promise<{ status: number; body: ApiEnvelope<T> | null }> {
-  const res = await fetch(`${GATEWAY_URL}${path}`, {
-    method: options.method ?? 'GET',
-    headers: {
-      ...(options.token ? { Cookie: `access_token=${options.token}` } : {}),
-      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
-  let body: ApiEnvelope<T> | null = null;
-  try {
-    body = (await res.json()) as ApiEnvelope<T>;
-  } catch {
-    body = null;
+  // The gateway's authRateLimiter (1 req/s, burst 5) is bound to the whole /api/auth/** path
+  // — this whole test suite runs serially against one shared IP-scoped bucket, so a spec file
+  // that legitimately needs several rapid auth calls (e.g. notification-flow's OTP/lockout
+  // tests) can leave the bucket depleted for whichever spec file runs next. Retrying 429s with
+  // a backoff here — the one place every spec file's auth traffic already funnels through —
+  // fixes it for the whole suite instead of hand-pacing each caller. No test in this suite
+  // asserts a 429 response itself, so this can't mask a real assertion.
+  const isAuthPath = path.startsWith('/api/auth/');
+  const maxAttempts = isAuthPath ? 4 : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(`${GATEWAY_URL}${path}`, {
+      method: options.method ?? 'GET',
+      headers: {
+        ...(options.token ? { Cookie: `access_token=${options.token}` } : {}),
+        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      await sleep(1100);
+      continue;
+    }
+
+    let body: ApiEnvelope<T> | null = null;
+    try {
+      body = (await res.json()) as ApiEnvelope<T>;
+    } catch {
+      body = null;
+    }
+    return { status: res.status, body };
   }
-  return { status: res.status, body };
+  // Unreachable — the loop always returns on its last iteration — but keeps TypeScript happy.
+  throw new Error(`api(${path}): exhausted retries`);
 }
 
 export function uniqueEmail(prefix: string): string {
@@ -174,4 +209,23 @@ export async function createPublishedCourse(
 
 export async function deleteCourse(adminToken: string, courseId: string): Promise<void> {
   await api(`/api/courses/${courseId}`, { method: 'DELETE', token: adminToken });
+}
+
+/**
+ * POSTs a real, validly-signed simulated Paystack webhook to POST /api/payments/webhook —
+ * the same route real webhook deliveries hit, public through the gateway (self-authenticates
+ * via the signature, no session token). This is the only way to exercise the
+ * subscription.create/charge.success/subscription.disable handlers in
+ * SubscriptionsService.handleWebhookEvent() without a publicly-reachable callback URL for
+ * Paystack to actually call — see that method's own doc comment.
+ */
+export async function sendPaystackWebhook(event: string, data: Record<string, unknown>): Promise<number> {
+  const rawBody = JSON.stringify({ event, data });
+  const signature = createHmac('sha512', PAYSTACK_SECRET_KEY).update(rawBody).digest('hex');
+  const res = await fetch(`${GATEWAY_URL}/api/payments/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-paystack-signature': signature },
+    body: rawBody,
+  });
+  return res.status;
 }

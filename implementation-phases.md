@@ -88,22 +88,22 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 - `SuperAdminSeeder` seeds the super admin on startup via `AuthService.registerInternal()`
 - `/api/users/**` routes through the gateway to auth-service
 
-| User Story                       | Acceptance Criteria                                                                                    | Status                                                                                     |
-|:---------------------------------|:-------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------|
-| US-STU-013: Profile Management   | CRUD own profile (fullName, phone, country, timezone, bio, learningGoals); all stored on `users` table | ✅ backend (`GET`/`PATCH /api/users/me`). No frontend `/profile` page yet on either portal |
-| US-ADM-012: Moderator Management | Super Admin creates accounts via `registerInternal()` with `MODERATOR` role                            | ✅ backend + admin `/users/create` UI, verified end-to-end                                 |
-| US-ADM-013: Student Management   | Admin directory via `GET /api/users`; suspend/activate via `PATCH /api/users/:id/status`               | ✅ backend + admin `/users` UI (list + suspend/activate), verified end-to-end              |
+| User Story                       | Acceptance Criteria                                                                                    | Status                                                                                                                                                                                                                                                                |
+|:---------------------------------|:-------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| US-STU-013: Profile Management   | CRUD own profile (fullName, phone, country, timezone, bio, learningGoals); all stored on `users` table | ✅ backend (`GET`/`PATCH /api/users/me`) and a real student `/profile` page (`apps/student/app/(main)/profile/page.tsx`, confirmed 2026-08-18 — was previously and incorrectly marked not built). No admin-side profile page exists (not spec'd for the admin portal) |
+| US-ADM-012: Moderator Management | Super Admin creates accounts via `registerInternal()` with `MODERATOR` role                            | ✅ backend + admin `/users/create` UI, verified end-to-end                                                                                                                                                                                                            |
+| US-ADM-013: Student Management   | Admin directory via `GET /api/users`; suspend/activate via `PATCH /api/users/:id/status`               | ✅ backend + admin `/users` UI (list + suspend/activate), verified end-to-end                                                                                                                                                                                         |
 
 ### 1.2 Frontends
 
 #### Student Frontend (Next.js)
-| Page               | Features                                                                  | Status                                                                        |
-|:-------------------|:--------------------------------------------------------------------------|:------------------------------------------------------------------------------|
-| `/login`           | Email + password form; ~~Google OAuth button~~; "Forgot Password" link    | ✅ (OAuth button omitted — deferred)                                          |
-| `/register`        | Validation (8 chars, mixed case, number); confirm password; T&Cs checkbox | ✅ plus a live password-strength indicator                                    |
-| `/forgot-password` | Email input; success state; rate-limited (1 req / 60s)                    | ✅                                                                            |
-| `/verify-email`    | Token validation; redirect to dashboard on success                        | ✅ (redirects to `/login`, not a dashboard — no student dashboard exists yet) |
-| `/profile`         | Tabs: Profile, Account, Notifications, Privacy; avatar cropper            | ❌ not built                                                                  |
+| Page               | Features                                                                  | Status                                                                                                                                                                                                                |
+|:-------------------|:--------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/login`           | Email + password form; ~~Google OAuth button~~; "Forgot Password" link    | ✅ (OAuth button omitted — deferred)                                                                                                                                                                                  |
+| `/register`        | Validation (8 chars, mixed case, number); confirm password; T&Cs checkbox | ✅ plus a live password-strength indicator                                                                                                                                                                            |
+| `/forgot-password` | Email input; success state; rate-limited (1 req / 60s)                    | ✅                                                                                                                                                                                                                    |
+| `/verify-email`    | Token validation; redirect to dashboard on success                        | ✅ (redirects to `/login`, not a dashboard — a student dashboard now exists as of Phase 3/Task 24, but redirecting to login first still makes sense since the user isn't authenticated yet right after verifying)     |
+| `/profile`         | Tabs: Profile, Account, Notifications, Privacy; avatar cropper            | ✅ built (`apps/student/app/(main)/profile/page.tsx`, confirmed 2026-08-18) — only `Profile`/`Account` tabs exist (no `Notifications`/`Privacy` tabs, no avatar cropper; matches what backend data actually supports) |
 
 #### Admin Frontend (Next.js)
 | Page            | Features                                                    | Status                                                                                                                                                                   |
@@ -123,7 +123,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 | Route guards       | `middleware.ts` on both frontends                                                                                                 | ✅ — renamed `proxy.ts` (Next.js 16 renamed the convention). Admin's checks role from the JWT payload, not just cookie presence; also rejects cross-portal sessions (student cookie on admin site, and vice versa) as defense-in-depth alongside the login-time role check in `AuthContext` |
 
 ### ✅ Phase 1 Exit Criteria
-- [ ] End-to-end test: Guest → Register → Verify Email → Login → View Profile → Logout. — *Register → Login → Logout manually verified working this phase. No automated E2E suite. No `/profile` page to view yet, and email verification wasn't exercised with a real inbox (no SMTP configured locally).*
+- [x] End-to-end test: Guest → Register → Verify Email → Login → View Profile → Logout. — *Register → Login → View Profile → Logout all manually verified working. Automated coverage now exists too: `backend/integration-tests/auth-flow.integration.spec.ts` + `auth-boundary.integration.spec.ts` (added in Task 30). Email verification wasn't exercised with a real inbox (no SMTP configured locally) — confirmed via the dev-logged OTP/token instead.*
 - [ ] Security audit: Password hashing, JWT expiry, refresh rotation, rate limiting. — *All four exist (bcrypt cost 12, 15 min access / 7 day refresh with rotation, gateway rate limiting) but no formal audit was performed.*
 - [ ] Admin can create a Moderator and assign `course:edit` but not `financial:view`. — *Admin can create a Moderator (verified). Fine-grained permission assignment doesn't exist — see `/users/create` and `/roles` status above.*
 - [ ] Load test: `/api/auth/login` handles 500 req/s with p95 < 200ms. — *Not performed.*
@@ -294,7 +294,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 
 **Goal:** Ship a real production MVP — guest/student flows for pre-recorded courses (browse → free-enroll or real-pay → learn → review) and admin flows (login → upload → publish → see students/payments/support/analytics) — before Live Classes, on explicit user direction. See `PLAN.md` Tasks 31–37.
 
-> **Current status (2026-08-09): in progress.** Closing the real gap to "MVP" turned out to be smaller than Phase 4, but real: a centralized Notification Service for outbound email (verified live: 100% absent before this — `spring-boot-starter-mail` was an unused dependency, `forgotPassword()` had a literal `// In production, send email here via mail service` comment), OTP-based email verification/password reset (replacing silent UUID tokens), wiring the **already-built** account-lockout logic (`AuthService.login()`'s `MAX_FAILED_ATTEMPTS=5`/`LOCK_DURATION_MINUTES=15`, already publishing `user.locked`) to an email, a lightweight support/enquiry ticket flow (admin replies via their own email client, never through the platform), a real admin analytics dashboard (replacing the current static-skeleton `/dashboard` stub), and a brand color rollout to `#F44336`. Notification Service pivoted mid-build from Postgres to **MongoDB** (per explicit user direction), reusing the dedicated `grammarcetamol-mongo` instance already provisioned for Live Class Service's future work — `notification_db` is a second database on that same instance. This pulls the Notification Service forward from Phase 4 (scoped down: email + support only, no in-app center/SSE/Announcements yet — those stay Phase 4's job, now an *extension* task instead of a bootstrap).
+> **Current status (2026-08-19): Phase 3.5 is fully complete.** A centralized Notification Service for outbound email (verified live: 100% absent before this — `spring-boot-starter-mail` was an unused dependency, `forgotPassword()` had a literal `// In production, send email here via mail service` comment), OTP-based email verification/password reset (replacing silent UUID tokens), account-lockout logic wired to a real email, a lightweight support/enquiry ticket flow (admin replies via their own email client, never through the platform), a real admin analytics dashboard (replacing the old static-skeleton `/dashboard` stub), and a brand color rollout to `#F44336`. Notification Service pivoted mid-build from Postgres to **MongoDB** (per explicit user direction), reusing the dedicated `grammarcetamol-mongo` instance already provisioned for Live Class Service's future work — `notification_db` is a second database on that same instance. This pulls the Notification Service forward from Phase 4 (scoped down: email + support only, no in-app center/SSE/Announcements yet — those stay Phase 4's job, now an *extension* task instead of a bootstrap). Task 37 closed the phase out with real end-to-end verification (all 8 backend services + both frontends live, 82 automated tests across 7 spec files, plus real browser logins on both apps) and found three real bugs in the process — most notably that account lockout, despite looking "already built," never actually persisted a failed attempt due to a `@Transactional` rollback bug; see `PLAN.md` Task 37 for the full list, including a CORS-breaking port drift on the admin dev server. See `PLAN.md` Tasks 31–37 for the per-task detail.
 
 ---
 
@@ -305,7 +305,32 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 > 🔴 **Hard Dependency:** Phase 1 (auth), Phase 3 (enrollment concept for class registration), Phase 3.5 (Notification Service must already exist)  
 > 🟡 **Soft Dependency:** Video conferencing can be external link (Zoom) initially, embedded SDK later  
 > ⭐ **Milestone:** First live class is scheduled, students register, and join via portal.  
-> **Current status (2026-08-09):** Planned — see `PLAN.md` Tasks 38–44 (renumbered from 31–37 to make room for Phase 3.5, which now ships first). Video conferencing embeds Jitsi Meet's free public server via their IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a middle path resolved with the user: real embedded in-page video with room-identifier access control, no new self-hosted infrastructure). Live Class Service is this project's **second** MongoDB-backed service (Notification Service, Phase 3.5, was the first) — reuses its `DatabaseModule` shape directly. Task 39 ("Notification Service") is now an extension task, not a bootstrap — it already exists by the time Phase 4 starts; this phase only adds the in-app notification center, SSE stream, and Announcements to it.
+> **📍 Status tracking for this phase has moved to [`PHASE4.md`](./PHASE4.md)** — the single
+> source of truth for what's done/in-progress/blocked across Tasks 38–45 (renumbered
+> 2026-08-19, see below). Video conferencing embeds Jitsi Meet's free public server via their
+> IFrame API (not an external-link launcher, and not a self-hosted server with JWT auth — a
+> middle path resolved with the user: real embedded in-page video with room-identifier access
+> control, no new self-hosted infrastructure). Live Class Service is this project's **second**
+> MongoDB-backed service (Notification Service, Phase 3.5, was the first) — reuses its
+> `DatabaseModule` shape directly.
+>
+> **Redesigned 2026-08-19** around a full domain/business-rule spec the user wrote out
+> directly: a **Class is not a live Session** — a class is the persistent container (chat,
+> materials, membership, billing, lifecycle), a session is one scheduled occurrence inside it,
+> and a session ending never ends the class. Classes can be `GROUP` or `PRIVATE`, `OPEN`
+> (self-enroll) or `INVITE_ONLY`, and billed `FREE`/`ONE_TIME`/`RECURRING` — recurring billing
+> is **not** private-only, a 50-student group class can bill monthly too with each student on
+> an independent subscription. This pulled in a genuinely new task, **Task 38: Payment Service
+> — Subscription Billing** (Paystack Plans/Subscriptions), ahead of Live Class Service itself,
+> and renumbered every task after it by one. **`PHASE4.md`'s Domain Model section is the
+> canonical entity reference** — read it before touching any task below. Full task specs
+> remain in `PLAN.md` Tasks 38–45.
+
+> **The tables in §4.1–4.3 below are the original pre-redesign sketch** (single-session
+> booking, no Class/Session split, no Payment Service subscription task, no chat/materials/
+> invitations) — left as historical record rather than rewritten table-by-table. They're
+> **superseded by `PHASE4.md`'s Domain Model** for anything that conflicts; don't treat a gap
+> between this section and that one as a bug, treat `PHASE4.md` as correct.
 
 ### 4.1 Backend Services
 

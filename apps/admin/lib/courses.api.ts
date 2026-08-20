@@ -139,6 +139,17 @@ export const coursesApi = {
     return apiFetch<ApiResponse<Category[]>>('/api/categories');
   },
 
+  /** Used by the announcement create form's "Specific Courses" multi-select — a plain
+   * client-side fetch, not the `/courses` list page's server-component `fetch()` (that one
+   * reads the access-token cookie directly, which isn't available from a client component). */
+  list(params: { status?: string; page?: number; limit?: number } = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    qs.set('page', String(params.page ?? 1));
+    qs.set('limit', String(params.limit ?? 100));
+    return apiFetch<ApiResponse<Paged<Course>>>(`/api/courses?${qs.toString()}`);
+  },
+
   detail(id: string) {
     return apiFetch<ApiResponse<CourseDetailResponse>>(`/api/courses/${id}`);
   },

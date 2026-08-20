@@ -81,6 +81,17 @@ public class EnrollmentController {
         return ApiResponse.success(enrollmentService.getAtRisk());
     }
 
+    /** Task 40 (Phase 4): backs Announcements' targetType='courses' recipient fan-out —
+     * notification-service calls this server-to-server as an internal-caller (same
+     * X-User-Id/X-User-Role trust convention CourseServiceClient etc. already use). */
+    @PostMapping("/api/enrollments/course-users")
+    public ApiResponse<List<UUID>> enrolledUserIds(@Valid @RequestBody EnrolledUserIdsRequest request, CurrentUser currentUser) {
+        if (!currentUser.isAdminOrModerator()) {
+            throw new ForbiddenException("Only super admins or moderators can look up enrolled users");
+        }
+        return ApiResponse.success(enrollmentService.getEnrolledUserIds(request.courseIds()));
+    }
+
     private void requireAuthenticated(CurrentUser currentUser) {
         if (!currentUser.isAuthenticated()) {
             throw new ForbiddenException("Authentication required");

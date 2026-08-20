@@ -1,0 +1,3 @@
+Hi {{fullName}},
+
+Your subscription payment of {{currency}} {{amount}} was successful. Your access continues uninterrupted.

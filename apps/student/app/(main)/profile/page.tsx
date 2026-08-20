@@ -5,6 +5,7 @@ import {useEffect, useState} from 'react';
 import {ApiError, Button, Input, Skeleton, Tabs, useFetch, useFormState, useToast} from '@grammarcetamol/utilities';
 import {useAuth} from '@/contexts/AuthContext';
 import {parseLearningGoals, profileApi, type UserProfile} from '@/lib/profile.api';
+import {notificationsApi, type PreferenceType, type Preferences} from '@/lib/notifications.api';
 
 function ProfileTab() {
   const { refreshUser } = useAuth();
@@ -149,6 +150,84 @@ function AccountTab() {
   );
 }
 
+const PREFERENCE_TYPE_LABELS: Record<PreferenceType, string> = {
+  course: 'Course updates',
+  payment: 'Payments',
+  live_class: 'Live classes',
+  announcement: 'Announcements',
+};
+
+const PREFERENCE_TYPES = Object.keys(PREFERENCE_TYPE_LABELS) as PreferenceType[];
+
+function NotificationsTab() {
+  const { addToast } = useToast();
+  const { data: preferences, loading } = useFetch<Preferences>('/api/notification-preferences');
+  const [local, setLocal] = useState<Preferences | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (preferences) setLocal(preferences);
+  }, [preferences]);
+
+  async function toggle(type: PreferenceType, channel: 'inApp' | 'email') {
+    if (!local) return;
+    const previous = local;
+    const nextChannelValue = !local[type][channel];
+    const nextPrefs: Preferences = { ...local, [type]: { ...local[type], [channel]: nextChannelValue } };
+    setLocal(nextPrefs);
+    setSavingKey(`${type}-${channel}`);
+    try {
+      await notificationsApi.updatePreferences({ [type]: nextPrefs[type] });
+    } catch (err) {
+      setLocal(previous);
+      addToast({ type: 'error', message: err instanceof ApiError ? err.message : 'Could not update preference' });
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  if (loading || !local) {
+    return (
+      <div className="flex flex-col gap-3 mt-6 max-w-lg">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rect" height={44} />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 max-w-lg">
+      <p className="text-sm text-text-secondary mb-4">
+        Choose how you want to hear about each type of update. System notifications (like account
+        security alerts) always stay on.
+      </p>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="grid grid-cols-[1fr_80px_80px] items-center px-4 py-2 bg-background text-xs font-semibold text-text-secondary uppercase">
+          <span>Type</span>
+          <span className="text-center">In-App</span>
+          <span className="text-center">Email</span>
+        </div>
+        {PREFERENCE_TYPES.map((type) => (
+          <div key={type} className="grid grid-cols-[1fr_80px_80px] items-center px-4 py-3 border-t border-border">
+            <span className="text-sm text-text-primary">{PREFERENCE_TYPE_LABELS[type]}</span>
+            {(['inApp', 'email'] as const).map((channel) => (
+              <span key={channel} className="flex justify-center">
+                <input
+                  type="checkbox"
+                  aria-label={`${PREFERENCE_TYPE_LABELS[type]} — ${channel === 'inApp' ? 'in-app' : 'email'}`}
+                  checked={local[type][channel]}
+                  disabled={savingKey === `${type}-${channel}`}
+                  onChange={() => toggle(type, channel)}
+                  className="w-4 h-4 accent-primary cursor-pointer disabled:opacity-50"
+                />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const [tab, setTab] = useState('profile');
 
@@ -158,11 +237,15 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-text-primary mb-1">Profile</h1>
         <p className="text-text-secondary mb-6">Manage your personal information and account security.</p>
         <Tabs
-          tabs={[{ label: 'Profile', value: 'profile' }, { label: 'Account', value: 'account' }]}
+          tabs={[
+            { label: 'Profile', value: 'profile' },
+            { label: 'Account', value: 'account' },
+            { label: 'Notifications', value: 'notifications' },
+          ]}
           activeTab={tab}
           onChange={setTab}
         />
-        {tab === 'profile' ? <ProfileTab /> : <AccountTab />}
+        {tab === 'profile' ? <ProfileTab /> : tab === 'account' ? <AccountTab /> : <NotificationsTab />}
       </div>
     </main>
   );

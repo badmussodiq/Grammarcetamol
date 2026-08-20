@@ -1,7 +1,15 @@
 import {Injectable, Logger, ServiceUnavailableException} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {createHmac, timingSafeEqual} from 'crypto';
-import type {InitializeOrder, InitializeResult, PaymentProvider, VerifyResult} from './payment-provider.interface';
+import type {
+  CancelSubscriptionInput,
+  CreatePlanInput,
+  CreatePlanResult,
+  InitializeOrder,
+  InitializeResult,
+  PaymentProvider,
+  VerifyResult,
+} from './payment-provider.interface';
 
 const PAYSTACK_API_BASE = 'https://api.paystack.co';
 
@@ -15,6 +23,17 @@ interface PaystackVerifyResponse {
   status: boolean;
   message: string;
   data?: { status: string; amount: number; currency: string; reference: string };
+}
+
+interface PaystackPlanResponse {
+  status: boolean;
+  message: string;
+  data?: { plan_code: string };
+}
+
+interface PaystackDisableSubscriptionResponse {
+  status: boolean;
+  message: string;
 }
 
 @Injectable()
@@ -39,6 +58,10 @@ export class PaystackProvider implements PaymentProvider {
         email: order.email,
         reference: order.reference,
         metadata: order.metadata ?? {},
+        // Verified live (Task 38): attaching `plan` here is the entire difference between a
+        // one-time initialize and a subscription-creating one — Paystack creates the
+        // subscription itself once this transaction's first charge succeeds.
+        ...(order.planCode ? { plan: order.planCode } : {}),
       }),
     });
 
@@ -76,6 +99,47 @@ export class PaystackProvider implements PaymentProvider {
       currency: body.data.currency,
       raw: body,
     };
+  }
+
+  async createPlan(input: CreatePlanInput): Promise<CreatePlanResult> {
+    const res = await fetch(`${PAYSTACK_API_BASE}/plan`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.secretKey()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: input.name,
+        amount: Math.round(input.amount * 100),
+        currency: input.currency,
+        interval: input.interval,
+      }),
+    });
+
+    const body = (await res.json()) as PaystackPlanResponse;
+    if (!res.ok || !body.status || !body.data) {
+      this.logger.error(`Paystack plan creation failed: ${JSON.stringify(body)}`);
+      throw new ServiceUnavailableException('Payment provider plan creation failed');
+    }
+
+    return { planCode: body.data.plan_code, raw: body };
+  }
+
+  async cancelSubscription(input: CancelSubscriptionInput): Promise<void> {
+    const res = await fetch(`${PAYSTACK_API_BASE}/subscription/disable`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.secretKey()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code: input.subscriptionCode, token: input.emailToken }),
+    });
+
+    const body = (await res.json()) as PaystackDisableSubscriptionResponse;
+    if (!res.ok || !body.status) {
+      this.logger.error(`Paystack subscription cancellation failed: ${JSON.stringify(body)}`);
+      throw new ServiceUnavailableException('Payment provider subscription cancellation failed');
+    }
   }
 
   verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean {

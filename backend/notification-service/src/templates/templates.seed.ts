@@ -71,6 +71,44 @@ const TEMPLATE_META: TemplateMeta[] = [
     variables: ['fullName', 'subjectLine', 'content'],
     preheader: '{{subjectLine}}',
   },
+  // Task 40 (Phase 4): Live Class Service (Task 39) and Subscription Billing (Task 38)
+  // notifications, plus the Announcements system this task itself builds.
+  {
+    name: 'live-class-reminder',
+    subject: 'Your class {{classTitle}} starts in {{reminderLabel}}',
+    variables: ['fullName', 'classTitle', 'reminderLabel', 'startTime'],
+    preheader: '{{classTitle}} starts in {{reminderLabel}}',
+  },
+  {
+    name: 'live-class-starting',
+    subject: '{{classTitle}} is starting now',
+    variables: ['fullName', 'classTitle'],
+    preheader: '{{classTitle}} is starting now — join your classroom',
+  },
+  {
+    name: 'class-ended',
+    subject: '{{classTitle}} has ended',
+    variables: ['fullName', 'classTitle'],
+    preheader: 'Your class has ended — materials remain available',
+  },
+  {
+    name: 'subscription-charged',
+    subject: 'Payment received — {{currency}} {{amount}}',
+    variables: ['fullName', 'amount', 'currency'],
+    preheader: 'Your subscription payment was successful',
+  },
+  {
+    name: 'subscription-payment-failed',
+    subject: 'Your subscription access has ended',
+    variables: ['fullName'],
+    preheader: 'A recurring payment failed and your access has ended',
+  },
+  {
+    name: 'announcement',
+    subject: '{{title}}',
+    variables: ['fullName', 'title', 'body'],
+    preheader: '{{title}}',
+  },
 ];
 
 const FILES_DIR = join(__dirname, 'files');

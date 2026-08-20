@@ -53,6 +53,13 @@ public class RouteConfig {
             .route("payment-service", r -> r
                 .path("/api/payments/**")
                 .uri(appGatewayProperties.getPaymentServiceUrl()))
+            // Subscription billing (Task 38, Phase 4) — same service/host/port as payments
+            // above, just a distinct resource path. Fully authenticated, no public routes;
+            // the Paystack webhook for subscription events reuses /api/payments/webhook,
+            // already public — see JwtAuthFilter's PUBLIC_ROUTES.
+            .route("subscriptions-service", r -> r
+                .path("/api/subscriptions/**")
+                .uri(appGatewayProperties.getPaymentServiceUrl()))
             // Review service routes (course-reviews above already claims /api/courses/*/reviews)
             .route("review-service", r -> r
                 .path("/api/reviews/**")
@@ -76,6 +83,47 @@ public class RouteConfig {
             .route("support-service", r -> r
                 .path("/api/support/**")
                 .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Per-user in-app/email channel preferences (Task 40) — fully authenticated, scoped
+            // to the caller inside PreferencesController itself.
+            .route("notification-preferences-service", r -> r
+                .path("/api/notification-preferences")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Admin/moderator broadcast announcements (Task 40) — fully authenticated, role-gated
+            // inside AnnouncementsController itself.
+            .route("announcements-service", r -> r
+                .path("/api/announcements/**")
+                .uri(appGatewayProperties.getNotificationServiceUrl()))
+            // Live Class Service (Task 39) — classes, sessions, invitations, instructor
+            // availability. Auth classification (public list/detail vs. fully authenticated
+            // nested actions) lives in JwtAuthFilter's OPTIONALLY_AUTHENTICATED_ROUTES, not
+            // here. Class-scoped enrollments (mine/cancel) deliberately live under
+            // /api/classes/enrollments/** rather than /api/enrollments/** — a real bug found
+            // building Task 41 (2026-08-19): course-enrollment-service already owns a broader
+            // /api/enrollments/** catch-all (registered first, below) that would otherwise
+            // silently swallow every one of these, including its own already-shipped
+            // GET /api/enrollments/mine for course enrollments — a genuine name collision
+            // between two different domains, not just a route-ordering fix.
+            .route("live-class-service", r -> r
+                .path("/api/classes/**", "/api/invitations/**", "/api/instructors/**", "/api/sessions/**")
+                .uri(appGatewayProperties.getLiveClassServiceUrl()))
+            // Class chat's real-time delivery (Task 41, added per explicit user direction —
+            // sockets, not polling). Socket.IO's client defaults to the /socket.io/ path
+            // regardless of which service it's ultimately talking to, so this route is scheme-
+            // switched to ws:// (Spring Cloud Gateway's WebSocket proxying filter, distinct from
+            // its plain HTTP one) rather than reusing live-class-service's http:// URI above —
+            // same host/port, different scheme is genuinely required here, not just a style
+            // choice. Goes through the same JwtAuthFilter as every other route (no PUBLIC/
+            // OPTIONALLY_AUTHENTICATED entry) — the browser's socket.io-client sends the
+            // access_token cookie automatically on the upgrade request.
+            .route("live-class-chat-socket", r -> r
+                .path("/socket.io/**")
+                .uri(toWsUri(appGatewayProperties.getLiveClassServiceUrl())))
             .build();
+    }
+
+    private static String toWsUri(String httpUri) {
+        if (httpUri.startsWith("https://")) return "wss://" + httpUri.substring("https://".length());
+        if (httpUri.startsWith("http://")) return "ws://" + httpUri.substring("http://".length());
+        return httpUri;
     }
 }

@@ -3,6 +3,8 @@ export interface Payment {
   userId: string;
   courseId: string | null;
   serviceRequestId: string | null;
+  itemType: string | null;
+  itemId: string | null;
   amount: string;
   currency: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'partially_refunded';
@@ -36,6 +38,8 @@ interface PaymentRow {
   user_id: string;
   course_id: string | null;
   service_request_id: string | null;
+  item_type: string | null;
+  item_id: string | null;
   amount: string;
   currency: string;
   status: string;
@@ -70,6 +74,8 @@ export function mapPaymentRow(row: PaymentRow): Payment {
     userId: row.user_id,
     courseId: row.course_id,
     serviceRequestId: row.service_request_id,
+    itemType: row.item_type,
+    itemId: row.item_id,
     amount: row.amount,
     currency: row.currency,
     status: row.status as Payment['status'],

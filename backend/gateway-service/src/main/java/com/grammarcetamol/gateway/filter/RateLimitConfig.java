@@ -23,7 +23,9 @@ public class RateLimitConfig {
 
     /**
      * Auth rate limiter: 1 request/second, burst up to 5.
-     * Applied to /api/auth/login and /api/auth/register.
+     * Applied to the whole /api/auth/** path by RouteConfig's "auth-login" route (not just
+     * login/register as the name suggests) — every auth endpoint, including verify-email,
+     * forgot-password, and reset-password, shares this one IP-scoped bucket.
      */
     @Bean
     public RedisRateLimiter authRateLimiter() {

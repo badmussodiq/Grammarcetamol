@@ -1,7 +1,7 @@
 import {Global, Module} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import * as amqp from 'amqplib';
-import {AMQP_CHANNEL, ENROLLMENT_EXCHANGE, PAYMENT_EXCHANGE, USER_EXCHANGE} from './amqp.constants';
+import {AMQP_CHANNEL, ENROLLMENT_EXCHANGE, LIVECLASS_EXCHANGE, PAYMENT_EXCHANGE, USER_EXCHANGE} from './amqp.constants';
 
 @Global()
 @Module({
@@ -22,6 +22,7 @@ import {AMQP_CHANNEL, ENROLLMENT_EXCHANGE, PAYMENT_EXCHANGE, USER_EXCHANGE} from
         await channel.assertExchange(USER_EXCHANGE, 'topic', { durable: true });
         await channel.assertExchange(PAYMENT_EXCHANGE, 'topic', { durable: true });
         await channel.assertExchange(ENROLLMENT_EXCHANGE, 'topic', { durable: true });
+        await channel.assertExchange(LIVECLASS_EXCHANGE, 'topic', { durable: true });
         return channel;
       },
     },
