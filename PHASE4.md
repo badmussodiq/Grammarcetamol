@@ -28,7 +28,7 @@ trusting it, same rule as everywhere else in this project.
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | ✅ Done (2026-08-19), live-verified              | Task 39                              |
 | 42 | Student frontend — notification center & preferences                                              | ✅ Done (2026-08-19), live-verified              | Task 40                              |
 | 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | ✅ Done (2026-08-20), live-verified              | Task 39                              |
-| 44 | Admin frontend — announcement manager                                                             | 🔲 Not started                                  | Task 40                              |
+| 44 | Admin frontend — announcement manager                                                             | ✅ Done (2026-08-20), live-verified              | Task 40                              |
 | 45 | Phase 4 integration & verification                                                                | 🔲 Not started                                  | Tasks 38–44                          |
 
 Legend: 🔲 not started · 🟡 partially done / in progress · ✅ done · ⛔ blocked
@@ -542,3 +542,50 @@ Dependency-first, matching how every prior phase in this project was built:
   Zoom/Google Meet platform options (both intentionally disabled, nothing backs them yet) and
   actually joining a live Jitsi room from the admin side (out of this task's scope — join-flow
   was Task 41's).
+
+- **2026-08-20 (Task 44 built)** — Admin Frontend Announcement Manager done and live-verified.
+  `lib/announcements.api.ts` against Task 40's `AnnouncementsController`; `/announcements` (status
+  filter — the only one actually backed server-side; date/author/target filters from PLAN.md's
+  own text were never implemented since nothing in `AnnouncementsController` accepts them, same
+  "never accept a config that silently does nothing" principle as Task 43's platform selector and
+  segments-targeting option), a hand-rolled checkbox-column + "Delete Selected" bulk-delete (no
+  reusable component existed to copy — `DataTable` has no selection support and no other admin
+  page has row-selection, confirmed by a dedicated Explore pass before building; PLAN.md's "same
+  scope-down as Task 26" reference turned out to be about design philosophy, not an existing
+  pattern to mirror), `/announcements/create` (also handles `?duplicate=<id>` — refetches the
+  source announcement and pre-fills a fresh draft, resetting schedule/expiry rather than copying
+  them), and `/announcements/[id]` (single page, no tabs — the form doubles as a read-only view
+  via a `canEditAnnouncement(status)` guard that disables all 10 fields and hides the submit
+  button once a draft is scheduled/published/expired, mirroring `AnnouncementsService.update()`'s
+  own server-side guard so a rejected PATCH is never the first sign something changed).
+
+  The publish-confirmation-with-real-recipient-count requirement (`GET
+  .../recipient-count` needs an existing announcement id, so it can't run before anything is
+  saved) is resolved as: submitting the form with "Publish Now"/"Schedule for later" always saves
+  a draft first, then opens a shared `PublishConfirmModal` that fetches the real count and only
+  calls the actually-irreversible `publish()` on explicit confirmation — same component reused by
+  the detail page's own "Publish"/"Schedule" button for a draft saved earlier without publishing.
+
+  No real bug found this task, unlike 41/42/43 — `AnnouncementsController`/`AnnouncementsService`
+  already had every endpoint the frontend needed (`recipient-count`, `send-test`, the
+  draft-only-editable guard, the scheduled/published cron sweeps) fully working from Task 40,
+  including the cron itself, so this was a pure frontend build against a solid, unchanged backend.
+
+  83/83 admin-app tests (was 66; +17: `formatTargetAudience`, `validateAnnouncementForm`,
+  `toAnnouncementRequestBody`, `canEditAnnouncement`, `PRIORITY_BADGE_VARIANT`/
+  `STATUS_BADGE_VARIANT`, `announcementToFormValues`), `tsc --noEmit` clean. Live-verified
+  end-to-end against the real running stack: created a `high`-priority "All Students" announcement,
+  confirmed the modal showed the real recipient count (38, the actual active-student count),
+  confirmed it, and confirmed the status flipped to `published` with a real "Sent to 38 recipients"
+  timestamp (this one took longer than an instant check to reflect — 38 real sequential SMTP sends
+  via Gmail is not instant, worth noting as a fan-out-latency characteristic for high volumes, not
+  a bug — a `normal`-priority in-app-only publish to the same 38 updated within ~3s). Verified
+  `Send Test` (real 201 to the caller's own email), `Delete` and bulk "Delete Selected", a
+  `Specific Courses` announcement targeting a real course (list correctly showed "Specific Courses
+  (1)"), `Duplicate` (pre-filled title/body/targeting from the source, fresh draft state), and the
+  scheduled-for-later → cron auto-publish path end-to-end: scheduled an announcement ~90s out,
+  confirmed status showed `scheduled` with editing disabled, watched the real
+  `AnnouncementsService.sweepScheduled()` cron fire and flip it to `published` in the actual
+  service log with no manual action taken — the exact PLAN.md demo criterion. Also confirmed the
+  read-only guard at the DOM level on an existing published announcement (10/10 fields genuinely
+  `disabled`, no submit button rendered), not just visually implied.

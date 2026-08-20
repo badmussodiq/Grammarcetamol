@@ -48,6 +48,9 @@ const ReviewsIcon = () => (
 const SupportIcon = () => (
   <svg {...iconProps()}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
 );
+const AnnouncementsIcon = () => (
+  <svg {...iconProps()}><path d="M3 11v3a1 1 0 0 0 1 1h2l3.5 5V6L6 10H4a1 1 0 0 0-1 1Z" /><path d="M15 8a4 4 0 0 1 0 8" /><path d="M18 5a8 8 0 0 1 0 14" /></svg>
+);
 
 interface NavItem {
   label: string;
@@ -81,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
   { label: 'Feedback', items: [
     { label: 'Reviews', href: '/reviews', icon: <ReviewsIcon /> },
     { label: 'Support', href: '/support', icon: <SupportIcon /> },
+    { label: 'Announcements', href: '/announcements', icon: <AnnouncementsIcon /> },
   ] },
 ];
 
