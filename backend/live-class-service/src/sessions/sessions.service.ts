@@ -245,9 +245,15 @@ export class SessionsService implements OnApplicationBootstrap {
     return doc as LiveSessionDocument;
   }
 
-  async start(sessionId: string, instructorId: string): Promise<void> {
+  /** `isAdmin` bypasses the instructorId-ownership check — any SUPER_ADMIN/MODERATOR can start
+   * a session regardless of which admin happens to be its instructorId, same bypass pattern
+   * ClassesService's update/publish/end/setChatLocked already use. Without it, Task 43's class
+   * detail page couldn't manage sessions created by a different admin than the one viewing it —
+   * a real gap, since "instructor" here is just an audit-trail field, not a real access
+   * boundary (see CurrentUser's own doc comment: no separate instructor role exists). */
+  async start(sessionId: string, callerId: string, isAdmin: boolean): Promise<void> {
     const session = await this.findById(sessionId);
-    if (session.instructorId !== instructorId) {
+    if (!isAdmin && session.instructorId !== callerId) {
       throw new ForbiddenException('Only the instructor for this session can start it');
     }
     if (session.status !== 'SCHEDULED') {
@@ -262,18 +268,50 @@ export class SessionsService implements OnApplicationBootstrap {
     }
   }
 
-  async end(sessionId: string, instructorId: string): Promise<void> {
+  async end(sessionId: string, callerId: string, isAdmin: boolean): Promise<void> {
     const session = await this.findById(sessionId);
-    if (session.instructorId !== instructorId) {
+    if (!isAdmin && session.instructorId !== callerId) {
       throw new ForbiddenException('Only the instructor for this session can end it');
     }
     if (session.status !== 'LIVE' && session.status !== 'SCHEDULED') {
       throw new ConflictException(`Cannot end a session in status ${session.status}`);
     }
     // Ending never touches the parent class's own status — session and class lifecycles are
-    // fully independent, per PHASE4.md's Domain Model.
+    // fully independent, per PHASE4.md's Domain Model. A SCHEDULED session that's "ended" here
+    // is functionally a cancel — Task 43's UI labels this action "Cancel" for SCHEDULED
+    // sessions and "End" for LIVE ones, same endpoint either way rather than adding a
+    // never-actually-distinct CANCELLED-status code path.
     await this.sessions().updateOne({ _id: session._id }, { $set: { status: 'ENDED', actualEndedAt: new Date(), updatedAt: new Date() } });
     this.eventPublisher.publishSessionEnded({ sessionId, classId: session.classId.toHexString() });
+  }
+
+  /**
+   * Task 43's calendar drag-to-reschedule (`eventDrop`/`eventResize`) — nothing could move a
+   * session's time at all before this; only create/start/end existed. Runs through the exact
+   * same conflict check as creation (excluding this session itself), so a drag onto a genuine
+   * overlap 409s with the conflicting session's own detail, same shape the create flow already
+   * returns — the frontend reverts the drag on that response rather than committing optimistically.
+   */
+  async reschedule(sessionId: string, callerId: string, isAdmin: boolean, startTime: Date, endTime: Date): Promise<LiveSessionDocument> {
+    const session = await this.findById(sessionId);
+    if (!isAdmin && session.instructorId !== callerId) {
+      throw new ForbiddenException('Only the instructor for this session can reschedule it');
+    }
+    if (session.status !== 'SCHEDULED') {
+      throw new ConflictException(`Cannot reschedule a session in status ${session.status}`);
+    }
+    if (startTime >= endTime) {
+      throw new ConflictException('startTime must be before endTime');
+    }
+    const conflict = await this.findConflict(session.instructorId, startTime, endTime, session._id);
+    if (conflict) {
+      throw new ConflictException({
+        message: `Schedule conflict: ${session.instructorId} already has a session from ${conflict.startTime.toISOString()} to ${conflict.endTime.toISOString()}`,
+        conflict,
+      });
+    }
+    await this.sessions().updateOne({ _id: session._id }, { $set: { startTime, endTime, updatedAt: new Date() } });
+    return this.findById(sessionId);
   }
 
   /**
@@ -306,11 +344,14 @@ export class SessionsService implements OnApplicationBootstrap {
   }
 
   /** Real-time conflict check backing the admin create/edit form. */
-  async getInstructorAvailability(instructorId: string, from: Date, to: Date): Promise<ConflictDetail[]> {
-    const docs = await this.sessions()
-      .find({ instructorId, status: { $ne: 'CANCELLED' }, startTime: { $lt: to }, endTime: { $gt: from } })
-      .sort({ startTime: 1 })
-      .toArray();
+  /** `excludeClassId` lets the admin edit form check an instructor's availability without the
+   * class being edited flagging a conflict against its own already-scheduled sessions. */
+  async getInstructorAvailability(instructorId: string, from: Date, to: Date, excludeClassId?: string): Promise<ConflictDetail[]> {
+    const filter: Record<string, unknown> = { instructorId, status: { $ne: 'CANCELLED' }, startTime: { $lt: to }, endTime: { $gt: from } };
+    if (excludeClassId) {
+      filter.classId = { $ne: new ObjectId(excludeClassId) };
+    }
+    const docs = await this.sessions().find(filter).sort({ startTime: 1 }).toArray();
     return docs.map((d) => ({ sessionId: d._id.toHexString(), startTime: d.startTime, endTime: d.endTime }));
   }
 

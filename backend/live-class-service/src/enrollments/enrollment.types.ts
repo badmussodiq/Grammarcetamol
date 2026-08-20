@@ -43,3 +43,8 @@ export interface Invitation {
 }
 
 export type InvitationDocument = Invitation & { _id: ObjectId };
+
+export function toPublicInvitation(doc: InvitationDocument): Omit<Invitation, 'classId'> & { id: string; classId: string } {
+  const { _id, classId, ...rest } = doc;
+  return { id: _id.toHexString(), classId: classId.toHexString(), ...rest };
+}

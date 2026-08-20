@@ -27,7 +27,7 @@ trusting it, same rule as everywhere else in this project.
 | 40 | Notification Service — in-app center, SSE, Announcements, class/session/subscription events       | ✅ Done (2026-08-19), live-verified              | Phase 3.5 Task 31 (done)             |
 | 41 | Student frontend — live classes, classroom (chat + materials), join flow, subscription management | ✅ Done (2026-08-19), live-verified              | Task 39                              |
 | 42 | Student frontend — notification center & preferences                                              | ✅ Done (2026-08-19), live-verified              | Task 40                              |
-| 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | 🔲 Not started                                  | Task 39                              |
+| 43 | Admin frontend — live class scheduler (FullCalendar), class/materials/chat management             | ✅ Done (2026-08-20), live-verified              | Task 39                              |
 | 44 | Admin frontend — announcement manager                                                             | 🔲 Not started                                  | Task 40                              |
 | 45 | Phase 4 integration & verification                                                                | 🔲 Not started                                  | Tasks 38–44                          |
 
@@ -490,3 +490,55 @@ Dependency-first, matching how every prior phase in this project was built:
   preference-gating fan-out test data (`announcement.inApp: false` set on the shared test
   account during Task 40's own verification) was still in effect, which is exactly the kind of
   cross-task state leakage worth calling out rather than silently working around.
+
+- **2026-08-20 (Task 43 built)** — Admin Frontend Live Class Scheduler & Class Management done
+  and live-verified. `lib/classes.api.ts` (separate admin-facing client, not shared with the
+  student app — needs `schedules[]` templates and conflict data the student client omits), a
+  `Calendar` adapter in `apps/utilities` wrapping FullCalendar (`@fullcalendar/react` +
+  `daygrid`/`timegrid`/`interaction` — **first external UI library in this codebase**, a
+  pre-approved deliberate exception to the "hand-roll everything visual" convention, agreed with
+  the user), `/live-classes` (List/Calendar toggle, filters), `/live-classes/create`, and
+  `/live-classes/[id]` with all six tabs (Overview, Edit, Sessions, Materials, Chat,
+  Enrollments) plus a seventh Invitations tab shown only for `INVITE_ONLY` classes. `ClassForm`
+  is shared between create and edit via a `mode` prop that disables the five fields
+  `UpdateClassDto` doesn't actually accept (`classType`/`accessMode`/`paymentModel`/
+  `instructorId`/`videoProvider`) with explanatory helper text, rather than silently letting an
+  edit of those fields do nothing on save.
+
+  **Scope decision, not a gap**: materials use a plain `fileUrl` text input (matching the
+  existing `coverImageUrl`/`avatarUrl` precedent), not the chunked-upload flow — the existing
+  `uploadsApi.createSession()` is hardcoded to a `courseId` field validated against
+  course-service, and reusing it for live-class materials would need a genuine upload-service
+  backend change out of scope for this task.
+
+  **Found and fixed one real bug, live**: the admin edit form's real-time conflict check
+  (`GET /api/instructors/{id}/availability`, called on every schedule-row change) had no way to
+  exclude the class actually being edited from its own busy-period lookup — so editing *any*
+  class with an active recurring schedule always flagged a self-conflict against its own
+  already-generated sessions and permanently disabled Save. Caught live opening the Edit tab on
+  a real class (`Saturday Revision`), not by any unit test, since the existing test suite only
+  ever exercised the conflict check with a class that had no schedule yet. Fixed by adding an
+  optional `excludeClassId` query param to `GET /api/instructors/{id}/availability`
+  (`InstructorsController` → `SessionsService.getInstructorAvailability()`, filters
+  `classId: { $ne: ... }` in the Mongo query), threading it through the admin `classesApi` and
+  `ClassForm`'s new `classId` prop (passed only from `EditTab`, so create-mode behavior is
+  unchanged). Two regression tests added to `sessions.service.spec.ts`.
+
+  61/61 live-class-service tests (was 59), 66/66 admin-app tests (unchanged — the fix didn't
+  touch anything under test), `tsc --noEmit` clean on both. Live-verified end-to-end against the
+  real running stack (backend Node services restarted to pick up the fix, admin dev server on
+  :3001): logged in as the seeded super-admin, exercised list/calendar views against real
+  pre-existing test data, opened `Saturday Revision`'s Edit tab and confirmed the self-conflict
+  bug live before and after the fix, edited and saved its description, posted an admin chat
+  message and toggled chat lock/unlock, added a class-level material, confirmed the Enrollments
+  tab lists a real enrolled student, and on `Private English Tutoring` (an existing
+  `INVITE_ONLY` class) searched a real student by email and sent a negotiated-price invitation
+  that appeared correctly in the Invitations list. Created a brand-new recurring `GROUP` class
+  end-to-end (draft → publish), confirmed its weekly Monday occurrences appeared correctly
+  positioned and color-coded on the calendar; dragged one occurrence to a genuinely free slot and
+  confirmed the move persisted across a reload with the other occurrence unaffected; dragged
+  another occurrence onto a slot that now conflicted with the first and confirmed it reverted in
+  place with an inline error surfacing the real backend conflict detail. Not exercised live: the
+  Zoom/Google Meet platform options (both intentionally disabled, nothing backs them yet) and
+  actually joining a live Jitsi room from the admin side (out of this task's scope — join-flow
+  was Task 41's).

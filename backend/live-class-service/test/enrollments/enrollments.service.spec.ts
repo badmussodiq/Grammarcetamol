@@ -159,7 +159,7 @@ describe('EnrollmentsService', () => {
       enrollments.findOne.mockResolvedValueOnce(enrollment).mockResolvedValueOnce({ ...enrollment, endedReason: 'cancelled_by_student' });
       enrollments.updateOne.mockResolvedValueOnce({});
 
-      const result = await service.cancel(enrollment._id.toHexString(), 'student-1');
+      const result = await service.cancel(enrollment._id.toHexString(), 'student-1', false);
 
       expect(paymentServiceClient.cancelSubscription).toHaveBeenCalledWith('student-1', 'sub-1');
       // The critical assertion: status is still ACTIVE, accessUntil is untouched — cancelling
@@ -183,7 +183,7 @@ describe('EnrollmentsService', () => {
       enrollments.findOne.mockResolvedValueOnce(enrollment).mockResolvedValueOnce({ ...enrollment, status: 'CANCELLED' });
       enrollments.updateOne.mockResolvedValueOnce({});
 
-      const result = await service.cancel(enrollment._id.toHexString(), 'student-1');
+      const result = await service.cancel(enrollment._id.toHexString(), 'student-1', false);
 
       expect(paymentServiceClient.cancelSubscription).not.toHaveBeenCalled();
       expect(result.status).toBe('CANCELLED');
@@ -191,7 +191,26 @@ describe('EnrollmentsService', () => {
 
     it('rejects cancelling someone else\'s enrollment', async () => {
       enrollments.findOne.mockResolvedValueOnce({ _id: new ObjectId(), studentId: 'other-student', status: 'ACTIVE' });
-      await expect(service.cancel(new ObjectId().toHexString(), 'student-1')).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.cancel(new ObjectId().toHexString(), 'student-1', false)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('an admin can cancel any student\'s enrollment, tagged with a distinct endedReason (Task 43)', async () => {
+      const enrollment = {
+        _id: new ObjectId(),
+        classId: new ObjectId(),
+        studentId: 'student-1',
+        status: 'ACTIVE',
+        subscriptionId: null,
+        accessUntil: new Date('2100-01-01T00:00:00.000Z'),
+      };
+      enrollments.findOne.mockResolvedValueOnce(enrollment).mockResolvedValueOnce({ ...enrollment, status: 'CANCELLED' });
+      enrollments.updateOne.mockResolvedValueOnce({});
+
+      const result = await service.cancel(enrollment._id.toHexString(), 'admin-1', true);
+
+      expect(result.status).toBe('CANCELLED');
+      const updateCall = enrollments.updateOne.mock.calls[0][1];
+      expect(updateCall.$set.endedReason).toBe('removed_by_admin');
     });
   });
 
@@ -202,6 +221,63 @@ describe('EnrollmentsService', () => {
       const query = enrollments.findOne.mock.calls[0][0];
       expect(query.status).toEqual({ $in: ['ACTIVE', 'PAUSED'] });
       expect(query.accessUntil).toEqual({ $gt: expect.any(Date) });
+    });
+  });
+
+  describe('listForClass — Task 43 admin enrollments tab', () => {
+    it('resolves each enrollment to its student, excluding REMOVED rows', async () => {
+      const classId = new ObjectId();
+      const enrollment = { _id: new ObjectId(), classId, studentId: 'student-1', status: 'ACTIVE' };
+      enrollments.__cursor.toArray.mockResolvedValueOnce([enrollment]);
+      authServiceClient.getUser.mockResolvedValueOnce({ id: 'student-1', email: 's1@example.com', fullName: 'Student One' });
+
+      const result = await service.listForClass(classId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].student).toEqual({ id: 'student-1', email: 's1@example.com', fullName: 'Student One' });
+      expect(result[0].enrollment.id).toBe(enrollment._id.toHexString());
+      const query = enrollments.find.mock.calls[0][0];
+      expect(query.status).toEqual({ $ne: 'REMOVED' });
+    });
+
+    it('shows a placeholder rather than dropping a row when the student account can\'t be resolved', async () => {
+      const classId = new ObjectId();
+      const enrollment = { _id: new ObjectId(), classId, studentId: 'student-1', status: 'ACTIVE' };
+      enrollments.__cursor.toArray.mockResolvedValueOnce([enrollment]);
+      authServiceClient.getUser.mockRejectedValueOnce(new Error('not found'));
+
+      const result = await service.listForClass(classId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].student.email).toBe('Unknown');
+    });
+  });
+
+  describe('invite / listInvitations — Task 43 admin invitations tab', () => {
+    it('invite() returns the same public shape (id/classId as hex strings) as everything else', async () => {
+      const cls = classDoc({ accessMode: 'INVITE_ONLY' });
+      classes.findOne.mockResolvedValueOnce(cls);
+      invitations.insertOne.mockResolvedValueOnce({ insertedId: new ObjectId() });
+
+      const result = await service.invite(cls._id.toHexString(), 'admin-1', 'student-1', 12000);
+
+      expect(result.id).toBeDefined();
+      expect(result.classId).toBe(cls._id.toHexString());
+      expect((result as any)._id).toBeUndefined();
+    });
+
+    it('listInvitations returns every invitation for a class, most recent first', async () => {
+      const classId = new ObjectId();
+      const inv = { _id: new ObjectId(), classId, studentId: 'student-1', token: 'tok', status: 'pending', negotiatedPrice: null, invitedBy: 'admin-1', acceptedAt: null, createdAt: new Date() };
+      invitations.__cursor.toArray.mockResolvedValueOnce([inv]);
+
+      const result = await service.listInvitations(classId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(inv._id.toHexString());
+      expect(result[0].token).toBe('tok');
+      const sortCall = invitations.__cursor.sort.mock.calls[0][0];
+      expect(sortCall).toEqual({ createdAt: -1 });
     });
   });
 

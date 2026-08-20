@@ -128,6 +128,22 @@ export class ClassesController {
     return ApiResponse.success(invitation);
   }
 
+  @Get(':id/enrollments')
+  async listEnrollments(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    requireAdminOrModerator(user);
+    const classDoc = await this.classesService.findById(id);
+    const enrollments = await this.enrollmentsService.listForClass(classDoc._id);
+    return ApiResponse.success(enrollments);
+  }
+
+  @Get(':id/invitations')
+  async listInvitations(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    requireAdminOrModerator(user);
+    const classDoc = await this.classesService.findById(id);
+    const invitations = await this.enrollmentsService.listInvitations(classDoc._id);
+    return ApiResponse.success(invitations);
+  }
+
   // ---- Materials ----
 
   @Post(':id/materials')

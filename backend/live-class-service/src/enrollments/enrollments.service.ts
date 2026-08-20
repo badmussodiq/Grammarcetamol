@@ -12,7 +12,7 @@ import {toPublicClass} from '@/classes/class.types';
 import type {LiveSession, LiveSessionDocument} from '@/sessions/session.types';
 import {toPublicSession} from '@/sessions/session.types';
 import type {Enrollment, EnrollmentDocument, Invitation, InvitationDocument} from './enrollment.types';
-import {toPublicEnrollment} from './enrollment.types';
+import {toPublicEnrollment, toPublicInvitation} from './enrollment.types';
 
 // A FREE/ONE_TIME enrollment never naturally expires — modeled as a date far enough out that
 // nothing in this codebase's lifetime will reach it, rather than a nullable accessUntil, so
@@ -180,7 +180,7 @@ export class EnrollmentsService implements OnApplicationBootstrap {
   }
 
   /** INVITE_ONLY classes only, instructor/admin only. */
-  async invite(classId: string, invitedBy: string, studentId: string, negotiatedPrice?: number): Promise<InvitationDocument> {
+  async invite(classId: string, invitedBy: string, studentId: string, negotiatedPrice?: number): Promise<ReturnType<typeof toPublicInvitation>> {
     const classDoc = await this.findClass(classId);
     if (classDoc.accessMode !== 'INVITE_ONLY') {
       throw new BadRequestException('Invitations are only for invite-only classes — this class is open for self-enrollment');
@@ -198,7 +198,18 @@ export class EnrollmentsService implements OnApplicationBootstrap {
       createdAt: now,
     };
     const result = await this.invitations().insertOne(doc as any);
-    return { ...doc, _id: result.insertedId };
+    // A real bug found building Task 43: this used to return the raw Mongo document (_id as
+    // ObjectId, classId as ObjectId) instead of the same public shape every other list/get here
+    // uses — worked by accident over HTTP since ObjectId.toJSON() happens to serialize to a hex
+    // string, but the field was still named _id, not id, inconsistent with everything else.
+    return toPublicInvitation({ ...doc, _id: result.insertedId });
+  }
+
+  /** Task 43's class detail "Invitations" tab — nothing listed a class's invitations before
+   * this; only creating one (invite()) and previewing/accepting a single one by token existed. */
+  async listInvitations(classId: ObjectId): Promise<ReturnType<typeof toPublicInvitation>[]> {
+    const docs = await this.invitations().find({ classId }).sort({ createdAt: -1 }).toArray();
+    return docs.map((d) => toPublicInvitation(d as InvitationDocument));
   }
 
   async acceptInvitation(token: string, studentId: string, email?: string): Promise<EnrollResult> {
@@ -261,20 +272,30 @@ export class EnrollmentsService implements OnApplicationBootstrap {
    * actually flips it to EXPIRED once that date passes. FREE/ONE_TIME enrollments have no
    * billing period to run out the clock on, so they end immediately.
    */
-  async cancel(enrollmentId: string, studentId: string): Promise<EnrollmentDocument> {
+  /**
+   * `isAdmin` lets a SUPER_ADMIN/MODERATOR remove *any* student's enrollment (Task 43's
+   * enrollments-tab "manual remove" action) — without it, only the owning student could ever
+   * cancel their own row, which is correct for the student-facing DELETE but leaves admins with
+   * no way to remove a student at all. `enrollment.studentId` (never `callerId`) is what
+   * actually gets used for the subscription-cancel call and event payload either way — an
+   * admin-initiated removal still cancels the *student's* subscription, not the admin's.
+   */
+  async cancel(enrollmentId: string, callerId: string, isAdmin: boolean): Promise<EnrollmentDocument> {
     const enrollment = await this.findById(enrollmentId);
-    if (enrollment.studentId !== studentId) {
+    if (!isAdmin && enrollment.studentId !== callerId) {
       throw new ForbiddenException('You do not own this enrollment');
     }
     if (enrollment.status === 'CANCELLED' || enrollment.status === 'EXPIRED') {
       return enrollment;
     }
+    const { studentId } = enrollment;
+    const endedReason = isAdmin ? 'removed_by_admin' : 'cancelled_by_student';
 
     if (enrollment.subscriptionId) {
       await this.paymentServiceClient.cancelSubscription(studentId, enrollment.subscriptionId);
       await this.enrollments().updateOne(
         { _id: enrollment._id },
-        { $set: { endedReason: 'cancelled_by_student', updatedAt: new Date() } },
+        { $set: { endedReason, updatedAt: new Date() } },
       );
       this.eventPublisher.publishEnrollmentCancelled({
         enrollmentId,
@@ -288,10 +309,37 @@ export class EnrollmentsService implements OnApplicationBootstrap {
     const now = new Date();
     await this.enrollments().updateOne(
       { _id: enrollment._id },
-      { $set: { status: 'CANCELLED', accessUntil: now, endedAt: now, endedReason: 'cancelled_by_student', updatedAt: now } },
+      { $set: { status: 'CANCELLED', accessUntil: now, endedAt: now, endedReason, updatedAt: now } },
     );
     this.eventPublisher.publishEnrollmentCancelled({ enrollmentId, classId: enrollment.classId.toHexString(), studentId, accessUntil: now });
     return this.findById(enrollmentId);
+  }
+
+  /**
+   * The admin-facing counterpart of listMine() below — Task 43's class detail "Enrollments"
+   * tab needs to see who's actually enrolled in a class, which nothing exposed before this
+   * (only a student's own `GET /api/classes/enrollments/mine` existed). REMOVED enrollments are
+   * excluded — an admin viewing "who's in this class" shouldn't see students already removed
+   * from it, same rationale listMine() already applies to a student's own view.
+   */
+  async listForClass(classId: ObjectId): Promise<{ enrollment: ReturnType<typeof toPublicEnrollment>; student: { id: string; email: string; fullName: string | null } }[]> {
+    const docs = await this.enrollments().find({ classId, status: { $ne: 'REMOVED' } }).sort({ enrolledAt: -1 }).toArray();
+    const resolved = await Promise.all(
+      docs.map(async (enrollment) => {
+        try {
+          const student = await this.authServiceClient.getUser(enrollment.studentId);
+          return { enrollment: toPublicEnrollment(enrollment as EnrollmentDocument), student };
+        } catch {
+          // A student whose account can't be resolved (deleted, auth-service hiccup) still
+          // shows up with a placeholder rather than silently vanishing from the admin's list.
+          return {
+            enrollment: toPublicEnrollment(enrollment as EnrollmentDocument),
+            student: { id: enrollment.studentId, email: 'Unknown', fullName: null },
+          };
+        }
+      }),
+    );
+    return resolved;
   }
 
   /**

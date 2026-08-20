@@ -61,3 +61,6 @@ export { LineChart } from './components/Charts/LineChart';
 export type { LineChartSeries, LineChartProps } from './components/Charts/LineChart';
 export { DonutChart } from './components/Charts/DonutChart';
 export type { DonutChartDatum, DonutChartProps } from './components/Charts/DonutChart';
+
+export { Calendar, defaultEventColor, toFullCalendarEvent } from './components/Calendar/Calendar';
+export type { CalendarEvent, CalendarProps, CalendarView } from './components/Calendar/Calendar';

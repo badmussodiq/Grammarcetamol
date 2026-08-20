@@ -14,10 +14,11 @@ export class InstructorsController {
     @Param('id') id: string,
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('excludeClassId') excludeClassId: string | undefined,
     @CurrentUser() user: CurrentUserPayload,
   ) {
     requireAdminOrModerator(user);
-    const busy = await this.sessionsService.getInstructorAvailability(id, new Date(from), new Date(to));
+    const busy = await this.sessionsService.getInstructorAvailability(id, new Date(from), new Date(to), excludeClassId);
     return ApiResponse.success(busy);
   }
 }

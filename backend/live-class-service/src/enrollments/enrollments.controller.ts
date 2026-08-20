@@ -21,7 +21,7 @@ export class EnrollmentsController {
   @Delete(':id')
   async cancel(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     requireAuthenticated(user);
-    const enrollment = await this.enrollmentsService.cancel(id, user.id as string);
+    const enrollment = await this.enrollmentsService.cancel(id, user.id as string, user.isAdminOrModerator());
     return ApiResponse.success(enrollment);
   }
 }
