@@ -1,0 +1,43 @@
+# ${DOMAIN_APP_DEV} -> the development stack's student-frontend, reached via its
+# published host port (development's own compose project never runs nginx — see
+# docker-compose.yml's nginx service comment on host.docker.internal). NOT mounted by
+# default — see README.md's "Serving the development domains through the same nginx"
+# section: copy this whole directory into docker/nginx/templates/ on the server ONLY
+# after development's own TLS certs have been bootstrapped, same ordering requirement the
+# original three templates already have (nginx validates ssl_certificate paths at startup
+# and refuses to start if they don't exist yet).
+
+server {
+    listen 80;
+    server_name ${DOMAIN_APP_DEV};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN_APP_DEV};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN_APP_DEV}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_APP_DEV}/privkey.pem;
+
+    location / {
+        limit_req zone=general_limit burst=40 nodelay;
+        limit_conn general_conn 20;
+
+        set $upstream http://host.docker.internal:${DEV_STUDENT_HOST_PORT};
+        proxy_pass $upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

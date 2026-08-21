@@ -1,16 +1,25 @@
+# DATA_DIR — every database's data directory is a BIND MOUNT under this one path, not a
+# Docker named volume, specifically so the data is plain files at a known location on the
+# host: trivially rsync-able/tar-able to migrate to a different server, visible with `ls`,
+# backed up with any ordinary file-based tool — no `docker volume export`/`docker cp`
+# dance required. Defaults to ../data (relative to THIS file's own directory, docker/ —
+# resolves to <repo-root>/data locally, e.g. ../data/postgres). Set to an ABSOLUTE path in
+# any real deployment's .env (e.g. DATA_DIR=/opt/grammarcetamol/data for production,
+# /opt/grammarcetamol-dev/data for development — see .env.example) so it's unambiguous
+# regardless of what directory compose is invoked from.
 services:
   postgres:
     image: postgres:18.0-alpine
-    container_name: grammarcetamol-postgres
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-postgres
     restart: always
     ports:
-      - "9009:5432"
+      - "${POSTGRES_HOST_PORT:-9009}:5432"
     environment:
       POSTGRES_USER: platform
       POSTGRES_PASSWORD: platform
       POSTGRES_DB: auth_db
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ${DATA_DIR:-../data}/postgres:/var/lib/postgresql/data
       - ./scripts/postgres-entrypoint.sh:/postgres-entrypoint.sh:ro
       - ./scripts/ensure-postgres-databases.sh:/ensure-postgres-databases.sh:ro
     entrypoint: [ "bash", "/postgres-entrypoint.sh" ]
@@ -23,12 +32,12 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: grammarcetamol-redis
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-redis
     restart: always
     ports:
-      - "9010:6379"
+      - "${REDIS_HOST_PORT:-9010}:6379"
     volumes:
-      - redis-data:/data
+      - ${DATA_DIR:-../data}/redis:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -37,16 +46,16 @@ services:
 
   rabbitmq:
     image: rabbitmq:management-alpine
-    container_name: grammarcetamol-rabbitmq
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-rabbitmq
     restart: always
     ports:
-      - "9011:5672"
-      - "9012:15672"
+      - "${RABBITMQ_HOST_PORT:-9011}:5672"
+      - "${RABBITMQ_MGMT_HOST_PORT:-9012}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - ${DATA_DIR:-../data}/rabbitmq:/var/lib/rabbitmq
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 5s
@@ -59,17 +68,17 @@ services:
   # other project's own Postgres/Redis/RabbitMQ/MinIO running on the same machine.
   minio:
     image: minio/minio:latest
-    container_name: grammarcetamol-minio
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-minio
     restart: always
     ports:
-      - "9013:9000"
-      - "9014:9001"
+      - "${MINIO_API_HOST_PORT:-9013}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9014}:9001"
     environment:
       MINIO_ROOT_USER: platform
       MINIO_ROOT_PASSWORD: platform12345
     command: server /data --console-address ":9001"
     volumes:
-      - minio-data:/data
+      - ${DATA_DIR:-../data}/minio:/data
     healthcheck:
       test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
@@ -82,15 +91,15 @@ services:
   # unrelated `notifications` database. Same 9000-series block as everything else here.
   mongo:
     image: mongo:latest
-    container_name: grammarcetamol-mongo
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-mongo
     restart: always
     ports:
-      - "9015:27017"
+      - "${MONGO_HOST_PORT:-9015}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: platform
       MONGO_INITDB_ROOT_PASSWORD: platform12345
     volumes:
-      - mongo-data:/data/db
+      - ${DATA_DIR:-../data}/mongo:/data/db
       - ./scripts/mongo-entrypoint.sh:/mongo-entrypoint.sh:ro
       - ./scripts/ensure-mongo-databases.sh:/ensure-mongo-databases.sh:ro
     entrypoint: [ "bash", "/mongo-entrypoint.sh" ]
@@ -100,13 +109,6 @@ services:
       timeout: 5s
       retries: 10
 
-volumes:
-  postgres-data:
-  redis-data:
-  rabbitmq-data:
-  minio-data:
-  mongo-data:
-
 networks:
   default:
-    name: grammarcetamol-network
+    name: ${CONTAINER_PREFIX:-grammarcetamol}-network

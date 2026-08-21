@@ -238,6 +238,9 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Grammarcetamol}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
+      SMTP_BILLING_FROM_ADDRESS: ${SMTP_BILLING_FROM_ADDRESS:-}
+      SMTP_BILLING_FROM_NAME: ${SMTP_BILLING_FROM_NAME:-}
       MONGO_HOST: mongo
       MONGO_PORT: 27017
       MONGO_USERNAME: platform
@@ -295,6 +298,42 @@ services:
       retries: 10
       start_period: 20s
 
+  live-class-service:
+    build:
+      context: ./backend/live-class-service
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-grammarcetamol/}live-class-service:${IMAGE_TAG:-local}
+    pull_policy: ${IMAGE_PULL_POLICY:-build}
+    restart: always
+    # No container_name / host port — see auth-service above for why (scalable via --scale).
+    expose:
+      - "9007"
+    environment:
+      PORT: 9007
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_USERNAME: platform
+      MONGO_PASSWORD: platform12345
+      MONGO_DB_NAME: liveclass_db
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:9001}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:9005}
+      JITSI_DOMAIN: ${JITSI_DOMAIN:-meet.jit.si}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://localhost:9007/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   # ---------------------------------------------------------------------------
   # Backend — Gateway (the stack's front door). Deliberately depends on infra
   # ONLY, not on the other backend services: it proxies to them over HTTP at
@@ -310,10 +349,10 @@ services:
       dockerfile: gateway-service/Dockerfile
     image: ${IMAGE_PREFIX:-grammarcetamol/}gateway-service:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-gateway-service
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-gateway-service
     restart: always
     ports:
-      - "9000:9000"
+      - "${GATEWAY_HOST_PORT:-9000}:9000"
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -324,9 +363,11 @@ services:
       REVIEW_SERVICE_URL: ${REVIEW_SERVICE_URL:-http://review-service:9004}
       UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://upload-service:9006}
       NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL:-http://notification-service:9008}
+      LIVE_CLASS_SERVICE_URL: ${LIVE_CLASS_SERVICE_URL:-http://live-class-service:9007}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-secret-change-in-prod}
       AUTH_GRPC_HOST: ${AUTH_GRPC_HOST:-auth-service}
       AUTH_GRPC_PORT: ${AUTH_GRPC_PORT:-9091}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
     depends_on:
       redis:
         condition: service_healthy
@@ -354,10 +395,10 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9000}
     image: ${IMAGE_PREFIX:-grammarcetamol/}student-frontend:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-student-frontend
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-student-frontend
     restart: always
     ports:
-      - "3000:3000"
+      - "${STUDENT_HOST_PORT:-3000}:3000"
     depends_on:
       gateway-service:
         condition: service_healthy
@@ -378,10 +419,10 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9000}
     image: ${IMAGE_PREFIX:-grammarcetamol/}admin-frontend:${IMAGE_TAG:-local}
     pull_policy: ${IMAGE_PULL_POLICY:-build}
-    container_name: grammarcetamol-admin-frontend
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-admin-frontend
     restart: always
     ports:
-      - "3001:3001"
+      - "${ADMIN_HOST_PORT:-3001}:3001"
     depends_on:
       gateway-service:
         condition: service_healthy
@@ -395,9 +436,11 @@ services:
       start_period: 15s
 
   # ---------------------------------------------------------------------------
-  # nginx — the actual public entry point (ports 80/443). Routes by subdomain to
-  # gateway-service (api.$DOMAIN_API) and both frontends (app.$DOMAIN_APP,
-  # admin.$DOMAIN_ADMIN); see docker/nginx/templates/*.conf.template for the
+  # nginx — the actual public entry point (ports 80/443). Routes by domain to
+  # gateway-service ($DOMAIN_API) and both frontends ($DOMAIN_APP, $DOMAIN_ADMIN)
+  # — each DOMAIN_* var is already the FULL subdomain (e.g. DOMAIN_API=api.yourdomain.com,
+  # not just yourdomain.com), matching exactly what docker/nginx/templates/*.conf.template's
+  # `server_name ${DOMAIN_API};` uses with no prefix prepended. See those templates for the
   # per-domain server blocks. Uses the OFFICIAL nginx image's own envsubst
   # templating (nginx docker-entrypoint.d processes *.template files in
   # /etc/nginx/templates -> /etc/nginx/conf.d at every container start) rather
@@ -427,16 +470,39 @@ services:
   # file or how you invoke it.
   nginx:
     image: nginx:1.27-alpine
-    container_name: grammarcetamol-nginx
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-nginx
     restart: always
     profiles: ["proxy"]
     ports:
       - "80:80"
       - "443:443"
+    # host.docker.internal resolves to the host's own IP from inside a container — needed
+    # so this (production-owned) nginx can reach the development stack's containers, which
+    # live in a DIFFERENT compose project/network and are only reachable via their
+    # published host ports (GATEWAY_HOST_PORT/STUDENT_HOST_PORT/ADMIN_HOST_PORT in
+    # development's own .env), not via service-name DNS the way production's own
+    # gateway-service/student-frontend/admin-frontend are. host.docker.internal is
+    # automatic on Docker Desktop, but needs this explicit host-gateway mapping on plain
+    # Linux Docker Engine (a real cloud server) — supported since Docker 20.10.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DOMAIN_APP: ${DOMAIN_APP:-app.localhost}
       DOMAIN_ADMIN: ${DOMAIN_ADMIN:-admin.localhost}
       DOMAIN_API: ${DOMAIN_API:-api.localhost}
+      # The development stack's public domains, routed by THIS nginx to development's
+      # published host ports (see the extra_hosts comment above) — development's own
+      # compose project never runs nginx itself. Leave unset if you're not running a
+      # second environment on this host.
+      DOMAIN_APP_DEV: ${DOMAIN_APP_DEV:-}
+      DOMAIN_ADMIN_DEV: ${DOMAIN_ADMIN_DEV:-}
+      DOMAIN_API_DEV: ${DOMAIN_API_DEV:-}
+      # Must match development's own GATEWAY_HOST_PORT/STUDENT_HOST_PORT/ADMIN_HOST_PORT —
+      # see docker/docker-compose.dev.yml and .env.example's port-override block. Update
+      # both places together if you ever change development's ports.
+      DEV_GATEWAY_HOST_PORT: ${DEV_GATEWAY_HOST_PORT:-9100}
+      DEV_STUDENT_HOST_PORT: ${DEV_STUDENT_HOST_PORT:-3100}
+      DEV_ADMIN_HOST_PORT: ${DEV_ADMIN_HOST_PORT:-3101}
     volumes:
       - ./docker/nginx/templates:/etc/nginx/templates:ro
       - certbot-webroot:/var/www/certbot:ro
@@ -448,7 +514,7 @@ services:
   # docker/scripts/certbot-renew.sh and the one-time bootstrap instructions in README.md).
   certbot:
     image: certbot/certbot
-    container_name: grammarcetamol-certbot
+    container_name: ${CONTAINER_PREFIX:-grammarcetamol}-certbot
     profiles: ["proxy"]
     entrypoint: "true"
     volumes:

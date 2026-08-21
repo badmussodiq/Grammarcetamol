@@ -1,9 +1,15 @@
+import type {SenderIdentity} from '@/sender/sender-identity';
+
 export interface SendEmailInput {
   to: string;
   toName: string;
   subject: string;
   html: string;
   text: string;
+  /** Which mailbox this should actually send from — see sender-identity.ts. Always present
+   * (NotificationSenderService computes it for every send from the template name), not
+   * optional, so no provider implementation can silently forget to handle it. */
+  senderIdentity: SenderIdentity;
 }
 
 export interface SendEmailResult {
