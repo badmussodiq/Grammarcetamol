@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context: backend/
 FROM eclipse-temurin:21-jdk AS builder
 
@@ -6,7 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends maven \
 
 WORKDIR /app
 COPY gateway-service/ .
-RUN mvn -B clean package -DskipTests
+# Cache mount persists Maven's downloaded dependencies across builds (exported alongside
+# the layer cache via docker/build-push-action's cache-to: type=gha in ci-cd.yml), so a
+# repeat build doesn't re-hit Maven Central for the same artifacts — avoids tripping
+# Central's rate limit (HTTP 429) on repeated CI runs.
+RUN --mount=type=cache,target=/root/.m2 mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 
