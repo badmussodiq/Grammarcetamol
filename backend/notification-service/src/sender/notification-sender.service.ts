@@ -7,6 +7,7 @@ import {formatNotification} from '@/notifications/notification-formatter';
 import {PreferencesService} from '@/preferences/preferences.service';
 import {TemplatesService} from '@/templates/templates.service';
 import {renderTemplate} from '@/templates/template-renderer';
+import {resolveSenderIdentity} from './sender-identity';
 import type {NotificationRequestedEvent} from '@/config/amqp.constants';
 
 /**
@@ -84,7 +85,8 @@ export class NotificationSenderService {
     let result;
     try {
       const provider = this.emailProviders.get(this.config.get<string>('EMAIL_PROVIDER', 'log'));
-      result = await provider.send({ to: event.to, toName: event.toName, subject, html, text });
+      const senderIdentity = resolveSenderIdentity(event.templateName);
+      result = await provider.send({ to: event.to, toName: event.toName, subject, html, text, senderIdentity });
     } catch (err) {
       result = { success: false, error: err instanceof Error ? err.message : String(err) };
     }
