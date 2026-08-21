@@ -7,19 +7,62 @@
 # Usage: deploy.sh <image-tag>   (CI passes the commit SHA it just built and pushed)
 #
 # Relies on IMAGE_PREFIX and IMAGE_PULL_POLICY=always already being set in this directory's
-# own .env — written fresh by the CI deploy step on every run (from the PROD_ENV_FILE
-# GitHub Actions secret / prod-env-file Jenkins credential — see README.md's "Deploying
-# to a cloud server" section), not created here by hand — so `docker compose pull`
-# actually hits the registry instead of the local-dev "build" default. IMAGE_TAG is the
-# one value that changes per deploy, so it's passed here instead of living in .env.
+# own .env — written fresh by the CI deploy step on every run (from the ENV_FILE GitHub
+# Environment secret / prod-env-file Jenkins credential — see README.md's "Deploying to a
+# cloud server" section), not created here by hand — so `docker compose pull` actually
+# hits the registry instead of the local-dev "build" default. IMAGE_TAG is the one value
+# that changes per deploy, so it's passed here instead of living in .env.
+#
+# Compose project name comes from this directory's own .env (COMPOSE_PROJECT_NAME — a
+# variable name `docker compose` reads from .env natively) — NOT hardcoded to
+# "grammarcetamol" anymore. Two environments (e.g. production and development) deployed to
+# separate directories on the same host, each with its own COMPOSE_PROJECT_NAME in .env,
+# get fully isolated containers/networks/volumes for free. An existing production .env that
+# predates this change has no COMPOSE_PROJECT_NAME set, so `docker compose` falls back to
+# its own default (the directory's basename, e.g. "grammarcetamol" for /opt/grammarcetamol)
+# — matches this script's original hardcoded behavior exactly, no .env change required.
 set -euo pipefail
 
 TAG="${1:?Usage: deploy.sh <image-tag>}"
 export IMAGE_TAG="$TAG"
 
-#docker compose -p grammarcetamol down
-docker compose -p grammarcetamol pull
-docker compose -p grammarcetamol up -d
+# Every other step below (DATA_DIR, COMPOSE_PROFILES, DOMAIN_*, CERTBOT_EMAIL) needs these
+# actually present in THIS shell's own environment, not just visible to `docker compose`'s
+# own separate .env auto-read — `set -a` exports every var sourced from here on.
+set -a
+# shellcheck source=/dev/null
+source .env
+set +a
+
+# Data directories are bind-mounted (see docker/docker-compose.dev.yml's DATA_DIR), not
+# Docker named volumes — they need to exist as real host directories before the first
+# `docker compose up`, or Docker root-creates them implicitly with root ownership, which
+# can then fight with a container's own non-root user over write permissions. Idempotent:
+# a no-op every deploy after the first.
+DATA_ROOT="${DATA_DIR:-../data}"
+mkdir -p "$DATA_ROOT"/{postgres,redis,rabbitmq,minio,mongo}
+
+# Auto-enable serving the development domains through this (production) nginx, once
+# they're actually configured — copies the opt-in templates from templates-dev/ into the
+# live templates/ directory that gets mounted into the nginx container. Safe to do
+# unconditionally on every deploy: cheap file copy, and certbot-bootstrap.sh below always
+# runs BEFORE `docker compose up -d`, so by the time nginx actually starts, any cert these
+# templates reference either already existed or was just issued — nginx never starts
+# pointed at a template whose cert doesn't exist yet.
+if [[ -n "${DOMAIN_APP_DEV:-}${DOMAIN_ADMIN_DEV:-}${DOMAIN_API_DEV:-}" ]]; then
+  echo "Development domain(s) configured — enabling docker/nginx/templates-dev/*.template"
+  cp docker/nginx/templates-dev/*.template docker/nginx/templates/
+fi
+
+#docker compose down
+docker compose pull
+
+# Idempotent — issues certs only for whichever configured domains don't have one yet, and
+# is a fast no-op once they all do (the common case). Must run before `up -d` below: nginx
+# validates every ssl_certificate path at startup and refuses to start if one is missing.
+bash docker/scripts/certbot-bootstrap.sh
+
+docker compose up -d
 
 # Every deploy pulls a NEW commit-sha-tagged image per service, and the OLD one becomes
 # unused (no container references it anymore) but stays on disk otherwise — with a deploy

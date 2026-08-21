@@ -1,7 +1,14 @@
+# Template — copy to /etc/systemd/system/ on the real server and adjust ExecStart's path
+# to wherever this environment was actually deployed (e.g. /opt/grammarcetamol for
+# production, /opt/grammarcetamol-dev for development — see README.md's "Deploying a
+# second environment to the same server" section). If installing one of these per
+# environment on the SAME host, each pair needs its own unit name (systemd requires unique
+# unit filenames) — e.g. grammarcetamol-dev-watchdog.service/.timer for development,
+# enabled/started separately from this one.
 [Unit]
 Description=Grammarcetamol Docker Compose stack watchdog (auto-heal stalled containers)
 After=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /mnt/c/Users/Sodiq.Badmus/personal/Grammarcetamol/docker/scripts/compose-watchdog.sh
+ExecStart=/bin/bash /opt/grammarcetamol/docker/scripts/compose-watchdog.sh

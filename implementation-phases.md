@@ -459,7 +459,7 @@ Each phase is a **vertical slice** — it delivers a working, testable increment
 ### ✅ Phase 5 Exit Criteria
 - [ ] Corporate visitor submits a training request → admin receives in-app + email alert → moves to "Under Review" → sends response → status changes to "Responded".
 - [ ] Student opens support ticket → admin replies within SLA → resolves → satisfaction email sent.
-- [ ] Admin dashboard loads all metrics in <1s from pre-aggregated cache.
+- [ ] Admin dashboard loads all metrics in <1s from a pre-aggregated cache.
 - [ ] Audit log shows every admin action with immutable timestamp + IP.
 
 ---

@@ -7,9 +7,15 @@
 # how to schedule it (a systemd timer, same pattern as compose-watchdog.sh/.timer).
 #
 # Usage: certbot-renew.sh   (run from the deploy directory, e.g. /opt/grammarcetamol)
+#
+# No explicit -p here (same reasoning as deploy.sh) — `docker compose` resolves the
+# project from this directory's own .env (COMPOSE_PROJECT_NAME) or its directory basename,
+# never hardcoded. The proxy profile only ever runs in the production environment in
+# practice (development doesn't enable it — see README.md), but this stays consistent with
+# deploy.sh regardless.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-docker compose -p grammarcetamol run --rm certbot renew --webroot -w /var/www/certbot --quiet
-docker compose -p grammarcetamol exec nginx nginx -s reload
+docker compose run --rm certbot renew --webroot -w /var/www/certbot --quiet
+docker compose exec nginx nginx -s reload
