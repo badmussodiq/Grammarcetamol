@@ -55,7 +55,19 @@ if [[ -n "${DOMAIN_APP_DEV:-}${DOMAIN_ADMIN_DEV:-}${DOMAIN_API_DEV:-}" ]]; then
 fi
 
 #docker compose down
-docker compose pull
+# Retries a few times before giving up — a single transient registry timeout (Docker Hub
+# occasionally drops a layer request mid-pull) shouldn't fail an otherwise-healthy deploy.
+for attempt in 1 2 3; do
+  if docker compose pull; then
+    break
+  elif [[ "$attempt" == 3 ]]; then
+    echo "docker compose pull failed after 3 attempts — giving up." >&2
+    exit 1
+  else
+    echo "docker compose pull failed (attempt $attempt/3) — retrying in 10s..." >&2
+    sleep 10
+  fi
+done
 
 # Idempotent — issues certs only for whichever configured domains don't have one yet, and
 # is a fast no-op once they all do (the common case). Must run before `up -d` below: nginx
