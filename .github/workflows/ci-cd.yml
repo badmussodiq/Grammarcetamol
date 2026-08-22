@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [payment-service, notification-service, upload-service]
+        service: [payment-service, notification-service, upload-service, live-class-service]
     steps:
       - uses: actions/checkout@v4
       # No cache: npm here — package-lock.json is intentionally not committed (see
@@ -129,12 +129,26 @@ jobs:
         run: npm run test
 
   # ---------------------------------------------------------------------------
-  # Build & push — only on a push to master, and only once every test job above
-  # has passed. Pushes to Docker Hub only (sodmod1999).
+  # Build & push — on a push to master OR development, once every test job above
+  # has passed. Pushes to Docker Hub only (sodmod1999). Every image also gets a
+  # branch-specific floating tag (:latest for master, :dev for development) in
+  # addition to the exact commit SHA — so a manual `docker pull ...:latest` never
+  # accidentally picks up a development build, and vice versa. The `deploy` job
+  # below never uses these floating tags itself (it always deploys the exact SHA
+  # that was just built), they're purely for humans pulling by hand.
   # ---------------------------------------------------------------------------
 
   build-and-push:
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/development') && github.event_name == 'push'
+    # Needed so `vars.NEXT_PUBLIC_API_URL` below resolves per-branch — a real, found-live gap:
+    # without this, both frontend images were always built with the Dockerfile's own
+    # ARG default (http://localhost:9000) baked in, regardless of which environment they'd
+    # actually be deployed to. A visitor's browser resolves "localhost" to their OWN
+    # machine, not the server, so every CI-built frontend image was silently broken for any
+    # real deployment. Set NEXT_PUBLIC_API_URL as a VARIABLE (not secret — it's a public
+    # URL) in both the production and development GitHub Environments: Settings ->
+    # Environments -> <name> -> Environment variables -> Add variable.
+    environment: ${{ github.ref == 'refs/heads/master' && 'production' || 'development' }}
     needs:
       - test-java-standalone
       - test-java-shared-dependent
@@ -170,12 +184,17 @@ jobs:
           - name: upload-service
             context: ./backend/upload-service
             dockerfile: ./backend/upload-service/Dockerfile
+          - name: live-class-service
+            context: ./backend/live-class-service
+            dockerfile: ./backend/live-class-service/Dockerfile
           - name: student-frontend
             context: ./apps
             dockerfile: ./apps/student/Dockerfile
           - name: admin-frontend
             context: ./apps
             dockerfile: ./apps/admin/Dockerfile
+    env:
+      FLOATING_TAG: ${{ github.ref == 'refs/heads/master' && 'latest' || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -193,8 +212,19 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
+          # Only student-frontend/admin-frontend declare this ARG — harmless no-op for
+          # every other Dockerfile in this matrix (Docker doesn't error on an unused
+          # --build-arg, it just ignores it).
+          # Falls back to the Dockerfile's own default if the variable isn't set yet in
+          # this environment — an unset vars.X resolves to an empty string, and an empty
+          # NEXT_PUBLIC_API_URL would be strictly worse (baking in nothing) than the
+          # Dockerfile's working-for-local-testing default, so this fallback keeps
+          # behavior unchanged until the variable is actually configured, rather than
+          # silently degrading further.
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:9000' }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/grammarcetamol-${{ matrix.name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/grammarcetamol-${{ matrix.name }}:${{ env.FLOATING_TAG }}
             ${{ secrets.DOCKERHUB_USERNAME }}/grammarcetamol-${{ matrix.name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -205,19 +235,35 @@ jobs:
   # deploy refreshes docker-compose.yml + docker/ + .env via scp, then runs the
   # server-side deploy.sh with the commit SHA as the image tag.
   #
-  # .env is generated from the PROD_ENV_FILE secret on EVERY deploy, not created
-  # by hand on the server — paste the full contents of what .env should contain
-  # (see .env.example) into one repo secret named PROD_ENV_FILE (Settings ->
-  # Secrets and variables -> Actions -> New repository secret; multi-line values
-  # are supported). Also requires repo secrets DEPLOY_HOST / DEPLOY_USER /
-  # DEPLOY_SSH_KEY (not something this workflow can create — add them once you
-  # have a real server; see README.md's "Deploying to a cloud server" section).
+  # Two GitHub Environments, "production" (master) and "development" (development
+  # branch) — see README.md's "Deploying a second environment to the same
+  # server" section for how to create them and what secrets each one needs.
+  # `environment:` below resolves every `secrets.X` in this job from whichever
+  # environment matches the branch that triggered it, so both branches can point
+  # at completely different secret VALUES (different DEPLOY_HOST if you ever
+  # split to a second server, different ENV_FILE contents — different DB names,
+  # ports, COMPOSE_PROJECT_NAME, etc. — see .env.example's "running a second
+  # environment on the same server" section) while this workflow's own logic
+  # stays identical for both. Each environment needs its own DEPLOY_HOST /
+  # DEPLOY_USER / DEPLOY_SSH_KEY / ENV_FILE secret (Settings -> Environments ->
+  # <name> -> Add secret; not something this workflow can create for you).
+  #
+  # .env is generated from the ENV_FILE secret on EVERY deploy, not created by
+  # hand on the server — paste the full contents of what .env should contain
+  # (see .env.example) into each environment's ENV_FILE secret.
   # ---------------------------------------------------------------------------
 
   deploy:
     needs: build-and-push
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/development') && github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/master' && 'production' || 'development' }}
+    env:
+      # Separate directories on the same host so both environments can run
+      # simultaneously — see docker-compose.yml's CONTAINER_PREFIX/*_HOST_PORT
+      # overrides, which is what actually keeps their containers/ports/volumes
+      # from colliding once both are deployed here.
+      DEPLOY_DIR: ${{ github.ref == 'refs/heads/master' && '/opt/grammarcetamol' || '/opt/grammarcetamol-dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -226,8 +272,19 @@ jobs:
       # mis-parsed — printf %s + an env var, not string interpolation.
       - name: Write .env for this deploy
         env:
-          ENV_CONTENTS: ${{ secrets.PROD_ENV_FILE }}
+          ENV_CONTENTS: ${{ secrets.ENV_FILE }}
         run: printf '%s\n' "$ENV_CONTENTS" > server.env
+
+      # Idempotent (mkdir -p) — first deploy to a fresh server creates it, every deploy
+      # after that is a no-op. Needed before the scp step below: it doesn't create nested
+      # target directories on its own.
+      - name: Ensure the deploy directory exists on the server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: mkdir -p ${{ env.DEPLOY_DIR }}
 
       - name: Copy compose files + env to server
         uses: appleboy/scp-action@v0.1.7
@@ -236,7 +293,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "docker-compose.yml,docker/,server.env"
-          target: /opt/grammarcetamol
+          target: ${{ env.DEPLOY_DIR }}
 
       - name: Pull + restart on server
         uses: appleboy/ssh-action@v1
@@ -244,4 +301,4 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: cd /opt/grammarcetamol && mv server.env .env && bash docker/scripts/deploy.sh ${{ github.sha }}
+          script: cd ${{ env.DEPLOY_DIR }} && mv server.env .env && bash docker/scripts/deploy.sh ${{ github.sha }}

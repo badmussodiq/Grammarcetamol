@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context: backend/ (so this Dockerfile can be reused unmodified as a template
 # alongside the shared-java-dependent services, even though auth-service itself has no
 # shared-java dependency).
@@ -19,7 +20,11 @@ RUN mkdir -p src/main/resources/keys && \
       openssl rsa -in src/main/resources/keys/private.pem -pubout -out src/main/resources/keys/public.pem; \
     fi
 
-RUN mvn -B clean package -DskipTests
+# Cache mount persists Maven's downloaded dependencies across builds (exported alongside
+# the layer cache via docker/build-push-action's cache-to: type=gha in ci-cd.yml), so a
+# repeat build doesn't re-hit Maven Central for the same artifacts — avoids tripping
+# Central's rate limit (HTTP 429) on repeated CI runs.
+RUN --mount=type=cache,target=/root/.m2 mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 

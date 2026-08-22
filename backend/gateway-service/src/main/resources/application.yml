@@ -13,9 +13,12 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins:
-              - "http://localhost:3000"
-              - "http://localhost:3001"
+            # A single comma-separated env var, not a hardcoded YAML list — Spring's
+            # relaxed binding splits a comma-separated string onto a List<String> target
+            # automatically, so CORS_ALLOWED_ORIGINS=https://a.com,https://b.com in .env
+            # is all a real deployment needs to set (see .env.example). Defaults to both
+            # frontends' plain local-dev origins when unset.
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
             allowedMethods:
               - GET
               - POST

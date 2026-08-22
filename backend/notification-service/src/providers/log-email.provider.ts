@@ -16,7 +16,9 @@ export class LogEmailProvider implements EmailProvider {
 
   async send(input: SendEmailInput): Promise<SendEmailResult> {
     const messageId = `log_${randomUUID()}`;
-    this.logger.log(`[would send] to=${input.to} <${input.toName}> subject="${input.subject}" (messageId=${messageId})`);
+    this.logger.log(
+      `[would send] from=${input.senderIdentity} to=${input.to} <${input.toName}> subject="${input.subject}" (messageId=${messageId})`,
+    );
     return { success: true, messageId, raw: { provider: 'log' } };
   }
 }

@@ -13,6 +13,11 @@ backend/**/node_modules/
 backend/**/dist/
 backend/**/.env
 /.env
+/.env.*
+!/.env.example
+
+# Bind-mounted database data (DATA_DIR in docker/docker-compose.dev.yml — local dev default)
+/data/
 
 ### NetBeans ###
 /nbproject/private/

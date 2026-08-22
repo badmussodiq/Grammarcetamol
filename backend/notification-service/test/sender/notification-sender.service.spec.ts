@@ -125,6 +125,26 @@ describe('NotificationSenderService', () => {
     expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ relatedId: null }));
   });
 
+  it('resolves the correct senderIdentity from the template name and passes it to the provider', async () => {
+    templates.findByName.mockResolvedValue({ ...activeTemplate, name: 'password-reset-otp' });
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+
+    await service.send({ ...event, templateName: 'password-reset-otp' });
+
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ senderIdentity: 'support' }));
+  });
+
+  it('resolves billing for a payment template and default for an uncategorized one', async () => {
+    templates.findByName.mockResolvedValue({ ...activeTemplate, name: 'payment-receipt' });
+    provider.send.mockResolvedValue({ success: true, messageId: 'msg-1' });
+    await service.send({ ...event, templateName: 'payment-receipt' });
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ senderIdentity: 'billing' }));
+
+    templates.findByName.mockResolvedValue(activeTemplate); // name: 'welcome', uncategorized
+    await service.send(event);
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ senderIdentity: 'default' }));
+  });
+
   describe('preference gating', () => {
     it('skips the in-app write when the user opted out of the in-app channel for this type', async () => {
       templates.findByName.mockResolvedValue(activeTemplate);
